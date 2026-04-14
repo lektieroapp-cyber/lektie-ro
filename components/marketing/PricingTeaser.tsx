@@ -79,7 +79,7 @@ export function PricingTeaser({ locale }: { locale: Locale }) {
 
   return (
     <section className="bg-canvas">
-      <div className="mx-auto flex max-w-5xl flex-col items-center px-5 py-16 md:px-6 md:py-20 text-center">
+      <div className="mx-auto flex max-w-5xl flex-col items-center px-5 py-20 md:px-6 md:py-28 lg:py-32 text-center">
         <h2
           className="text-3xl md:text-4xl lg:text-5xl font-bold text-ink"
           style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}

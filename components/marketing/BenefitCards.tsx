@@ -105,7 +105,7 @@ export function BenefitCards({ locale }: { locale: Locale }) {
 
   return (
     <section id="benefits" className="bg-canvas">
-      <div className="mx-auto grid max-w-6xl gap-6 px-5 py-20 md:grid-cols-2 md:px-6 md:py-24 md:gap-8">
+      <div className="mx-auto grid max-w-6xl gap-6 px-5 py-20 md:grid-cols-2 md:px-6 md:py-28 md:gap-8 lg:py-32">
         <Card title={m.benefits.child.title} items={childItems} tone="child" />
         <Card title={m.benefits.parent.title} items={parentItems} tone="parent" />
       </div>

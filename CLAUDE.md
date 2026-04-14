@@ -200,6 +200,23 @@ Add a Vitest suite that feeds 10 known homework problems through Stage 2 and ass
 
 ---
 
+## Child profile data — the whole point of onboarding
+
+The onboarding form (`components/session/OnboardingForm.tsx`) captures:
+
+- **name** — how the AI addresses the kid
+- **grade** (0–10) — tunes vocabulary level + problem complexity
+- **interests** (free-form) — themes the AI pulls examples from. "Minecraft, fodbold" → math word problems about pickaxes and goals, not generic apples.
+- **special_needs** (free-form, optional) — e.g. "ordblindhed", "ADHD", "let sensitiv til afbrydelser". Passed into the Stage-2 system prompt so the AI can adjust pacing, tone, and reading complexity.
+
+**These fields are load-bearing for product quality — they're not decoration.** Stage-2 will interpolate them into the system prompt. An empty profile still works but produces generic hints; a filled-in profile is the whole differentiator vs a plain ChatGPT wrapper.
+
+Storage: `public.children` table. Columns added in `003_children_profile.sql`. Both `interests` and `special_needs` are nullable so the flow degrades gracefully when skipped.
+
+Onboarding shows up in two places:
+1. **First-run dashboard** (`/da/parent/dashboard`) when a parent has zero children and hasn't dismissed. Has a "Spring over for nu" link that sets a 30-day `lr_onboarding_skipped` cookie.
+2. **Forældre Ro** (`/da/parent/overview`) renders the form inline whenever the parent has no children — no skip option here, this page is explicitly for managing kids.
+
 ## Database — minimal, RLS on every table
 
 ```sql

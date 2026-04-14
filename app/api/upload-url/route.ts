@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { DEV_BYPASS_AUTH, DEV_USER } from "@/lib/dev-user"
+import { DEV_BYPASS_AUTH, DEV_USER, ensureDevUserExists } from "@/lib/dev-user"
 
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "homework-photos"
 const MAX_BYTES = 10 * 1024 * 1024
@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
 
   let userId: string
   if (DEV_BYPASS_AUTH) {
+    await ensureDevUserExists()
     userId = DEV_USER.id
   } else {
     const supabase = await createClient()

@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation"
+import { AdminSubNav } from "@/components/admin/AdminSubNav"
 import { InviteUserForm } from "@/components/admin/InviteUserForm"
 import { isLocale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
+import { localePath } from "@/lib/i18n/routes"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export default async function AdminPage({
@@ -36,6 +38,13 @@ export default async function AdminPage({
         </h1>
         <p className="mt-2 text-base text-muted">{m.admin.subtitle}</p>
       </header>
+
+      <AdminSubNav
+        items={[
+          { href: localePath(locale, "admin"), label: "Oversigt" },
+          { href: `/${locale}/admin/emails`, label: "Emails" },
+        ]}
+      />
 
       <section className="mt-10 grid gap-4 md:grid-cols-3">
         <StatCard label={m.admin.waitlistCount} value={waitlistCount ?? 0} accent />

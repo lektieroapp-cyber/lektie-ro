@@ -35,7 +35,7 @@ export function Hero({ locale }: { locale: Locale }) {
             <span className="block whitespace-nowrap">{m.hero.titleLine2}</span>
           </h1>
 
-          <p className="max-w-[22rem] text-base text-ink/80 sm:max-w-md sm:text-lg lg:max-w-lg">
+          <p className="max-w-[18rem] text-base text-ink/80 sm:max-w-sm sm:text-lg lg:max-w-md">
             {m.hero.subtitle}
           </p>
 

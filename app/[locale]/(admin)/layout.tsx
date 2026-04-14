@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation"
 import { Sidebar } from "@/components/app/Sidebar"
-import { createClient } from "@/lib/supabase/server"
 import { isLocale } from "@/lib/i18n/config"
 import { DEV_BYPASS_AUTH, DEV_PROFILE } from "@/lib/dev-user"
+import { getSessionUser } from "@/lib/auth/session"
 
 export default async function AdminLayout({
   children,
@@ -14,21 +14,9 @@ export default async function AdminLayout({
   const { locale } = await params
   if (!isLocale(locale)) notFound()
 
-  if (!DEV_BYPASS_AUTH) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect(`/${locale}/login`)
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle()
-
-    if (profile?.role !== "admin") notFound()
-  } else if (DEV_PROFILE.role !== "admin") {
-    notFound()
-  }
+  const user = await getSessionUser()
+  if (!user) redirect(`/${locale}/login`)
+  if (user.role !== "admin") notFound()
 
   return (
     <div className="flex min-h-screen flex-col bg-blue-tint/30 md:flex-row">

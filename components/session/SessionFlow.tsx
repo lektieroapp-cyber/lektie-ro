@@ -107,7 +107,11 @@ export function SessionFlow() {
   return (
     <>
       {stage === "idle" && (
-        <ScanPanel onSelect={() => fileRef.current?.click()} error={error} />
+        <ScanPanel
+          onSelect={() => fileRef.current?.click()}
+          onFile={onFile}
+          error={error}
+        />
       )}
       {(stage === "uploading" || stage === "thinking") && (
         <ThinkingPanel

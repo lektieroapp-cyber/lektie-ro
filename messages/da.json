@@ -204,19 +204,25 @@
     "noChildBannerCta": "Tilføj nu"
   },
   "onboarding": {
-    "welcomeTitle": "Velkommen til LektieRo!",
-    "welcomeSub": "Lad os lige lære dit barn at kende, så vi kan tilpasse vejledningen til klassetrin og alder.",
-    "nameLabel": "Barnets fornavn",
-    "namePlaceholder": "Fx Malthe",
+    "title": "Barnets Profil",
+    "subtitle": "Dette hjælper AI'en med at tale barnets sprog.",
+    "nameLabel": "Barnets navn",
+    "namePlaceholder": "F.eks. Malthe",
     "gradeLabel": "Klassetrin",
+    "gradePlaceholder": "Vælg klassetrin",
     "gradeOption": "{n}. klasse",
-    "gradeKindergarten": "0. klasse / børnehaveklasse",
-    "avatarLabel": "Vælg en figur (valgfri)",
-    "submit": "Gem og kom i gang",
+    "gradeKindergarten": "0. klasse",
+    "interestsLabel": "Interesser (Minecraft, Fodbold, Dyr…)",
+    "interestsPlaceholder": "Hvad gør læring sjovt?",
+    "interestsHint": "Vi bruger det til at vælge eksempler barnet kan lide.",
+    "specialNeedsLabel": "Særlige hensyn (valgfri)",
+    "specialNeedsPlaceholder": "F.eks. ADHD, ordblindhed …",
+    "specialNeedsHint": "Hjælper AI'en med at tilpasse tempo og tone.",
+    "submit": "Start LektieRo",
     "submitting": "Gemmer …",
     "error": "Noget gik galt. Prøv igen.",
     "skip": "Spring over for nu",
-    "skipHint": "Du kan tilføje dit barn senere fra Forældre Ro."
+    "skipHint": "Du kan altid tilføje barnet senere fra Forældre Ro."
   },
   "overview": {
     "title": "Forældre Ro",
@@ -231,6 +237,8 @@
     "subjectsEmpty": "Ingen fagdata endnu.",
     "childrenTitle": "Dine børn",
     "childrenEmpty": "Du har ikke tilføjet nogen børn endnu.",
+    "addFirstChildTitle": "Tilføj dit første barn",
+    "addFirstChildBody": "For at LektieRo kan tilpasse vejledningen til dit barns klassetrin, interesser og behov, har vi brug for lidt info.",
     "gradeLabel": "{n}. klasse",
     "gradeKindergarten": "0. klasse",
     "adminLink": "Gå til admin"

@@ -41,6 +41,7 @@ export function NavLink({
     return (
       <Link
         href={href}
+        prefetch
         aria-label={label}
         title={label}
         className={`inline-flex h-10 w-10 items-center justify-center rounded-card transition ${
@@ -55,6 +56,7 @@ export function NavLink({
   return (
     <Link
       href={href}
+      prefetch
       className={`flex items-center gap-3 rounded-card px-3 py-2.5 text-sm font-medium transition ${
         active ? styles.active : styles.idle
       }`}

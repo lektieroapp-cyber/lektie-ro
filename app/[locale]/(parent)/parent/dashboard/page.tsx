@@ -6,9 +6,8 @@ import { SessionFlow } from "@/components/session/SessionFlow"
 import { isLocale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
 import { localePath } from "@/lib/i18n/routes"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { DEV_BYPASS_AUTH, DEV_PROFILE, DEV_USER } from "@/lib/dev-user"
+import { getSessionUser } from "@/lib/auth/session"
 
 type Child = { id: string; name: string; grade: number; avatar_emoji: string | null }
 
@@ -31,39 +30,23 @@ export default async function ParentDashboard({
   if (!isLocale(locale)) notFound()
   const m = getMessages(locale)
 
-  let parentId: string
-  let parentName: string
-
-  if (DEV_BYPASS_AUTH) {
-    parentId = DEV_USER.id
-    parentName = DEV_PROFILE.display_name
-  } else {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    parentId = user!.id
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", parentId)
-      .maybeSingle()
-    parentName = profile?.display_name || user!.email?.split("@")[0] || "dig"
-  }
-
-  const children = await loadChildren(parentId)
+  const user = (await getSessionUser())!
+  const children = await loadChildren(user.id)
   const cookieStore = await cookies()
   const skipped = cookieStore.get("lr_onboarding_skipped")?.value === "1"
 
-  // First run: no children and haven't skipped yet → onboarding form.
   if (children.length === 0 && !skipped) {
     return (
-      <div className="mx-auto max-w-xl">
-        <OnboardingForm locale={locale} />
+      <div className="flex min-h-[calc(100vh-200px)] items-center justify-center">
+        <div className="w-full max-w-xl">
+          <OnboardingForm locale={locale} showSkip />
+        </div>
       </div>
     )
   }
 
   const activeChild = children[0]
-  const greetingName = activeChild?.name || parentName
+  const greetingName = activeChild?.name || user.displayName
   const avatar = activeChild?.avatar_emoji
 
   return (
@@ -81,9 +64,7 @@ export default async function ParentDashboard({
       </header>
 
       {children.length === 0 && skipped && (
-        <div
-          className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card bg-amber-pill/60 px-5 py-4 text-sm text-ink"
-        >
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card bg-amber-pill/60 px-5 py-4 text-sm text-ink">
           <span>{m.parent.noChildBanner}</span>
           <Link
             href={localePath(locale, "parentOverview")}

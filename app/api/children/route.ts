@@ -2,12 +2,16 @@ import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { DEV_BYPASS_AUTH, DEV_USER } from "@/lib/dev-user"
+import { DEV_BYPASS_AUTH, DEV_USER, ensureDevUserExists } from "@/lib/dev-user"
 
+// Child profile fields — soft signals the Stage-2 hint prompt will read so
+// the AI can pick relatable examples and adjust tone/pace. See
+// `supabase/migrations/003_children_profile.sql` for column comments.
 const schema = z.object({
   name: z.string().trim().min(1).max(40),
   grade: z.number().int().min(0).max(10),
-  avatar_emoji: z.string().max(8).optional(),
+  interests: z.string().trim().max(200).optional(),
+  special_needs: z.string().trim().max(300).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -19,6 +23,7 @@ export async function POST(request: NextRequest) {
 
   let parentId: string
   if (DEV_BYPASS_AUTH) {
+    await ensureDevUserExists()
     parentId = DEV_USER.id
   } else {
     const supabase = await createClient()
@@ -34,9 +39,10 @@ export async function POST(request: NextRequest) {
       parent_id: parentId,
       name: parsed.data.name,
       grade: parsed.data.grade,
-      avatar_emoji: parsed.data.avatar_emoji ?? null,
+      interests: parsed.data.interests ?? null,
+      special_needs: parsed.data.special_needs ?? null,
     })
-    .select("id, name, grade, avatar_emoji")
+    .select("id, name, grade, interests, special_needs")
     .single()
 
   if (error) {

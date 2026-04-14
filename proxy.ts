@@ -25,6 +25,39 @@ function isBypassPath(pathname: string): boolean {
   )
 }
 
+// Known scanner / recon paths. Automated bots constantly probe every public
+// domain for these. None exist in our app, but without this denylist the
+// locale prepender 307s them all to /da/... before Next can 404 — wasteful
+// and noisy in logs. Short-circuit to a clean 404 here.
+const SCANNER_PATTERNS: RegExp[] = [
+  /^\/\./,                       // any dotfile path: .env, .git, .svn, .vscode, ...
+  /^\/(Dockerfile|Procfile)$/i,
+  /^\/server-(info|status)$/i,
+  /^\/_cat\//,                   // Elasticsearch
+  /^\/graphql$/i,
+  /^\/(v\d+\/)?api[-_]docs/i,
+  /^\/swagger(\.json|\.yaml|-ui)?$/i,
+  /^\/api\/(shared|internal|v\d+\/docs)\//i,
+  /^\/(aws|src|app|config|private|secret|tmp)\//i,
+  /^\/wp-(admin|login|content|includes)/i, // WordPress scanners
+  /^\/phpmyadmin/i,
+]
+
+function isScannerProbe(pathname: string): boolean {
+  return SCANNER_PATTERNS.some(r => r.test(pathname))
+}
+
+// Well-known files that crawlers occasionally ask for under a locale prefix.
+// 301 them to the canonical root path so they get indexed. Generated from
+// the supported locales list so adding sv/nb later picks these up for free.
+const CRAWLER_CANONICAL_MAP: Map<string, string> = new Map(
+  (locales as readonly string[]).flatMap(l => [
+    [`/${l}/robots.txt`, "/robots.txt"] as const,
+    [`/${l}/sitemap.xml`, "/sitemap.xml"] as const,
+    [`/${l}/favicon.ico`, "/favicon.ico"] as const,
+  ])
+)
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
@@ -37,6 +70,18 @@ export async function proxy(request: NextRequest) {
     const url = new URL("/auth/callback", request.url)
     url.searchParams.set("code", oauthCode)
     return NextResponse.redirect(url, 307)
+  }
+
+  // Bot/scanner probes: respond 404 immediately, skip all other handling.
+  if (isScannerProbe(pathname)) {
+    return new NextResponse(null, { status: 404 })
+  }
+
+  // Crawlers sometimes prepend a locale to well-known files. Send them to
+  // the canonical root so they actually find robots/sitemap.
+  const crawlerRedirect = CRAWLER_CANONICAL_MAP.get(pathname)
+  if (crawlerRedirect) {
+    return NextResponse.redirect(new URL(crawlerRedirect, request.url), 301)
   }
 
   if (isBypassPath(pathname)) return NextResponse.next()
