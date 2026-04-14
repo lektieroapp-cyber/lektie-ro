@@ -12,6 +12,7 @@ const SHARED_SLUGS = {
   privacy: "privacy",
   terms: "terms",
   pricing: "pricing",
+  faq: "faq",
   login: "login",
   signup: "signup",
   parentDashboard: "parent/dashboard",

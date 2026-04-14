@@ -8,10 +8,12 @@ export function LogoutButton({
   locale,
   label,
   icon,
+  iconOnly = false,
 }: {
   locale: Locale
   label: string
   icon?: React.ReactNode
+  iconOnly?: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -20,6 +22,20 @@ export function LogoutButton({
     await supabase.auth.signOut()
     router.push(`/${locale}`)
     router.refresh()
+  }
+
+  if (iconOnly && icon) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        title={label}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-card text-ink/60 hover:bg-blue-tint/50"
+      >
+        <span aria-hidden>{icon}</span>
+      </button>
+    )
   }
 
   if (icon) {

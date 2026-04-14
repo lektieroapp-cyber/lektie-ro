@@ -123,7 +123,7 @@ export function HintChat({
       <div className="border-t border-ink/5 px-6 py-4">
         {assistantTurns >= WARN_AT && !atLimit && (
           <p className="mb-3 text-xs text-coral-deep">
-            Du er tæt på grænsen — få mere ud af sidste spørgsmål.
+            Du er tæt på grænsen. Få mere ud af sidste spørgsmål.
           </p>
         )}
         {atLimit && !completed && (

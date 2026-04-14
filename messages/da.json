@@ -4,12 +4,55 @@
     "tagline": "Fra lektiekonflikt til hjertelig kontakt"
   },
   "nav": {
-    "home": "Forside"
+    "home": "Forside",
+    "pricing": "Priser",
+    "faq": "Spørgsmål og svar",
+    "login": "Log ind"
+  },
+  "faq": {
+    "title": "Spørgsmål og svar",
+    "subtitle": "Her finder du svar på de mest almindelige spørgsmål om LektieRo.",
+    "items": [
+      {
+        "q": "Hvad er LektieRo?",
+        "a": "LektieRo er en dansk AI-baseret lektiehjælp til folkeskoleelever. Barnet tager et billede af opgaven, og vores AI guider dem trin for trin mod svaret, uden nogensinde at give facit."
+      },
+      {
+        "q": "Giver LektieRo facit til opgaverne?",
+        "a": "Nej. Det er hele pointen. Vi giver aldrig det færdige svar, men hjælper barnet med at finde frem til løsningen selv. Det er det, der skaber ægte læring og selvtillid."
+      },
+      {
+        "q": "Hvilke fag og klassetrin understøttes?",
+        "a": "Ved lancering understøtter vi matematik, dansk og engelsk fra 1.–9. klasse. AI'en tilpasser sit sprog og sin tilgang til barnets klassetrin."
+      },
+      {
+        "q": "Hvordan får mit barn adgang?",
+        "a": "Du opretter én konto som forælder. Når du er logget ind, vælger du barnet fra dashboardet og giver enheden videre. Børn behøver ikke deres egen konto eller PIN-kode."
+      },
+      {
+        "q": "Hvor opbevares vores data?",
+        "a": "Alt hostes i EU/EØS. Database og fillagring ligger i Sverige (Supabase, eu-north-1). AI-analysen kører på Microsoft Azure OpenAI i Sweden Central. Lektiebilleder slettes automatisk efter 24 timer. Læs mere i vores privatlivspolitik."
+      },
+      {
+        "q": "Hvor meget koster det?",
+        "a": "Ved lancering tilbyder vi to medlemskaber: Standard til 229 kr./md for ét barn, og Family Premium til 299 kr./md for op til 4 børn. De første på ventelisten får 7 dages gratis prøveperiode."
+      },
+      {
+        "q": "Hvornår åbner I?",
+        "a": "Vi åbner gradvist for de første familier i løbet af de kommende måneder. Skriv dig på ventelisten på forsiden, så får du besked så snart der er plads til jer."
+      },
+      {
+        "q": "Kan I garantere at AI'en altid svarer rigtigt?",
+        "a": "Nej, ingen AI er fejlfri. Vores prompt er finjusteret til Fælles Mål og pædagogisk vejledning, men vi anbefaler altid at forælderen følger med. LektieRo erstatter ikke lærer eller skole."
+      }
+    ]
   },
   "hero": {
-    "badge": "Vi åbner snart – Skriv dig på ventelisten",
-    "title": "Fra lektiekonflikt til hjertelig kontakt",
-    "subtitle": "Giv lektierne ro, og familien nærværet tilbage med LektieRo – jeres kærlige støtte til en tryg hverdag.",
+    "badge": "Tidlig adgang – Skriv dig på listen",
+    "title": "Ro om lektierne. Plads til familien.",
+    "titleLine1": "Ro om lektierne.",
+    "titleLine2": "Plads til familien.",
+    "subtitle": "AI-lektiehjælp til danske folkeskoleelever. Vi guider barnet trin for trin, uden at give facit.",
     "values": {
       "one": "Nærvær",
       "two": "Ro",
@@ -18,8 +61,8 @@
     "learnMore": "Læs mere om hvad vi tilbyder"
   },
   "waitlist": {
-    "title": "Få besked når vi åbner",
-    "subtitle": "Tilmeld dig ventelisten og få 7 dages gratis prøveperiode som en af de første.",
+    "title": "Få tidlig adgang",
+    "subtitle": "Skriv dig på listen og bliv en af de første familier med adgang, inkl. 7 dages gratis prøve.",
     "emailPlaceholder": "Din email adresse",
     "submit": "Skriv mig op",
     "submitting": "Tilmelder …",
@@ -75,7 +118,7 @@
   },
   "pricing": {
     "title": "Kommende medlemskaber",
-    "note": "Priserne er vejledende og kan ændres inden åbning.",
+    "note": "Vejledende priser. Endelige priser bekræftes inden tidlig adgang aktiveres.",
     "standard": {
       "name": "Standard",
       "price": "229 kr.",
@@ -92,6 +135,7 @@
   },
   "footer": {
     "tagline": "Ro om lektierne. Plads til familien.",
+    "faq": "Spørgsmål og svar",
     "privacy": "Privatlivspolitik",
     "terms": "Vilkår",
     "pricing": "Priser",
@@ -109,10 +153,13 @@
     "submitting": "Vent …",
     "google": "Fortsæt med Google",
     "divider": "eller",
-    "switchToSignup": "Har du ikke en konto?",
-    "switchToSignupLink": "Opret en",
+    "switchToSignup": "Ikke fået en kode endnu?",
+    "switchToSignupLink": "Skriv dig på ventelisten",
     "switchToLogin": "Har du allerede en konto?",
     "switchToLoginLink": "Log ind",
+    "signupGateTitle": "Tidlig adgang kun via invitation",
+    "signupGateBody": "LektieRo er endnu ikke åbent for alle. Skriv dig på ventelisten på forsiden, så kontakter vi dig så snart der er en plads.",
+    "signupGateCta": "Tilbage til ventelisten",
     "checkEmailTitle": "Tjek din indbakke",
     "checkEmailBody": "Vi har sendt et bekræftelseslink til {email}. Klik på linket for at aktivere din konto.",
     "errorGeneric": "Noget gik galt – prøv igen.",
@@ -121,6 +168,8 @@
   },
   "app": {
     "sidebarTagline": "Skab lektie-ro sammen som familie",
+    "adminSection": "Administration",
+    "adminBadge": "KUN ADMIN",
     "nav": {
       "dashboard": "Dashboard",
       "overview": "Forældre Ro",
@@ -134,7 +183,7 @@
     "scanTitle": "Scan din opgave",
     "scanBody": "Vis mig hvad du arbejder på, så hjælper jeg dig med at forstå det.",
     "scanCta": "Tag billede",
-    "scanComingSoon": "Kamera-flowet kommer snart — vi er i gang med at færdiggøre AI-vejledningen.",
+    "scanComingSoon": "Kamera-flowet kommer snart. Vi er i gang med at færdiggøre AI-vejledningen.",
     "logout": "Log ud"
   },
   "overview": {

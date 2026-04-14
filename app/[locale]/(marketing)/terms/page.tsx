@@ -5,6 +5,7 @@ export const metadata = {
   title: "Vilkår",
   description:
     "Vilkår for brug af LektieRo – en AI-baseret lektiehjælp til danske folkeskoleelever.",
+  alternates: { canonical: "/da/terms" },
 }
 
 export default async function TermsPage({

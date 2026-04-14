@@ -34,14 +34,14 @@ export async function POST(request: NextRequest) {
 
 function pickReply(taskText: string, turnIndex: number): string {
   const replies = [
-    `God start! Inden vi regner videre — hvad tænker du, er det første du skal kigge efter i opgaven "${short(taskText)}"?`,
+    `God start! Inden vi regner videre, hvad tænker du, er det første du skal kigge efter i opgaven "${short(taskText)}"?`,
     "Hvis du skulle forklare det til en ven, hvordan ville du så dele problemet op i mindre skridt?",
     "Prøv at skrive det første skridt ned. Hvad ser du så?",
     "Kan du huske en lignende opgave fra timen? Hvordan løste I den dengang?",
     "Du er tæt på. Hvad tror du det næste skridt skulle være?",
-    "Super — du har snart knækket koden. Prøv at læse opgaven igen og tjek: passer det du har gjort indtil videre?",
+    "Super, du har snart knækket koden. Prøv at læse opgaven igen og tjek: passer det du har gjort indtil videre?",
     "Husk: der er ikke én rigtig vej. Hvad er den, der giver mest mening for dig lige nu?",
-    "Sidste skridt — du er der næsten. Hvad mangler for at du er helt færdig?",
+    "Sidste skridt. Du er der næsten. Hvad mangler for at du er helt færdig?",
   ]
   return replies[Math.min(turnIndex, replies.length - 1)]
 }

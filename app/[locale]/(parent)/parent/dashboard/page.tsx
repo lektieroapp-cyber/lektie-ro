@@ -3,6 +3,7 @@ import { SessionFlow } from "@/components/session/SessionFlow"
 import { isLocale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
 import { createClient } from "@/lib/supabase/server"
+import { DEV_BYPASS_AUTH, DEV_PROFILE, DEV_USER } from "@/lib/dev-user"
 
 export default async function ParentDashboard({
   params,
@@ -13,15 +14,19 @@ export default async function ParentDashboard({
   if (!isLocale(locale)) notFound()
   const m = getMessages(locale)
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user!.id)
-    .maybeSingle()
-
-  const name = profile?.display_name || user!.email?.split("@")[0] || "dig"
+  let name = "dig"
+  if (DEV_BYPASS_AUTH) {
+    name = DEV_PROFILE.display_name || DEV_USER.email.split("@")[0]
+  } else {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user!.id)
+      .maybeSingle()
+    name = profile?.display_name || user!.email?.split("@")[0] || "dig"
+  }
 
   return (
     <>

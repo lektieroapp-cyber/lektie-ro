@@ -3,7 +3,6 @@ import { type Locale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
 import { localePath } from "@/lib/i18n/routes"
 import { WaitlistForm } from "./WaitlistForm"
-import { Logo } from "./Logo"
 
 export function Hero({ locale }: { locale: Locale }) {
   const m = getMessages(locale)
@@ -18,14 +17,10 @@ export function Hero({ locale }: { locale: Locale }) {
             "linear-gradient(135deg, var(--color-canvas) 0%, var(--color-canvas) 55%, var(--color-canvas-warm) 100%)",
         }}
       />
-      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 md:py-20 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
-        <div className="flex flex-col gap-6">
-          <div className="inline-flex w-fit items-center rounded-card bg-white/70 px-3 py-2 shadow-[0_2px_8px_rgba(30,42,58,0.04)]">
-            <Logo size="sm" />
-          </div>
-
+      <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-10 md:px-6 md:py-16 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:py-24">
+        <div className="flex flex-col gap-5">
           <div
-            className="inline-flex w-fit items-center gap-2 rounded-chip px-4 py-1.5 text-sm font-medium text-ink"
+            className="inline-flex w-fit items-center gap-2 rounded-chip px-3.5 py-1.5 text-xs sm:text-sm font-medium text-ink"
             style={{ backgroundColor: "var(--color-amber-pill)" }}
           >
             <span aria-hidden>⭐</span>
@@ -33,17 +28,18 @@ export function Hero({ locale }: { locale: Locale }) {
           </div>
 
           <h1
-            className="text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.05] tracking-tight text-ink"
+            className="text-[2.25rem] leading-[1.05] sm:text-[2.75rem] md:text-5xl lg:text-[3.5rem] xl:text-[4rem] font-bold tracking-tight text-ink"
             style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
           >
-            {m.hero.title}
+            <span className="block whitespace-nowrap">{m.hero.titleLine1}</span>
+            <span className="block whitespace-nowrap">{m.hero.titleLine2}</span>
           </h1>
 
-          <p className="max-w-xl text-lg text-ink/80">{m.hero.subtitle}</p>
+          <p className="max-w-xl text-base sm:text-lg text-ink/80">{m.hero.subtitle}</p>
 
-          <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-coral-deep font-semibold">
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-coral-deep font-semibold">
             {[m.hero.values.one, m.hero.values.two, m.hero.values.three].map(v => (
-              <li key={v} className="inline-flex items-center gap-2">
+              <li key={v} className="inline-flex items-center gap-1.5">
                 <span aria-hidden>✓</span>
                 <span>{v}</span>
               </li>
@@ -52,7 +48,7 @@ export function Hero({ locale }: { locale: Locale }) {
 
           <a
             href="#benefits"
-            className="inline-flex w-fit items-center gap-1 text-blue-soft font-medium hover:underline"
+            className="hidden md:inline-flex w-fit items-center gap-1 text-blue-soft font-medium hover:underline"
           >
             {m.hero.learnMore} ↓
           </a>
@@ -61,11 +57,11 @@ export function Hero({ locale }: { locale: Locale }) {
         <div className="lg:pl-6">
           <div
             id="venteliste"
-            className="rounded-card bg-white p-6 md:p-8"
+            className="rounded-card bg-white p-6 sm:p-8"
             style={{ boxShadow: "var(--shadow-card-lg)" }}
           >
             <h2
-              className="text-2xl md:text-3xl font-bold text-ink"
+              className="text-2xl sm:text-3xl font-bold text-ink"
               style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
             >
               {m.waitlist.title}

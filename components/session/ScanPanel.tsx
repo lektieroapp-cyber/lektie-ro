@@ -5,7 +5,13 @@ const CameraIcon = (
   </svg>
 )
 
-export function ScanPanel({ onSelect }: { onSelect: () => void }) {
+export function ScanPanel({
+  onSelect,
+  error,
+}: {
+  onSelect: () => void
+  error?: string | null
+}) {
   return (
     <div
       className="rounded-card bg-white p-10 md:p-14 text-center"
@@ -30,9 +36,13 @@ export function ScanPanel({ onSelect }: { onSelect: () => void }) {
       >
         Tag billede eller vælg fra galleri
       </button>
-      <p className="mt-3 text-xs text-muted">
-        (Demo: AI-svar er forhåndsdefinerede indtil Azure kører.)
-      </p>
+      {error ? (
+        <p className="mt-4 text-sm text-coral-deep">{error}</p>
+      ) : (
+        <p className="mt-3 text-xs text-muted">
+          Demo: AI-svar er forhåndsdefinerede indtil Azure kører. Billedet uploades dog rigtigt.
+        </p>
+      )}
     </div>
   )
 }

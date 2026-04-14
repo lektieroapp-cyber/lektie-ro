@@ -4,17 +4,19 @@ export function TaskPicker({
   solve,
   onPick,
   onCancel,
+  imagePath,
 }: {
   solve: SolveResponse
   onPick: (t: Task) => void
   onCancel: () => void
+  imagePath?: string | null
 }) {
   return (
     <div
       className="rounded-card bg-white p-8"
       style={{ boxShadow: "var(--shadow-card)" }}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm text-muted">
             Fag: <span className="text-ink font-medium capitalize">{solve.subject}</span>
@@ -26,11 +28,17 @@ export function TaskPicker({
           >
             Hvilken opgave vil du starte med?
           </h2>
+          {imagePath && (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-success">
+              <span aria-hidden>✓</span> Billede uploadet
+              <code className="text-muted">({imagePath.split("/").pop()})</code>
+            </p>
+          )}
         </div>
         <button
           type="button"
           onClick={onCancel}
-          className="text-sm text-muted underline hover:text-ink"
+          className="shrink-0 text-sm text-muted underline hover:text-ink"
         >
           Annullér
         </button>

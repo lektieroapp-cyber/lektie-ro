@@ -44,10 +44,10 @@ export default async function AdminPage({
       <section className="mt-10">
         <h2 className="text-xl font-semibold text-ink">{m.admin.recentSignups}</h2>
         <div
-          className="mt-4 overflow-hidden rounded-card bg-white"
+          className="mt-4 overflow-x-auto rounded-card bg-white"
           style={{ boxShadow: "var(--shadow-card)" }}
         >
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[480px] text-left text-sm">
             <thead className="bg-blue-tint/40 text-muted">
               <tr>
                 <th className="px-5 py-3 font-medium">{m.admin.email}</th>

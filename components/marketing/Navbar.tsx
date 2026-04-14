@@ -1,19 +1,38 @@
 import Link from "next/link"
 import { type Locale } from "@/lib/i18n/config"
+import { getMessages } from "@/lib/i18n/getMessages"
+import { localePath } from "@/lib/i18n/routes"
 import { Logo } from "./Logo"
 
 export function Navbar({ locale }: { locale: Locale }) {
+  const m = getMessages(locale)
+
   return (
     <header className="w-full">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-5 md:px-6 md:py-6">
         <Link href={`/${locale}`} className="inline-flex items-center">
           <Logo size="md" />
         </Link>
-        {/* Navigation intentionally minimal in Step 1. The only login entry is
-            via the "Har du allerede en kode?" link inside the waitlist card. */}
-        <span aria-hidden className="text-sm text-muted hidden sm:inline">
-          Ro om lektierne.
-        </span>
+        <nav className="flex items-center gap-3 sm:gap-5">
+          <Link
+            href={localePath(locale, "pricing")}
+            className="hidden sm:inline-flex text-sm font-medium text-ink/70 hover:text-ink"
+          >
+            {m.nav.pricing}
+          </Link>
+          <Link
+            href={localePath(locale, "faq")}
+            className="hidden sm:inline-flex text-sm font-medium text-ink/70 hover:text-ink"
+          >
+            {m.nav.faq}
+          </Link>
+          <Link
+            href={localePath(locale, "login")}
+            className="rounded-btn border border-ink/10 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-[0_2px_8px_rgba(30,42,58,0.04)] transition hover:border-primary/40 hover:text-primary sm:px-5"
+          >
+            {m.nav.login}
+          </Link>
+        </nav>
       </div>
     </header>
   )

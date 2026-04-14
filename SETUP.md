@@ -125,12 +125,53 @@ Google login is already wired in `AuthCard.tsx`. It just needs credentials on th
 - [ ] Visit `/da/admin` → waitlist count + recent tilmeldinger render.
 - [ ] Log out → `/da/admin` returns 404. 
 
-## 7. Verify
+## 7. Vercel — canonical domain + redirects (after first deploy)
+
+Vercel handles HTTP→HTTPS automatically. The www ↔ apex decision is yours — below assumes we pick the **apex** (`lektiero.dk`) as canonical and redirect `www` to it. This matches the Google OAuth origins + Supabase redirect URLs we already configured.
+
+- [ ] Vercel → Project → **Settings → Domains** → add both:
+  - `lektiero.dk`
+  - `www.lektiero.dk`
+- [ ] Click the three-dot menu on `www.lektiero.dk` → **Redirect to** → choose `lektiero.dk` with status **308 Permanent Redirect**. (This makes `https://www.lektiero.dk/whatever` 308 → `https://lektiero.dk/whatever`, preserving path + query.)
+- [ ] Confirm `lektiero.dk` shows a green SSL check. Vercel provisions a Let's Encrypt cert for both domains.
+- [ ] Verify end-to-end:
+  ```
+  curl -sI http://lektiero.dk            # → 308 to https://lektiero.dk
+  curl -sI http://www.lektiero.dk        # → 308 to https://lektiero.dk
+  curl -sI https://www.lektiero.dk       # → 308 to https://lektiero.dk
+  curl -sI https://lektiero.dk           # → 200 → 307 to https://lektiero.dk/da
+  ```
+- [ ] Vercel env in **Production**: `NEXT_PUBLIC_SITE_URL=https://lektiero.dk` (no trailing slash, no `www.`). This is what `metadataBase`, `sitemap.xml`, `robots.txt`, and OpenGraph URLs derive from.
+
+### Post-launch SEO verification
+
+- [ ] `curl https://lektiero.dk/sitemap.xml` — lists `/da`, `/da/pricing`, `/da/privacy`, `/da/terms` with `hreflang` alternates.
+- [ ] `curl https://lektiero.dk/robots.txt` — disallows `/api/`, `/auth/`, `/*/parent/`, `/*/admin/`, `/*/login`, `/*/signup`.
+- [ ] View-source on `/da/login` and `/da/signup` — `<meta name="robots" content="noindex,nofollow">` present.
+- [ ] View-source on `/da` — `<script type="application/ld+json">` blocks for `Organization` + `WebSite` render.
+- [ ] Google Search Console → add property for `https://lektiero.dk` (apex). Submit `https://lektiero.dk/sitemap.xml`.
+
+## 8. Local verify
 
 - [ ] `npm run typecheck` — green
 - [ ] `npm run build` — green
 - [ ] `curl http://localhost:3000/sitemap.xml` — contains `/da/...` URLs
 - [ ] `curl http://localhost:3000/robots.txt` — disallows `/api/`, `/auth/`, protected paths
+
+## Local dev shortcut: skip auth
+
+When iterating on the parent dashboard, admin, or session flow you don't always want to log in. Set in `.env.local`:
+
+```
+DEV_BYPASS_AUTH=true
+```
+
+Restart `npm run dev`. You'll see a yellow banner across the top of every protected page confirming bypass is on. The fake user is `dev@lektiero.dk` with role `admin`, so the **Admin** sidebar item shows up too.
+
+Safe by construction:
+- Gated on `NODE_ENV === "development"` — this flag does nothing in `next build`/Vercel
+- Layouts read it from `lib/dev-user.ts`; production code paths are unchanged
+- Banner is impossible to miss — set the flag back to `false` before committing
 
 ## Not needed yet (Step 2+)
 

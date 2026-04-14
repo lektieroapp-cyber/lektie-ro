@@ -167,7 +167,7 @@ export function AuthCard({
       <p className="mt-6 text-center text-sm text-muted">
         {mode === "login" ? m.switchToSignup : m.switchToLogin}{" "}
         <Link
-          href={mode === "login" ? `/${locale}/signup` : `/${locale}/login`}
+          href={mode === "login" ? `/${locale}#venteliste` : `/${locale}/login`}
           className="text-blue-soft font-medium hover:underline"
         >
           {mode === "login" ? m.switchToSignupLink : m.switchToLoginLink}

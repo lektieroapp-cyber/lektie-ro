@@ -5,6 +5,7 @@ export const metadata = {
   title: "Privatlivspolitik",
   description:
     "Sådan behandler LektieRo personoplysninger om forældre og børn – i overensstemmelse med GDPR og dansk databeskyttelsesret.",
+  alternates: { canonical: "/da/privacy" },
 }
 
 export default async function PrivacyPage({

@@ -36,40 +36,78 @@ const LogoutIcon = (
 export function Sidebar({ locale, isAdmin }: { locale: Locale; isAdmin: boolean }) {
   const m = getMessages(locale)
 
+  const userItems = [
+    { href: localePath(locale, "parentDashboard"), icon: HomeIcon, label: m.app.nav.dashboard },
+    { href: localePath(locale, "parentOverview"), icon: GearIcon, label: m.app.nav.overview },
+  ]
+  const adminItem = {
+    href: localePath(locale, "admin"),
+    icon: ShieldIcon,
+    label: m.app.nav.admin,
+  }
+
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-ink/10 bg-white px-4 py-6">
-      <div className="rounded-card border border-ink/10 bg-white px-3 py-4">
-        <div className="flex justify-center">
-          <Logo size="sm" />
+    <>
+      {/* Mobile: top bar with logo + horizontal nav. */}
+      <header className="flex items-center justify-between gap-3 border-b border-ink/10 bg-white px-4 py-3 md:hidden">
+        <Logo size="sm" />
+        <nav className="flex items-center gap-1">
+          {userItems.map(it => (
+            <NavLink key={it.href} href={it.href} icon={it.icon} label="" iconOnly />
+          ))}
+          {isAdmin && (
+            <NavLink
+              href={adminItem.href}
+              icon={adminItem.icon}
+              label={adminItem.label}
+              iconOnly
+              tone="admin"
+            />
+          )}
+          <LogoutButton locale={locale} label={m.parent.logout} icon={LogoutIcon} iconOnly />
+        </nav>
+      </header>
+
+      {/* Desktop: full vertical sidebar. */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-ink/10 bg-white px-4 py-6 md:flex">
+        <div className="rounded-card border border-ink/10 bg-white px-3 py-4">
+          <div className="flex justify-center">
+            <Logo size="sm" />
+          </div>
+          <p className="mt-2 text-center text-[10px] uppercase tracking-wider text-muted">
+            {m.app.sidebarTagline}
+          </p>
         </div>
-        <p className="mt-2 text-center text-[10px] uppercase tracking-wider text-muted">
-          {m.app.sidebarTagline}
-        </p>
-      </div>
 
-      <nav className="mt-8 flex flex-col gap-1">
-        <NavLink
-          href={localePath(locale, "parentDashboard")}
-          icon={HomeIcon}
-          label={m.app.nav.dashboard}
-        />
-        <NavLink
-          href={localePath(locale, "parentOverview")}
-          icon={GearIcon}
-          label={m.app.nav.overview}
-        />
+        <nav className="mt-8 flex flex-col gap-1">
+          {userItems.map(it => (
+            <NavLink key={it.href} href={it.href} icon={it.icon} label={it.label} />
+          ))}
+        </nav>
+
         {isAdmin && (
-          <NavLink
-            href={localePath(locale, "admin")}
-            icon={ShieldIcon}
-            label={m.app.nav.admin}
-          />
+          <div className="mt-6">
+            <div className="mb-2 flex items-center gap-2 px-3">
+              <span className="h-px flex-1 bg-coral-deep/15" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
+                {m.app.adminSection}
+              </span>
+              <span className="h-px flex-1 bg-coral-deep/15" />
+            </div>
+            <NavLink
+              href={adminItem.href}
+              icon={adminItem.icon}
+              label={adminItem.label}
+              tone="admin"
+              badge={m.app.adminBadge}
+            />
+          </div>
         )}
-      </nav>
 
-      <div className="mt-auto">
-        <LogoutButton locale={locale} label={m.parent.logout} icon={LogoutIcon} />
-      </div>
-    </aside>
+        <div className="mt-auto">
+          <LogoutButton locale={locale} label={m.parent.logout} icon={LogoutIcon} />
+        </div>
+      </aside>
+    </>
   )
 }

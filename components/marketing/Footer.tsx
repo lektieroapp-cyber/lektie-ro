@@ -16,14 +16,17 @@ export function Footer({ locale }: { locale: Locale }) {
           <p className="text-sm text-muted">{m.footer.tagline}</p>
         </div>
         <nav className="flex flex-wrap gap-6 text-sm">
+          <Link href={localePath(locale, "faq")} className="text-muted hover:text-ink">
+            {m.footer.faq}
+          </Link>
+          <Link href={localePath(locale, "pricing")} className="text-muted hover:text-ink">
+            {m.footer.pricing}
+          </Link>
           <Link href={localePath(locale, "privacy")} className="text-muted hover:text-ink">
             {m.footer.privacy}
           </Link>
           <Link href={localePath(locale, "terms")} className="text-muted hover:text-ink">
             {m.footer.terms}
-          </Link>
-          <Link href={localePath(locale, "pricing")} className="text-muted hover:text-ink">
-            {m.footer.pricing}
           </Link>
         </nav>
         <p className="text-xs text-muted">

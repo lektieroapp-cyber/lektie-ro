@@ -1,6 +1,8 @@
 -- LektieRo — Step 1 schema: parent accounts, roles, waitlist.
 -- Lazy by design: families/children/sessions arrive in Step 2 when needed.
 
+-- citext: case-insensitive text. Used on `waitlist.email` so "marcus@x.dk"
+-- and "Marcus@x.dk" hit the unique constraint and can't double-sign-up.
 create extension if not exists "citext";
 
 -- ───────────────────────────────────────────────────────────────
@@ -32,6 +34,10 @@ create table if not exists public.waitlist (
   source text,
   created_at timestamptz not null default now()
 );
+
+-- Admin page orders by created_at desc. Cheap insurance for future growth.
+create index if not exists waitlist_created_at_idx
+  on public.waitlist (created_at desc);
 
 -- ───────────────────────────────────────────────────────────────
 -- Trigger: mirror auth.users insert into public.profiles.
