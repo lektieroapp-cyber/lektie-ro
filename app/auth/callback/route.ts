@@ -58,14 +58,21 @@ export async function GET(request: NextRequest) {
       return response
     }
 
-    // No explicit auth params in the URL. Supabase's invite / confirm-signup
-    // flows complete verification on their side and redirect here with
-    // session cookies already set. Accept the session if it's valid; only
-    // fail if there's truly nothing.
+    // No explicit auth params in the URL. Two possibilities:
+    //   1. Supabase already set the session via cookies (invite verify, etc.)
+    //   2. Session is in the URL fragment (#access_token=...), which the
+    //      server can't see — the implicit flow used by magic-link / invite
+    //      in some Supabase configurations.
+    //
+    // Try 1 first; if no session, bounce to /auth/complete where supabase-js
+    // in the browser can extract the fragment. 3xx redirects carry the URL
+    // fragment to the Location target (RFC 7231).
     const { data: { user } } = await supabase.auth.getUser()
     if (user) return response
 
-    return fail("no_code_or_token")
+    return NextResponse.redirect(
+      new URL(`/auth/complete?next=${encodeURIComponent(next)}`, request.url)
+    )
   } catch (err) {
     return fail(`exception: ${err instanceof Error ? err.message : "unknown"}`)
   }
