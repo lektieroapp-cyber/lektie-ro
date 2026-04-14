@@ -22,6 +22,16 @@ import { createAdminClient } from "./supabase/admin"
 export const DEV_BYPASS_AUTH =
   process.env.NODE_ENV === "development" && process.env.DEV_BYPASS_AUTH === "true"
 
+// One-time boot log so you can verify the server actually saw the env var.
+// Only prints server-side, never in the browser.
+if (typeof window === "undefined") {
+  console.log(
+    `[dev-user] NODE_ENV=${process.env.NODE_ENV} ` +
+      `DEV_BYPASS_AUTH="${process.env.DEV_BYPASS_AUTH}" ` +
+      `→ bypass ${DEV_BYPASS_AUTH ? "ENABLED" : "disabled"}`
+  )
+}
+
 export type DevUser = {
   id: string
   email: string
