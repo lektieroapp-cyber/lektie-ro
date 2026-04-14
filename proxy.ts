@@ -134,14 +134,32 @@ export async function proxy(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session && isProtected) {
-    return NextResponse.redirect(new URL(`/${locale}/login`, request.url))
+    return withRefreshedCookies(
+      NextResponse.redirect(new URL(`/${locale}/login`, request.url)),
+      response
+    )
   }
 
   if (session && isAuthPage) {
-    return NextResponse.redirect(new URL(`/${locale}/parent/dashboard`, request.url))
+    return withRefreshedCookies(
+      NextResponse.redirect(new URL(`/${locale}/parent/dashboard`, request.url)),
+      response
+    )
   }
 
   return response
+}
+
+// Carry the refreshed Supabase auth cookies onto a redirect response. Without
+// this, NextResponse.redirect() returns a fresh response that drops the
+// updated cookies from setAll() — the browser follows the redirect with the
+// stale cookie, middleware sees no session, and ping-pongs between protected
+// routes and /login forever.
+function withRefreshedCookies(target: NextResponse, source: NextResponse): NextResponse {
+  source.cookies.getAll().forEach(c => {
+    target.cookies.set(c.name, c.value)
+  })
+  return target
 }
 
 export const config = {
