@@ -9,6 +9,22 @@ const CameraIcon = (
   </svg>
 )
 
+const DropIcon = (
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14" />
+    <polyline points="6 11 12 5 18 11" />
+    <path d="M5 21h14" />
+  </svg>
+)
+
+function dragHasFile(e: DragEvent): boolean {
+  if (!e.dataTransfer) return false
+  for (const item of e.dataTransfer.items) {
+    if (item.kind === "file") return true
+  }
+  return e.dataTransfer.types?.includes("Files") ?? false
+}
+
 export function ScanPanel({
   onSelect,
   onFile,
@@ -20,8 +36,7 @@ export function ScanPanel({
 }) {
   const [dragging, setDragging] = useState(false)
 
-  // Global paste listener while this panel is mounted (= idle stage).
-  // Captures Cmd/Ctrl+V anywhere on the page and grabs the first image.
+  // Document-level paste listener: Cmd/Ctrl+V anywhere grabs a clipboard image.
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
       const items = e.clipboardData?.items
@@ -41,62 +56,109 @@ export function ScanPanel({
     return () => window.removeEventListener("paste", onPaste)
   }, [onFile])
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setDragging(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file && file.type.startsWith("image/")) onFile(file)
-  }
+  // Document-level drag/drop: drop a file ANYWHERE on the page while the
+  // scan panel is mounted. Without this, the browser would open the dropped
+  // file in a new tab as soon as the user misses the small card target.
+  useEffect(() => {
+    let counter = 0 // dragenter/leave fire on every child boundary; counter compensates
+
+    function onDragEnter(e: DragEvent) {
+      if (!dragHasFile(e)) return
+      counter++
+      setDragging(true)
+    }
+    function onDragLeave(e: DragEvent) {
+      if (!dragHasFile(e)) return
+      counter = Math.max(0, counter - 1)
+      if (counter === 0) setDragging(false)
+    }
+    function onDragOver(e: DragEvent) {
+      if (!dragHasFile(e)) return
+      e.preventDefault() // required for drop to fire
+    }
+    function onDrop(e: DragEvent) {
+      if (!dragHasFile(e)) return
+      e.preventDefault()
+      counter = 0
+      setDragging(false)
+      const file = e.dataTransfer?.files?.[0]
+      if (file && file.type.startsWith("image/")) onFile(file)
+    }
+
+    window.addEventListener("dragenter", onDragEnter)
+    window.addEventListener("dragleave", onDragLeave)
+    window.addEventListener("dragover", onDragOver)
+    window.addEventListener("drop", onDrop)
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter)
+      window.removeEventListener("dragleave", onDragLeave)
+      window.removeEventListener("dragover", onDragOver)
+      window.removeEventListener("drop", onDrop)
+    }
+  }, [onFile])
 
   return (
-    <div
-      onDragOver={e => {
-        e.preventDefault()
-        if (!dragging) setDragging(true)
-      }}
-      onDragLeave={e => {
-        // Only clear when leaving the container itself, not a child.
-        if (e.currentTarget === e.target) setDragging(false)
-      }}
-      onDrop={handleDrop}
-      className={`rounded-card bg-white p-10 md:p-14 text-center transition ${
-        dragging ? "ring-4 ring-primary/40 bg-primary/5" : ""
-      }`}
-      style={{ boxShadow: "var(--shadow-card)" }}
-    >
-      <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-blue-soft/15 text-blue-soft">
-        {CameraIcon}
-      </div>
-      <h2
-        className="mt-5 text-2xl md:text-3xl font-bold text-ink"
-        style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+    <>
+      <div
+        className="rounded-card bg-white p-10 md:p-14 text-center"
+        style={{ boxShadow: "var(--shadow-card)" }}
       >
-        Scan din opgave
-      </h2>
-      <p className="mt-2 max-w-md mx-auto text-muted">
-        Vis mig hvad du arbejder på, så hjælper jeg dig med at forstå det.
-      </p>
-      <button
-        type="button"
-        onClick={onSelect}
-        className="mt-6 inline-flex rounded-btn bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
-      >
-        Tag billede eller vælg fra galleri
-      </button>
-      <p className="mt-3 text-xs text-muted">
-        Du kan også trække et billede hertil, eller trykke{" "}
-        <kbd className="rounded border border-ink/15 bg-canvas px-1.5 py-0.5 font-mono text-[11px] text-ink/70">
-          Ctrl/Cmd + V
-        </kbd>{" "}
-        for at indsætte et skærmbillede.
-      </p>
-      {error ? (
-        <p className="mt-3 text-sm text-coral-deep">{error}</p>
-      ) : (
-        <p className="mt-1 text-[11px] text-muted/80">
-          Demo: AI-svar er forhåndsdefinerede indtil Azure kører. Billedet uploades dog rigtigt.
+        <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-blue-soft/15 text-blue-soft">
+          {CameraIcon}
+        </div>
+        <h2
+          className="mt-5 text-2xl md:text-3xl font-bold text-ink"
+          style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+        >
+          Scan din opgave
+        </h2>
+        <p className="mt-2 max-w-md mx-auto text-muted">
+          Vis mig hvad du arbejder på, så hjælper jeg dig med at forstå det.
         </p>
+        <button
+          type="button"
+          onClick={onSelect}
+          className="mt-6 inline-flex rounded-btn bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
+        >
+          Tag billede eller vælg fra galleri
+        </button>
+        <p className="mt-3 text-xs text-muted">
+          Du kan også trække et billede ind, eller trykke{" "}
+          <kbd className="rounded border border-ink/15 bg-canvas px-1.5 py-0.5 font-mono text-[11px] text-ink/70">
+            Ctrl/Cmd + V
+          </kbd>{" "}
+          for at indsætte et skærmbillede.
+        </p>
+        {error ? (
+          <p className="mt-3 text-sm text-coral-deep">{error}</p>
+        ) : (
+          <p className="mt-1 text-[11px] text-muted/80">
+            Demo: AI-svar er forhåndsdefinerede indtil Azure kører. Billedet uploades dog rigtigt.
+          </p>
+        )}
+      </div>
+
+      {/* Full-page drop overlay: shows whenever a file is dragged anywhere. */}
+      {dragging && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-primary/25 backdrop-blur-sm"
+        >
+          <div
+            className="pointer-events-none flex flex-col items-center gap-3 rounded-card border-4 border-dashed border-white/80 bg-primary/40 px-12 py-10 text-white"
+            style={{ boxShadow: "0 12px 48px rgba(0,0,0,0.2)" }}
+          >
+            {DropIcon}
+            <p
+              className="text-2xl font-bold"
+              style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+            >
+              Slip dit billede hvor som helst
+            </p>
+            <p className="text-sm text-white/85">PNG, JPG, HEIC eller skærmbillede.</p>
+          </div>
+        </div>
       )}
-    </div>
+    </>
   )
 }

@@ -4,6 +4,7 @@ import { localePath } from "@/lib/i18n/routes"
 import { Logo } from "@/components/marketing/Logo"
 import { NavLink } from "./NavLink"
 import { LogoutButton } from "@/components/auth/LogoutButton"
+import { MobileNav } from "./MobileNav"
 
 const HomeIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,29 +49,19 @@ export function Sidebar({ locale, isAdmin }: { locale: Locale; isAdmin: boolean 
 
   return (
     <>
-      {/* Mobile: top bar with logo + horizontal nav. */}
-      <header className="flex items-center justify-between gap-3 border-b border-ink/10 bg-white px-4 py-3 md:hidden">
-        <Logo size="sm" />
-        <nav className="flex items-center gap-1">
-          {userItems.map(it => (
-            <NavLink key={it.href} href={it.href} icon={it.icon} label="" iconOnly />
-          ))}
-          {isAdmin && (
-            <NavLink
-              href={adminItem.href}
-              icon={adminItem.icon}
-              label={adminItem.label}
-              iconOnly
-              tone="admin"
-            />
-          )}
-          <LogoutButton locale={locale} label={m.parent.logout} icon={LogoutIcon} iconOnly />
-        </nav>
-      </header>
+      {/* Mobile: top bar with logo + hamburger → slide-in drawer. */}
+      <MobileNav
+        locale={locale}
+        items={userItems}
+        adminItem={isAdmin ? adminItem : null}
+        logoutLabel={m.parent.logout}
+        brandTagline={m.app.sidebarTagline}
+        adminSectionLabel={m.app.adminSection}
+      />
 
       {/* Desktop: full vertical sidebar. */}
       <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-ink/10 bg-white px-4 py-6 md:flex">
-        <div className="rounded-card border border-ink/10 bg-white px-3 py-4">
+        <div className="px-3 py-2">
           <div className="flex justify-center">
             <Logo size="sm" />
           </div>

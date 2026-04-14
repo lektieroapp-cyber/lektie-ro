@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { AdminSubNav } from "@/components/admin/AdminSubNav"
 import { InviteUserForm } from "@/components/admin/InviteUserForm"
+import { WaitlistTable, type WaitlistRow } from "@/components/admin/WaitlistTable"
 import { isLocale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
 import { localePath } from "@/lib/i18n/routes"
@@ -16,16 +17,37 @@ export default async function AdminPage({
   const m = getMessages(locale)
 
   const admin = createAdminClient()
-  const [{ count: waitlistCount }, { count: profilesCount }, { data: recent }] =
-    await Promise.all([
-      admin.from("waitlist").select("*", { count: "exact", head: true }),
-      admin.from("profiles").select("*", { count: "exact", head: true }),
-      admin
-        .from("waitlist")
-        .select("email, locale, created_at")
-        .order("created_at", { ascending: false })
-        .limit(50),
-    ])
+  const [
+    { count: waitlistCount },
+    { count: profilesCount },
+    { data: recent },
+    usersResult,
+  ] = await Promise.all([
+    admin.from("waitlist").select("*", { count: "exact", head: true }),
+    admin.from("profiles").select("*", { count: "exact", head: true }),
+    admin
+      .from("waitlist")
+      .select("email, locale, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    admin.auth.admin.listUsers({ perPage: 1000 }),
+  ])
+
+  // Build a lowercased-email lookup of accounts that already exist so we can
+  // mark each waitlist row with whether the user has converted.
+  const userEmails = new Set(
+    (usersResult.data?.users ?? [])
+      .map(u => u.email?.toLowerCase())
+      .filter((e): e is string => !!e)
+  )
+
+  const waitlistRows: WaitlistRow[] = (recent ?? []).map(row => ({
+    email: row.email,
+    locale: row.locale,
+    created_at: row.created_at,
+    hasAccount: userEmails.has(row.email.toLowerCase()),
+  }))
+  const convertedCount = waitlistRows.filter(r => r.hasAccount).length
 
   return (
     <>
@@ -48,6 +70,7 @@ export default async function AdminPage({
 
       <section className="mt-10 grid gap-4 md:grid-cols-3">
         <StatCard label={m.admin.waitlistCount} value={waitlistCount ?? 0} accent />
+        <StatCard label="Konverterede" value={convertedCount} />
         <StatCard label={m.admin.profilesCount} value={profilesCount ?? 0} />
       </section>
 
@@ -64,38 +87,16 @@ export default async function AdminPage({
 
       <section className="mt-10">
         <h2 className="text-xl font-semibold text-ink">{m.admin.recentSignups}</h2>
-        <div
-          className="mt-4 overflow-x-auto rounded-card bg-white"
-          style={{ boxShadow: "var(--shadow-card)" }}
-        >
-          <table className="w-full min-w-[480px] text-left text-sm">
-            <thead className="bg-blue-tint/40 text-muted">
-              <tr>
-                <th className="px-5 py-3 font-medium">{m.admin.email}</th>
-                <th className="px-5 py-3 font-medium">{m.admin.locale}</th>
-                <th className="px-5 py-3 font-medium">{m.admin.joinedAt}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(recent ?? []).map(row => (
-                <tr key={row.email} className="border-t border-ink/5">
-                  <td className="px-5 py-3 text-ink">{row.email}</td>
-                  <td className="px-5 py-3 text-muted uppercase">{row.locale}</td>
-                  <td className="px-5 py-3 text-muted">
-                    {new Date(row.created_at).toLocaleString("da-DK")}
-                  </td>
-                </tr>
-              ))}
-              {(!recent || recent.length === 0) && (
-                <tr>
-                  <td colSpan={3} className="px-5 py-8 text-center text-muted">
-                    {m.admin.empty}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {waitlistRows.length === 0 ? (
+          <div
+            className="mt-4 rounded-card bg-white p-8 text-center text-sm text-muted"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            {m.admin.empty}
+          </div>
+        ) : (
+          <WaitlistTable rows={waitlistRows} />
+        )}
       </section>
     </>
   )

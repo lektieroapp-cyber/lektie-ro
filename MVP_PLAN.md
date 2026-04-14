@@ -6,28 +6,31 @@ Legend: ✅ done in Step 1 · 🟡 partial · ⬜ todo
 
 ---
 
-## Status snapshot (after Step 1)
+## Status snapshot (post-Step 1, pre-Azure)
 
 | Contract item | Status | Where |
 |---|---|---|
-| Discovery & arkitektur alignment | ✅ | `CLAUDE.md` + `C:\Users\Daniel\.claude\plans\foamy-juggling-unicorn.md` |
+| Discovery & arkitektur alignment | ✅ | `CLAUDE.md` + plan files |
 | Projekt-skelet | ✅ | Next.js 16 + Tailwind v4 + TS |
-| Supabase konto (eu-north-1) | ✅ | env + migration wired |
-| Azure OpenAI konto | ⬜ | phase 2 |
-| Vercel + DNS + domæne | ⬜ | phase 1 (below) |
-| Database schema | 🟡 | `profiles`, `waitlist` done; `families`/`children`/`sessions`/`turns` needed in phase 2 |
-| Landingsside (lektiero.dk) | ✅ | `/da` |
-| Waitlist → Supabase | ✅ | `/api/waitlist` + `public.waitlist` |
-| Resend opsætning | 🟡 | lib ready; domain + audience needed for waitlist capture + Parent Coach email |
-| Login flow (Supabase e-mail) | ✅ | `/da/login` `/da/signup` + Google OAuth |
-| Mobilvenlig foto-upload | ⬜ | phase 2 |
-| AI billedanalyse (Azure vision) | ⬜ | phase 2 |
-| Flere opgaver pr. billede | ⬜ | phase 2 |
-| Hint-flow (Socratic, streaming) | ⬜ | phase 2 |
-| Prompt engineering (Fælles Mål) | ⬜ | phase 2–3 iterative |
-| Parent Coach email efter session | ⬜ | phase 3 |
-| Forældre-indblik | 🟡 | auth-gated placeholder; needs sessions feed |
-| Test & polish | ⬜ | phase 3 |
+| Supabase konto (eu-north-1) | ✅ | live, migrations 001–004 applied |
+| Vercel + DNS + domæne | ✅ | `lektiero.dk` live, www → apex 308 |
+| Database schema | 🟡 | profiles, waitlist, children done; sessions/turns deferred til phase 2 |
+| Landingsside (lektiero.dk) | ✅ | `/da` med hero, promise band, benefits, pricing teaser |
+| Waitlist → Supabase | ✅ | `/api/waitlist` med Resend audience-add |
+| Resend opsætning | ✅ | SMTP wired ind i Supabase, lektiero.dk verificeret, branded HTML for alle 4 auth-mails |
+| Login flow (Supabase e-mail) | ✅ | `/da/login` med forgot-password, `/da/signup` invite-gated, `/da/welcome` set-password, Google OAuth flag-gated |
+| Admin område | ✅ | `/da/admin` (waitlist + invite forælder) + `/da/admin/emails` (skabelon-preview + copy) |
+| Mobilvenlig foto-upload | ✅ | kamera/galleri/drag-drop/Cmd+V, real upload til Supabase Storage `homework-photos` bucket |
+| AI billedanalyse (Azure vision) | ⬜ | phase 2 — `/api/solve` returnerer mock data |
+| Flere opgaver pr. billede | ✅ | UI færdig, mock returnerer 2-3 opgaver pr. billede |
+| Hint-flow (Socratic, streaming) | 🟡 | UI færdig (chat-boble, streaming, max 8 turns), mock backend |
+| Prompt engineering (Fælles Mål) | ⬜ | phase 2 — venter på Azure |
+| Parent Coach email efter session | ⬜ | phase 3 — venter på sessions tabel |
+| Forældre-indblik | 🟡 | overview-side med kid-cards + placeholder stats |
+| Azure OpenAI konto | ⬜ | venter på opsætning |
+| Test & polish | 🟡 | løbende — prompt-iteration mangler |
+| HIBP password protection | ✅ | aktiveret i Supabase Auth |
+| GDPR-compliant privacy + terms | 🟡 | Danish copy live, mangler virksomhedsnavn/CVR/adresse |
 
 ---
 

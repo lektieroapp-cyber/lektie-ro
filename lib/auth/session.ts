@@ -29,22 +29,31 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) {
+    console.log("[session] no user found")
+    return null
+  }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("display_name, role")
     .eq("id", user.id)
     .maybeSingle()
+
+  const finalRole = (profile?.role as SessionUser["role"]) ?? "parent"
+  console.log(
+    `[session] user.id=${user.id} email=${user.email} ` +
+      `profile=${JSON.stringify(profile)} ` +
+      `profileErr=${profileErr ? `${profileErr.code}:${profileErr.message}` : "none"} ` +
+      `→ role=${finalRole} passwordSet=${user.user_metadata?.password_set === true}`
+  )
 
   return {
     id: user.id,
     email: user.email ?? null,
     displayName:
       profile?.display_name || user.email?.split("@")[0] || "dig",
-    role: (profile?.role as SessionUser["role"]) ?? "parent",
-    // Flag stored in user_metadata whenever a password is set. Missing/false
-    // means they were invited but haven't completed the welcome step.
+    role: finalRole,
     passwordSet: user.user_metadata?.password_set === true,
   }
 })

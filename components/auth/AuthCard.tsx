@@ -16,6 +16,10 @@ const MESSAGES: Record<Locale, typeof daMessages> = { da: daMessages }
 // NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true in .env.local.
 const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true"
 
+// When public signup is open, the "Har du ikke en konto?" link on /login
+// goes straight to /signup. Otherwise it sends people to the waitlist.
+const PUBLIC_SIGNUP = process.env.NEXT_PUBLIC_PUBLIC_SIGNUP_ENABLED === "true"
+
 export function AuthCard({
   mode,
   locale,
@@ -30,6 +34,7 @@ export function AuthCard({
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [status, setStatus] = useState<"idle" | "submitting" | "sent" | "error" | "forgot" | "forgotSent">("idle")
+  const [forgotLoading, setForgotLoading] = useState(false)
   const [error, setError] = useState("")
 
   async function handleEmail(e: React.FormEvent) {
@@ -79,12 +84,13 @@ export function AuthCard({
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault()
     setError("")
-    setStatus("submitting")
+    setForgotLoading(true)
     const welcomeUrl = `/${locale}/welcome?next=${encodeURIComponent(`/${locale}/parent/dashboard`)}`
     await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(welcomeUrl)}`,
     })
     // Always show success — avoid leaking whether an account exists.
+    setForgotLoading(false)
     setStatus("forgotSent")
   }
 
@@ -167,10 +173,10 @@ export function AuthCard({
           </div>
           <button
             type="submit"
-            disabled={!email.trim()}
+            disabled={!email.trim() || forgotLoading}
             className="w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
           >
-            {m.forgotSubmit}
+            {forgotLoading ? m.forgotSubmitting : m.forgotSubmit}
           </button>
         </form>
         <button
@@ -247,23 +253,9 @@ export function AuthCard({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-ink" htmlFor="auth-password">
-              {m.password}
-            </label>
-            {mode === "login" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setError("")
-                  setStatus("forgot")
-                }}
-                className="text-xs font-medium text-blue-soft hover:underline"
-              >
-                {m.forgotLink}
-              </button>
-            )}
-          </div>
+          <label className="text-sm font-medium text-ink" htmlFor="auth-password">
+            {m.password}
+          </label>
           <input
             id="auth-password"
             type="password"
@@ -275,6 +267,20 @@ export function AuthCard({
             className="rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           {mode === "signup" && <PasswordStrength value={password} m={m} />}
+          {mode === "login" && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setError("")
+                  setStatus("forgot")
+                }}
+                className="text-xs font-medium text-blue-soft hover:underline"
+              >
+                {m.forgotLink}
+              </button>
+            </div>
+          )}
         </div>
 
         <button
@@ -291,7 +297,13 @@ export function AuthCard({
       <p className="mt-6 text-center text-sm text-muted">
         {mode === "login" ? m.switchToSignup : m.switchToLogin}{" "}
         <Link
-          href={mode === "login" ? `/${locale}` : `/${locale}/login`}
+          href={
+            mode === "login"
+              ? PUBLIC_SIGNUP
+                ? `/${locale}/signup`
+                : `/${locale}`
+              : `/${locale}/login`
+          }
           className="text-blue-soft font-medium hover:underline"
         >
           {mode === "login" ? m.switchToSignupLink : m.switchToLoginLink}

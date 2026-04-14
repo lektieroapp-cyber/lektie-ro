@@ -26,6 +26,61 @@ The website-scanner skills are the source of truth for shared patterns. **Do not
 
 ---
 
+## Current state (v1, pre-Azure)
+
+What's actually shipped vs stubbed. Read this first before suggesting any work.
+
+### Live + working
+- **Marketing site** (`/da`) — hero, promise band, benefit cards, pricing teaser, footer. Danish-first via `/[locale]/...` routing (only `da` active; `sv`/`nb` reserved).
+- **FAQ** (`/da/faq`), **pricing** (`/da/pricing`), **privacy** (`/da/privacy`), **terms** (`/da/terms`). Privacy/terms have placeholders for company name, CVR, address.
+- **Waitlist** — `POST /api/waitlist` writes to `public.waitlist`, idempotent on duplicate, optional Resend audience add.
+- **Auth** — parent email + password via Supabase. Login, signup (invite-gated), forgot-password, set-password welcome step, invite flow via `auth.admin.inviteUserByEmail`. Google OAuth wired but flag-gated off.
+- **Children** — `public.children` table, onboarding form on first dashboard visit (skippable), inline form on Forældre Ro when no kids exist. Captures name, klassetrin, interests, special_needs.
+- **Admin** — `/da/admin` shows waitlist count + recent signups. Sub-tab `/da/admin/emails` shows all email templates with copy-to-clipboard buttons for the Supabase ones.
+- **Mock AI flow** — `/da/parent/dashboard` accepts photo via camera/file/drag-drop/Cmd+V, uploads to `homework-photos` Supabase Storage bucket, then mock `/api/solve` returns canned tasks, mock `/api/hint` streams Socratic ladder. Image upload is real; AI is mocked.
+- **SEO infrastructure** — `/sitemap.xml` with hreflang + XSL stylesheet, `/robots.txt`, `/openapi.json`, `/icon.svg`, `/icon.png`, `/favicon.ico`, dynamic `/opengraph-image`. Branded 404. Scanner denylist + crawler-canonical redirects in `proxy.ts`.
+- **Email infrastructure** — Supabase auth emails route through Resend SMTP (`smtp.resend.com:465`, username `resend`, password = Resend API key). Branded HTML for Confirm signup / Invite / Magic link / Reset password lives in `lib/email/templates.ts` and is rendered on `/da/admin/emails` for one-click copy into Supabase template editor.
+- **Security** — RLS on every table. Admin checks via `public.is_admin()` SECURITY DEFINER function (avoids policy recursion — see migration `004`). HIBP password protection enabled at Supabase. Custom strength indicator on signup + welcome.
+
+### Stubbed / pending
+- **Azure OpenAI** — keys not set yet. `/api/solve` and `/api/hint` return mock data. Swap-in points are isolated to those two route handlers.
+- **Sessions / turns tables** — phase 2 schema not yet migrated. Forældre Ro stats are placeholder zeros.
+- **Parent Coach email** — phase 3, not built.
+- **Multiple children per parent** — schema supports it, dashboard greets only the first child for now (`children[0]`).
+- **`families` table** — intentionally NOT created. One parent = one family until multi-parent support is needed.
+
+### Feature flags (env, all default off)
+- `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` — when `"true"`, the "Fortsæt med Google" button on login/signup/welcome becomes clickable. Otherwise shows greyed out with "Kommer snart" pill.
+- `NEXT_PUBLIC_PUBLIC_SIGNUP_ENABLED` — when `"true"`, `/da/signup` no longer requires `?invite=<code>`. Login page's "Har du ikke en konto?" link points at `/signup` instead of waitlist.
+- `EARLY_ACCESS_INVITE_CODE` — secret invite code. Share `/da/signup?invite=<this>` privately for early testers.
+- `DEV_BYPASS_AUTH` — local-only short-circuit. Triple-guarded: `NODE_ENV === "development"` AND `VERCEL_ENV !== "production"` AND env var is `"true"`. Synthetic dev user (`deadbeef-dead-beef-dead-beefdeadbeef`) auto-created in Supabase via `ensureDevUserExists()`.
+- `DEV_USER_ID` / `DEV_USER_EMAIL` — escape hatch when auto-create fails; point at a real user UUID instead.
+
+### Migrations applied (track in `MIGRATION_STATUS.md`)
+- `001_initial.sql` — `profiles`, `waitlist`, `user_role` enum, signup trigger, base RLS
+- `002_children.sql` — `children` table + RLS
+- `003_children_profile.sql` — `children.interests` + `children.special_needs` columns
+- `004_admin_rls_fix.sql` — **CRITICAL** — `is_admin()` SECURITY DEFINER function. Without this, recursion in admin-read policies makes `profiles.role` queries fail silently and admin promotion appears to no-op.
+
+### Routing reference
+- `/` → 307 → `/da`
+- `/da` — landing
+- `/da/{faq,pricing,privacy,terms}` — public
+- `/da/login`, `/da/signup`, `/da/welcome` — auth (no sidebar, centred)
+- `/da/parent/{dashboard,overview}` — protected, parent shell with sidebar
+- `/da/admin`, `/da/admin/emails` — protected, admin-only
+- `/auth/callback` — server route (PKCE / OTP verify / session-based)
+- `/auth/complete` — client page (extracts implicit-flow fragment, calls `setSession`)
+- `/api/{waitlist,children,upload-url,solve,hint,admin/users}` — REST endpoints
+
+### One-screen redirects (always preserved across flows)
+- Unauthed protected route → `/login`
+- Authed at `/login` → `/parent/dashboard`
+- Authed but `passwordSet=false` → `/welcome?next=...`
+- Invite link click → Supabase verify → `/auth/callback` → `/auth/complete` → `/welcome` → `/parent/dashboard`
+
+---
+
 ## Stack — locked
 
 | Layer | Choice | Why locked |

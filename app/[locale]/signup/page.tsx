@@ -11,9 +11,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-// Pre-launch gate: walk-up signup is disabled. Send the invite code we share
-// privately as `?invite=<EARLY_ACCESS_INVITE_CODE>`. Real users land on the
-// holding card and are pushed back to the waitlist on the landing page.
+// Pre-launch gate: walk-up signup is disabled by default.
+//   - NEXT_PUBLIC_PUBLIC_SIGNUP_ENABLED=true  → anyone can hit /da/signup
+//   - otherwise                                → only ?invite=<EARLY_ACCESS_INVITE_CODE>
+// Walk-ups without either see a "waitlist only" holding card.
+const PUBLIC_SIGNUP = process.env.NEXT_PUBLIC_PUBLIC_SIGNUP_ENABLED === "true"
 const INVITE_CODE = process.env.EARLY_ACCESS_INVITE_CODE || ""
 
 export default async function SignupPage({
@@ -28,7 +30,7 @@ export default async function SignupPage({
   const { invite } = await searchParams
   const m = getMessages(locale)
 
-  const allowed = !!INVITE_CODE && invite === INVITE_CODE
+  const allowed = PUBLIC_SIGNUP || (!!INVITE_CODE && invite === INVITE_CODE)
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-5 py-10">

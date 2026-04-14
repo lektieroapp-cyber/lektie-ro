@@ -24,6 +24,7 @@ export default async function ParentLayout({
   }
 
   const isAdmin = user.role === "admin"
+  console.log(`[parent/layout] sidebar isAdmin=${isAdmin} (role=${user.role})`)
 
   return (
     <div className="flex min-h-screen flex-col bg-blue-tint/30 md:h-screen md:min-h-0 md:flex-row md:overflow-hidden">
