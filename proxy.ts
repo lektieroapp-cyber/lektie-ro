@@ -131,20 +131,38 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  // Use getUser() rather than getSession() so the access token is actually
+  // validated server-side. getSession() only reads the cookie locally and
+  // can lie if the token is expired — leading to a redirect loop where
+  // proxy thinks "logged in", layout's getUser() says "no", redirect, repeat.
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session && isProtected) {
+  if (!user && isProtected) {
     return withRefreshedCookies(
       NextResponse.redirect(new URL(`/${locale}/login`, request.url)),
       response
     )
   }
 
-  if (session && isAuthPage) {
+  if (user && isAuthPage) {
     return withRefreshedCookies(
       NextResponse.redirect(new URL(`/${locale}/parent/dashboard`, request.url)),
       response
     )
+  }
+
+  // Pass the just-validated user to downstream server components via request
+  // headers. Layouts/pages call getSessionUser() which reads these instead of
+  // hitting Supabase a second time. Saves one ~30-50ms round-trip per nav.
+  if (user) {
+    const forwardHeaders = new Headers(request.headers)
+    forwardHeaders.set("x-lr-user-id", user.id)
+    if (user.email) forwardHeaders.set("x-lr-user-email", user.email)
+    forwardHeaders.set("x-lr-user-meta", JSON.stringify(user.user_metadata ?? {}))
+    const next = NextResponse.next({ request: { headers: forwardHeaders } })
+    // Carry any refreshed Supabase cookies onto the new response.
+    response.cookies.getAll().forEach(c => next.cookies.set(c.name, c.value))
+    return next
   }
 
   return response
