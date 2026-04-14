@@ -5,36 +5,71 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 // Client-side tail of the OAuth/invite flow when Supabase returns the session
-// in the URL fragment (#access_token=...). The fragment is not visible to our
-// server route handler — supabase-js running in the browser extracts it and
-// sets the session cookie for us via detectSessionInUrl (default: true).
+// in the URL fragment (#access_token=...). The fragment is invisible to our
+// server route handler. We extract it here and manually call setSession so
+// the session cookie is persisted and subsequent requests are authenticated.
 
 function CompleteInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get("next") || "/da/parent/dashboard"
   const [status, setStatus] = useState<"working" | "failed">("working")
+  const [detail, setDetail] = useState<string>("")
 
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
 
     async function run() {
-      // supabase-js parses window.location.hash on client init. Give it a
-      // tick, then check for a live session.
-      for (let i = 0; i < 10; i++) {
-        const { data } = await supabase.auth.getSession()
-        if (cancelled) return
-        if (data.session) {
-          router.replace(next)
-          return
-        }
-        await new Promise(r => setTimeout(r, 100))
+      // If Supabase already managed to set a cookie session earlier in the
+      // chain, just proceed.
+      const pre = await supabase.auth.getSession()
+      if (cancelled) return
+      if (pre.data.session) {
+        router.replace(next)
+        return
       }
-      setStatus("failed")
-    }
-    run()
 
+      // Otherwise, look for the implicit-flow fragment.
+      const hash = window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : ""
+      if (!hash) {
+        setDetail("ingen token i URL")
+        setStatus("failed")
+        return
+      }
+
+      const params = new URLSearchParams(hash)
+      const accessToken = params.get("access_token")
+      const refreshToken = params.get("refresh_token")
+
+      if (!accessToken || !refreshToken) {
+        setDetail("token mangler")
+        setStatus("failed")
+        return
+      }
+
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
+      if (cancelled) return
+
+      if (error || !data.session) {
+        console.error("[auth/complete] setSession failed:", error?.message)
+        setDetail(error?.message || "session kunne ikke gemmes")
+        setStatus("failed")
+        return
+      }
+
+      // Strip the fragment from the browser URL so tokens aren't exposed in
+      // history or referrer headers.
+      window.history.replaceState(null, "", window.location.pathname + window.location.search)
+      router.replace(next)
+    }
+
+    run()
     return () => {
       cancelled = true
     }
@@ -56,7 +91,7 @@ function CompleteInner() {
         <div className="max-w-md">
           <p className="text-base text-ink">Kunne ikke færdiggøre login.</p>
           <p className="mt-2 text-sm text-muted">
-            Linket er måske udløbet. Prøv at anmode om et nyt fra admin.
+            {detail ? `Detalje: ${detail}.` : "Linket er måske udløbet."} Prøv at anmode om et nyt fra admin.
           </p>
           <a
             href="/da/login"
