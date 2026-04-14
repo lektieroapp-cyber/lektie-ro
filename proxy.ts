@@ -28,6 +28,17 @@ function isBypassPath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // Safety net: if Supabase silently falls back to Site URL after OAuth
+  // (because its allowlist didn't match our `redirectTo`), we still catch
+  // the PKCE `?code=...` here and route it through our proper callback.
+  // Protects against misconfigured Supabase Redirect URLs.
+  const oauthCode = request.nextUrl.searchParams.get("code")
+  if (oauthCode && !pathname.startsWith("/auth/")) {
+    const url = new URL("/auth/callback", request.url)
+    url.searchParams.set("code", oauthCode)
+    return NextResponse.redirect(url, 307)
+  }
+
   if (isBypassPath(pathname)) return NextResponse.next()
 
   // Locale enforcement: prepend defaultLocale if missing.

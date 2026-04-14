@@ -17,8 +17,8 @@ export function Hero({ locale }: { locale: Locale }) {
             "linear-gradient(135deg, var(--color-canvas) 0%, var(--color-canvas) 55%, var(--color-canvas-warm) 100%)",
         }}
       />
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-10 md:px-6 md:py-16 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:py-24">
-        <div className="flex flex-col gap-5">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pt-14 pb-16 md:px-6 md:pt-20 md:pb-24 lg:grid-cols-[1.1fr_1fr] lg:gap-20 lg:pt-28 lg:pb-32">
+        <div className="flex flex-col gap-7">
           <div
             className="inline-flex w-fit items-center gap-2 rounded-chip px-3.5 py-1.5 text-xs sm:text-sm font-medium text-ink"
             style={{ backgroundColor: "var(--color-amber-pill)" }}

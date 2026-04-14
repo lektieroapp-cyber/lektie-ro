@@ -1,14 +1,11 @@
-import type { MetadataRoute } from "next"
 import { hreflang, locales } from "@/lib/i18n/config"
 import { routeSlugs } from "@/lib/i18n/routes"
 
 type RouteKey = keyof (typeof routeSlugs)["da"]
 
-// Per-route SEO weights + refresh signals. Keep the `lastModified` dates
-// pinned so Googlebot doesn't treat every crawl as a re-publish.
 const ROUTE_META: Record<RouteKey, {
   priority: number
-  changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]
+  changeFrequency: "weekly" | "monthly" | "yearly"
   lastModified: string
 } | null> = {
   home: { priority: 1.0, changeFrequency: "weekly", lastModified: "2026-04-14" },
@@ -16,7 +13,6 @@ const ROUTE_META: Record<RouteKey, {
   pricing: { priority: 0.7, changeFrequency: "monthly", lastModified: "2026-04-14" },
   privacy: { priority: 0.4, changeFrequency: "yearly", lastModified: "2026-04-14" },
   terms: { priority: 0.4, changeFrequency: "yearly", lastModified: "2026-04-14" },
-  // Everything below is non-public or user-area — omit from sitemap.
   login: null,
   signup: null,
   parentDashboard: null,
@@ -24,7 +20,7 @@ const ROUTE_META: Record<RouteKey, {
   admin: null,
 }
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export async function GET() {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "")
 
   const buildUrl = (locale: string, key: RouteKey): string => {
@@ -32,25 +28,41 @@ export default function sitemap(): MetadataRoute.Sitemap {
     return slug ? `${base}/${locale}/${slug}` : `${base}/${locale}`
   }
 
-  const entries: MetadataRoute.Sitemap = []
+  const urls: string[] = []
   for (const locale of locales) {
     for (const key of Object.keys(ROUTE_META) as RouteKey[]) {
       const meta = ROUTE_META[key]
       if (!meta) continue
-
-      // hreflang alternates — empty today (only `da`), future-proofed for sv/nb.
-      const languages: Record<string, string> = {}
-      for (const l of locales) languages[hreflang[l]] = buildUrl(l, key)
-      languages["x-default"] = buildUrl(locale, key)
-
-      entries.push({
-        url: buildUrl(locale, key),
-        lastModified: new Date(meta.lastModified),
-        changeFrequency: meta.changeFrequency,
-        priority: meta.priority,
-        alternates: { languages },
-      })
+      const loc = buildUrl(locale, key)
+      const alternates = locales
+        .map(l => `    <xhtml:link rel="alternate" hreflang="${hreflang[l]}" href="${buildUrl(l, key)}" />`)
+        .join("\n")
+      urls.push(
+        [
+          `  <url>`,
+          `    <loc>${loc}</loc>`,
+          alternates,
+          `    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}" />`,
+          `    <lastmod>${meta.lastModified}</lastmod>`,
+          `    <changefreq>${meta.changeFrequency}</changefreq>`,
+          `    <priority>${meta.priority}</priority>`,
+          `  </url>`,
+        ].join("\n")
+      )
     }
   }
-  return entries
+
+  const body = `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${urls.join("\n")}
+</urlset>
+`
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "application/xml; charset=utf-8",
+      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+    },
+  })
 }

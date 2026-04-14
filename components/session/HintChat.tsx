@@ -145,12 +145,12 @@ export function HintChat({
             onChange={e => setInput(e.target.value)}
             placeholder="Skriv et svar eller et spørgsmål …"
             disabled={streaming || atLimit || completed}
-            className="flex-1 rounded-card border border-ink/10 bg-white px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-canvas/60"
+            className="flex-1 rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-canvas/60"
           />
           <button
             type="submit"
             disabled={streaming || atLimit || completed || !input.trim()}
-            className="rounded-btn bg-primary px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-btn bg-primary px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
           >
             Send
           </button>

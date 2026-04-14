@@ -7,7 +7,8 @@
     "home": "Forside",
     "pricing": "Priser",
     "faq": "Spørgsmål og svar",
-    "login": "Log ind"
+    "login": "Log ind",
+    "dashboard": "Mit dashboard"
   },
   "faq": {
     "title": "Spørgsmål og svar",
@@ -35,7 +36,7 @@
       },
       {
         "q": "Hvor meget koster det?",
-        "a": "Ved lancering tilbyder vi to medlemskaber: Standard til 229 kr./md for ét barn, og Family Premium til 299 kr./md for op til 4 børn. De første på ventelisten får 7 dages gratis prøveperiode."
+        "a": "Ved lancering tilbyder vi to medlemskaber: Enkelt til 229 kr./md for ét barn, og Familie til 299 kr./md for op til 4 børn. De første på ventelisten får 7 dages gratis prøveperiode."
       },
       {
         "q": "Hvornår åbner I?",
@@ -77,8 +78,8 @@
   },
   "promise": {
     "title": "Vi giver aldrig facit – vi viser vejen",
-    "body": "LektieRo er ikke en genvej til hurtige svar. Vores AI er designet til at guide barnet gennem {highlight}, så de selv finder frem til det rigtige svar. Det skaber ægte læring, selvtillid og fjerner frustrationen ved det svære stof.",
-    "highlight": "løsningsmetoder"
+    "body": "Vi guider barnet gennem {highlight}, så de selv når svaret. Det skaber ægte læring og selvtillid.",
+    "highlight": "løsningsmetoden"
   },
   "benefits": {
     "child": {
@@ -120,17 +121,31 @@
     "title": "Kommende medlemskaber",
     "note": "Vejledende priser. Endelige priser bekræftes inden tidlig adgang aktiveres.",
     "standard": {
-      "name": "Standard",
+      "name": "Enkelt",
       "price": "229 kr.",
       "interval": "/md",
-      "body": "Til det enkelte barn, der har brug for ro til lektierne."
+      "body": "Til det enkelte barn, der har brug for ro til lektierne.",
+      "features": [
+        "1 barn",
+        "Ubegrænsede lektiesessioner",
+        "AI-vejledning uden facit",
+        "Forældre-dashboard",
+        "7 dages gratis prøveperiode"
+      ]
     },
     "family": {
-      "name": "Family Premium",
+      "name": "Familie",
       "price": "299 kr.",
       "interval": "/md",
       "badge": "MEST POPULÆR",
-      "body": "Op til 4 børn. Den ultimative løsning til den store familie."
+      "body": "Op til 4 børn. Den ultimative løsning til den store familie.",
+      "features": [
+        "Op til 4 børn",
+        "Alt i Enkelt",
+        "Parent Coach-email med daglig opsummering",
+        "Fagfordelings-overblik",
+        "Prioriteret support"
+      ]
     }
   },
   "footer": {
@@ -184,7 +199,24 @@
     "scanBody": "Vis mig hvad du arbejder på, så hjælper jeg dig med at forstå det.",
     "scanCta": "Tag billede",
     "scanComingSoon": "Kamera-flowet kommer snart. Vi er i gang med at færdiggøre AI-vejledningen.",
-    "logout": "Log ud"
+    "logout": "Log ud",
+    "noChildBanner": "Du har ikke tilføjet et barn endnu. Gør det i Forældre Ro, så vi kan tilpasse vejledningen.",
+    "noChildBannerCta": "Tilføj nu"
+  },
+  "onboarding": {
+    "welcomeTitle": "Velkommen til LektieRo!",
+    "welcomeSub": "Lad os lige lære dit barn at kende, så vi kan tilpasse vejledningen til klassetrin og alder.",
+    "nameLabel": "Barnets fornavn",
+    "namePlaceholder": "Fx Malthe",
+    "gradeLabel": "Klassetrin",
+    "gradeOption": "{n}. klasse",
+    "gradeKindergarten": "0. klasse / børnehaveklasse",
+    "avatarLabel": "Vælg en figur (valgfri)",
+    "submit": "Gem og kom i gang",
+    "submitting": "Gemmer …",
+    "error": "Noget gik galt. Prøv igen.",
+    "skip": "Spring over for nu",
+    "skipHint": "Du kan tilføje dit barn senere fra Forældre Ro."
   },
   "overview": {
     "title": "Forældre Ro",
@@ -197,6 +229,10 @@
     "recentEmpty": "Når barnet har løst sin første opgave, dukker den op her.",
     "subjectsTitle": "Fag barnet har arbejdet med",
     "subjectsEmpty": "Ingen fagdata endnu.",
+    "childrenTitle": "Dine børn",
+    "childrenEmpty": "Du har ikke tilføjet nogen børn endnu.",
+    "gradeLabel": "{n}. klasse",
+    "gradeKindergarten": "0. klasse",
     "adminLink": "Gå til admin"
   },
   "admin": {
@@ -208,7 +244,9 @@
     "empty": "Ingen tilmeldinger endnu.",
     "email": "Email",
     "locale": "Sprog",
-    "joinedAt": "Tilmeldt"
+    "joinedAt": "Tilmeldt",
+    "inviteTitle": "Inviter ny forælder",
+    "inviteBody": "Send en invitations-email. Modtageren klikker linket og vælger selv en adgangskode."
   },
   "legal": {
     "privacyTitle": "Privatlivspolitik",

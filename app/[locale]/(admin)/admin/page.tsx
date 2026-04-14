@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { InviteUserForm } from "@/components/admin/InviteUserForm"
 import { isLocale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -39,6 +40,17 @@ export default async function AdminPage({
       <section className="mt-10 grid gap-4 md:grid-cols-3">
         <StatCard label={m.admin.waitlistCount} value={waitlistCount ?? 0} accent />
         <StatCard label={m.admin.profilesCount} value={profilesCount ?? 0} />
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-xl font-semibold text-ink">{m.admin.inviteTitle}</h2>
+        <p className="mt-1 text-sm text-muted">{m.admin.inviteBody}</p>
+        <div
+          className="mt-4 rounded-card bg-white p-5"
+          style={{ boxShadow: "var(--shadow-card)" }}
+        >
+          <InviteUserForm />
+        </div>
       </section>
 
       <section className="mt-10">

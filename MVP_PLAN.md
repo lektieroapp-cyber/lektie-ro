@@ -82,12 +82,11 @@ Intentionally **NOT** in the env:
 
 **Mål:** Barn kan tage billede af lektie, vælge opgave, få Socratisk vejledning.
 
-### 2.1 Schema udvidelse — migration `002_sessions.sql`
-- ⬜ `families (id, created_at)` — lazy, oprettes første gang forælder tilføjer barn
-- ⬜ `children (id, family_id, name, grade, avatar_emoji, created_at)` — 1:n pr. familie
-- ⬜ `sessions (id, family_id, child_id, started_at, ended_at, subject, grade_estimate, problem_text, problem_type, image_path, turn_count, completed)`
-- ⬜ `turns (id, session_id, role, content, created_at)`
-- ⬜ RLS: forælder læser/skriver kun rækker i egen `family_id`
+### 2.1 Schema udvidelse
+- ✅ `children (id, parent_id → profiles, name, grade, avatar_emoji, created_at)` i `002_children.sql` (landed før phase 2 for at understøtte onboarding-flowet)
+- ⬜ `sessions (id, parent_id, child_id, started_at, ended_at, subject, grade_estimate, problem_text, problem_type, image_path, turn_count, completed)` i `003_sessions.sql`
+- ⬜ `turns (id, session_id, role, content, created_at)` i `003_sessions.sql`
+- ⬜ Eventuel `families` + `family_members` tilføjes først når vi understøtter to forældre på én konto (udenfor MVP)
 - ⬜ Storage bucket `homework-photos` privat + 24 t auto-delete policy
 
 ### 2.2 Børn-administration (forælder)

@@ -108,7 +108,7 @@ export function AuthCard({
       <button
         type="button"
         onClick={handleGoogle}
-        className="mt-6 flex w-full items-center justify-center gap-3 rounded-btn border border-ink/10 bg-white px-4 py-3 text-sm font-medium text-ink hover:bg-canvas"
+        className="mt-6 flex w-full items-center justify-center gap-3 rounded-lg border border-ink/15 bg-white px-4 py-2.5 text-[15px] font-medium text-ink hover:bg-canvas"
       >
         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
           <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z" />
@@ -125,38 +125,42 @@ export function AuthCard({
         <span className="h-px flex-1 bg-ink/10" />
       </div>
 
-      <form onSubmit={handleEmail} className="flex flex-col gap-3">
-        <label className="text-sm font-medium text-ink" htmlFor="auth-email">
-          {m.email}
-        </label>
-        <input
-          id="auth-email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          className="rounded-card border border-ink/10 bg-white px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-        />
+      <form onSubmit={handleEmail} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-ink" htmlFor="auth-email">
+            {m.email}
+          </label>
+          <input
+            id="auth-email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            className="rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
 
-        <label className="mt-2 text-sm font-medium text-ink" htmlFor="auth-password">
-          {m.password}
-        </label>
-        <input
-          id="auth-password"
-          type="password"
-          autoComplete={mode === "login" ? "current-password" : "new-password"}
-          required
-          minLength={8}
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="rounded-card border border-ink/10 bg-white px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-        />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-ink" htmlFor="auth-password">
+            {m.password}
+          </label>
+          <input
+            id="auth-password"
+            type="password"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            required
+            minLength={8}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
 
         <button
           type="submit"
           disabled={status === "submitting"}
-          className="mt-3 w-full rounded-btn bg-primary px-6 py-3.5 text-base font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+          className="mt-2 w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
         >
           {status === "submitting" ? m.submitting : submitLabel}
         </button>
@@ -167,7 +171,7 @@ export function AuthCard({
       <p className="mt-6 text-center text-sm text-muted">
         {mode === "login" ? m.switchToSignup : m.switchToLogin}{" "}
         <Link
-          href={mode === "login" ? `/${locale}#venteliste` : `/${locale}/login`}
+          href={mode === "login" ? `/${locale}` : `/${locale}/login`}
           className="text-blue-soft font-medium hover:underline"
         >
           {mode === "login" ? m.switchToSignupLink : m.switchToLoginLink}

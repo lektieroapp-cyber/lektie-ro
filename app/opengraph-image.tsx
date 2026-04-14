@@ -22,18 +22,18 @@ export default function Image() {
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
+              width: 72,
+              height: 72,
+              borderRadius: 36,
               background: "rgba(216, 92, 72, 0.12)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#D85C48",
-              fontSize: 32,
             }}
           >
-            ♥
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="#D85C48">
+              <path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10z" />
+            </svg>
           </div>
           <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: "#1E2A3A" }}>
             <span>Lektie</span>

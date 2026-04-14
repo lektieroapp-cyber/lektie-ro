@@ -72,12 +72,12 @@ export function WaitlistForm({ locale }: { locale: Locale }) {
         value={email}
         onChange={e => setEmail(e.target.value)}
         placeholder={m.emailPlaceholder}
-        className="w-full rounded-card border border-ink/10 bg-white px-4 py-3 text-ink placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+        className="w-full rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
       />
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="w-full rounded-btn bg-primary px-6 py-3.5 text-base font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+        className="w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
       >
         {status === "submitting" ? m.submitting : m.submit}
       </button>
