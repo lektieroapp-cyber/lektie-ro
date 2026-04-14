@@ -58,6 +58,13 @@ export async function GET(request: NextRequest) {
       return response
     }
 
+    // No explicit auth params in the URL. Supabase's invite / confirm-signup
+    // flows complete verification on their side and redirect here with
+    // session cookies already set. Accept the session if it's valid; only
+    // fail if there's truly nothing.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) return response
+
     return fail("no_code_or_token")
   } catch (err) {
     return fail(`exception: ${err instanceof Error ? err.message : "unknown"}`)

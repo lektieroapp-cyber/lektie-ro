@@ -69,7 +69,7 @@ export function Sidebar({ locale, isAdmin }: { locale: Locale; isAdmin: boolean 
       </header>
 
       {/* Desktop: full vertical sidebar. */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-ink/10 bg-white px-4 py-6 md:flex">
+      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-ink/10 bg-white px-4 py-6 md:flex">
         <div className="rounded-card border border-ink/10 bg-white px-3 py-4">
           <div className="flex justify-center">
             <Logo size="sm" />

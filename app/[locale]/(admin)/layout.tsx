@@ -19,9 +19,9 @@ export default async function AdminLayout({
   if (user.role !== "admin") notFound()
 
   return (
-    <div className="flex min-h-screen flex-col bg-blue-tint/30 md:flex-row">
+    <div className="flex min-h-screen flex-col bg-blue-tint/30 md:h-screen md:min-h-0 md:flex-row md:overflow-hidden">
       <Sidebar locale={locale} isAdmin />
-      <main className="flex-1 overflow-x-hidden">
+      <main className="flex-1 overflow-x-hidden md:overflow-y-auto">
         {DEV_BYPASS_AUTH && (
           <div className="bg-amber-pill px-4 py-2 text-center text-xs font-medium text-ink">
             DEV_BYPASS_AUTH er aktivt. Du er logget ind som <code>{DEV_PROFILE.display_name}</code> ({DEV_PROFILE.role}).

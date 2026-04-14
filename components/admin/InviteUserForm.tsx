@@ -36,36 +36,49 @@ export function InviteUserForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-      <div className="flex-1 flex flex-col gap-1.5">
-        <label htmlFor="invite-email" className="text-sm font-medium text-ink">
-          Email
-        </label>
-        <input
-          id="invite-email"
-          type="email"
-          required
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="foraelder@example.dk"
-          className="rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-        />
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex flex-1 flex-col gap-1.5">
+          <label htmlFor="invite-email" className="text-sm font-medium text-ink">
+            Email
+          </label>
+          <input
+            id="invite-email"
+            type="email"
+            required
+            value={email}
+            onChange={e => {
+              setEmail(e.target.value)
+              if (status !== "idle" && status !== "submitting") setStatus("idle")
+            }}
+            placeholder="navn@example.dk"
+            className="rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={status === "submitting" || !email.trim()}
+          className="rounded-btn bg-primary px-6 py-2.5 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+        >
+          {status === "submitting" ? "Sender …" : "Inviter"}
+        </button>
       </div>
-      <button
-        type="submit"
-        disabled={status === "submitting" || !email.trim()}
-        className="rounded-btn bg-primary px-6 py-2.5 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
-      >
-        {status === "submitting" ? "Sender …" : "Inviter"}
-      </button>
+
       {status === "success" && (
-        <p className="sm:absolute sm:mt-14 text-sm text-success">Invitation sendt.</p>
+        <p className="flex items-center gap-2 text-sm text-success">
+          <span aria-hidden>✓</span>
+          Invitation sendt.
+        </p>
       )}
       {status === "duplicate" && (
-        <p className="sm:absolute sm:mt-14 text-sm text-coral-deep">Findes allerede.</p>
+        <p className="text-sm text-coral-deep">
+          Der findes allerede en konto med denne email.
+        </p>
       )}
       {status === "error" && (
-        <p className="sm:absolute sm:mt-14 text-sm text-coral-deep">Fejl: {errorDetail}</p>
+        <p className="text-sm text-coral-deep">
+          Fejl: <span className="font-mono text-xs">{errorDetail}</span>
+        </p>
       )}
     </form>
   )

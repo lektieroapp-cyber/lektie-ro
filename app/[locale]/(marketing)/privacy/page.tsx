@@ -146,10 +146,8 @@ export default async function PrivacyPage({
             <li>
               <strong>Microsoft Azure OpenAI</strong> (AI-vejledning og billedanalyse)
               – ressourcen er provisioneret i regionen <em>Sweden Central (Gävle,
-              Sverige)</em>. Inputs og outputs forlader ikke EU/EØS. Microsoft
-              gemmer ikke data til træning af fundamentmodeller, og eventuel
-              misbrugslogning er deaktiveret i vores opsætning (Azure OpenAI{" "}
-              <em>Limited Access</em>-opt-out).
+              Sverige)</em>, og al behandling sker inden for EU/EØS. Data bruges
+              ikke til træning af Microsofts fundamentmodeller.
             </li>
             <li>
               <strong>Vercel</strong> (hosting af website og serverless-funktioner)
@@ -170,30 +168,46 @@ export default async function PrivacyPage({
         </Section>
 
         <Section title="5. Hvor længe gemmer vi data">
+          <p>
+            Vi opbevarer kun personoplysninger så længe det er nødvendigt for at
+            levere tjenesten eller leve op til lovgivningen. Konkret:
+          </p>
           <ul className="mt-3 list-disc pl-6 flex flex-col gap-1">
             <li>
-              <strong>Lektiebilleder:</strong> slettes automatisk senest 24 timer
-              efter upload. De bruges kun til at udtrække opgaveteksten og
-              kasseres derefter.
+              <strong>Lektiebilleder:</strong> opbevares så kort tid som muligt.
+              Billederne bruges primært til at udtrække opgaveteksten, og vi
+              arbejder løbende mod automatiseret sletning efter behandling. Du
+              kan til enhver tid bede os slette alle dine uploadede billeder.
             </li>
             <li>
               <strong>Sessionsdata</strong> (udtrukket opgavetekst og
-              samtaleforløb): gemmes så længe kontoen er aktiv, så forælderen
-              kan følge barnets fremskridt. Slettes ved sletning af kontoen.
+              samtaleforløb mellem barnet og AI'en): gemmes så længe kontoen er
+              aktiv, så forælderen kan følge barnets fremskridt, og slettes ved
+              sletning af kontoen.
             </li>
             <li>
               <strong>Konto- og profiloplysninger:</strong> gemmes så længe
-              kontoen er aktiv og slettes senest 90 dage efter opsigelse.
+              kontoen er aktiv. Ved opsigelse slettes personoplysninger inden
+              for rimelig tid, medmindre vi er retligt forpligtet til at
+              opbevare dem.
             </li>
             <li>
-              <strong>Venteliste-tilmeldinger:</strong> slettes 12 måneder efter
-              lancering eller ved afmelding – hvad der indtræffer først.
+              <strong>Venteliste-tilmeldinger:</strong> slettes senest 12 måneder
+              efter lancering eller ved afmelding – hvad der indtræffer først.
             </li>
             <li>
               <strong>Fakturering og bogføringsbilag:</strong> opbevares i 5 år
               efter udgangen af regnskabsåret, jf. bogføringsloven.
             </li>
           </ul>
+          <p className="mt-3 text-sm">
+            Ønsker du sletning af specifikke data før det sker automatisk, kan
+            du skrive til{" "}
+            <a href="mailto:privacy@lektiero.dk" className="text-blue-soft underline">
+              privacy@lektiero.dk
+            </a>
+            .
+          </p>
         </Section>
 
         <Section title="6. Videregivelse">
@@ -208,11 +222,10 @@ export default async function PrivacyPage({
         <Section title="7. Sikkerhed">
           <p>
             Vi anvender branchestandard-sikkerhedsforanstaltninger: kryptering i
-            transit (TLS 1.2+) og at rest, hashede adgangskoder (bcrypt),
-            adgangskontrol via role-based access og row-level security på
-            databaseniveau, samt logning af administrative handlinger.
-            Lektiebilleder ligger i en privat bucket, der kun kan tilgås via
-            signerede URL'er med kort udløb.
+            transit (TLS) og at rest, hashede adgangskoder, adgangskontrol via
+            role-based access og row-level security på databaseniveau.
+            Lektiebilleder opbevares i en privat storage-bucket og er ikke
+            offentligt tilgængelige.
           </p>
         </Section>
 

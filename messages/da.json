@@ -32,7 +32,7 @@
       },
       {
         "q": "Hvor opbevares vores data?",
-        "a": "Alt hostes i EU/EØS. Database og fillagring ligger i Sverige (Supabase, eu-north-1). AI-analysen kører på Microsoft Azure OpenAI i Sweden Central. Lektiebilleder slettes automatisk efter 24 timer. Læs mere i vores privatlivspolitik."
+        "a": "Alt hostes i EU/EØS. Database og fillagring ligger i Sverige (Supabase, eu-north-1). AI-analysen kører på Microsoft Azure OpenAI i Sweden Central. Lektiebilleder opbevares så kort tid som muligt og bruges kun til at udtrække opgaveteksten. Læs mere i vores privatlivspolitik."
       },
       {
         "q": "Hvor meget koster det?",
@@ -179,7 +179,13 @@
     "checkEmailBody": "Vi har sendt et bekræftelseslink til {email}. Klik på linket for at aktivere din konto.",
     "errorGeneric": "Noget gik galt – prøv igen.",
     "errorCredentials": "Forkert email eller adgangskode.",
-    "errorExists": "Der findes allerede en konto med denne email."
+    "errorExists": "Der findes allerede en konto med denne email.",
+    "errorCompromised": "Denne adgangskode er fundet i et kendt datalæk. Vælg en anden, gerne længere eller mere unik.",
+    "errorWeak": "Adgangskoden er for svag. Vælg en længere eller mere varieret.",
+    "passwordHint": "Mindst 8 tegn. Brug gerne tal og symboler.",
+    "strengthWeak": "Svag",
+    "strengthOk": "OK",
+    "strengthStrong": "Stærk"
   },
   "app": {
     "sidebarTagline": "Skab lektie-ro sammen som familie",

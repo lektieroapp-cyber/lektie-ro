@@ -12,7 +12,10 @@ export function AdminSubNav({
   return (
     <nav className="mt-6 flex gap-1 border-b border-ink/10">
       {items.map(it => {
-        const active = pathname === it.href || pathname.startsWith(it.href + "/")
+        // Tab bar: exact match only. Prefix matching would light up the
+        // parent tab (e.g. "Oversigt" at /da/admin) when a nested route
+        // is active (e.g. /da/admin/emails), causing both to appear active.
+        const active = pathname === it.href
         return (
           <Link
             key={it.href}

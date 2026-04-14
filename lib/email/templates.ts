@@ -40,29 +40,27 @@ const BRAND = {
   blueTint: "#EAF1F8",
 }
 
-function shell(content: string, preheader?: string): string {
-  return `<!DOCTYPE html><html lang="da"><head><meta charset="utf-8"><title>LektieRo</title></head>
-<body style="margin:0;padding:0;background:${BRAND.canvas};font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;color:${BRAND.ink};">
+function shell(content: string, preheader?: string, recipient?: string): string {
+  return `<!DOCTYPE html><html lang="da"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>LektieRo</title>
+</head>
+<body style="margin:0;padding:0;background:${BRAND.canvas};font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;color:${BRAND.ink};-webkit-font-smoothing:antialiased;">
 ${preheader ? `<span style="display:none;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">${preheader}</span>` : ""}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.canvas};padding:40px 16px;">
   <tr><td align="center">
     <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;box-shadow:0 8px 24px rgba(30,42,58,0.06);overflow:hidden;">
-      <tr><td style="padding:32px 40px 16px;">
-        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-          <td style="width:40px;vertical-align:middle;">
-            <div style="width:40px;height:40px;border-radius:20px;background:rgba(216,92,72,0.12);display:inline-block;text-align:center;line-height:40px;color:${BRAND.coralDeep};font-size:20px;">♥</div>
-          </td>
-          <td style="padding-left:12px;font-size:20px;font-weight:700;letter-spacing:-0.01em;color:${BRAND.ink};vertical-align:middle;">
-            Lektie<span style="color:${BRAND.coralDeep};">Ro</span>
-          </td>
-        </tr></table>
+      <tr><td style="padding:32px 40px 16px;font-size:22px;font-weight:700;letter-spacing:-0.01em;color:${BRAND.ink};">
+        Lektie<span style="color:${BRAND.coralDeep};">Ro</span>
       </td></tr>
       <tr><td style="padding:16px 40px 32px;">${content}</td></tr>
       <tr><td style="padding:20px 40px;border-top:1px solid rgba(30,42,58,0.06);font-size:12px;color:${BRAND.muted};line-height:1.6;">
-        Du modtager denne mail fordi du har en LektieRo-konto eller er tilmeldt vores venteliste.<br>
-        <a href="https://lektiero.dk" style="color:${BRAND.blueSoft};">lektiero.dk</a>
-        &nbsp;·&nbsp;
-        <a href="https://lektiero.dk/da/privacy" style="color:${BRAND.blueSoft};">Privatlivspolitik</a>
+        ${recipient ? `Sendt til <strong style="color:${BRAND.ink};">${recipient}</strong>.<br>` : ""}
+        LektieRo ApS · <a href="https://lektiero.dk" style="color:${BRAND.blueSoft};text-decoration:none;">lektiero.dk</a> · <a href="https://lektiero.dk/da/privacy" style="color:${BRAND.blueSoft};text-decoration:none;">Privatlivspolitik</a><br>
+        Har du spørgsmål? Svar direkte på denne mail, eller skriv til <a href="mailto:support@lektiero.dk" style="color:${BRAND.blueSoft};text-decoration:none;">support@lektiero.dk</a>.
       </td></tr>
     </table>
   </td></tr>
@@ -82,91 +80,69 @@ function ctaButton(url: string, label: string): string {
 
 const confirmSignupHtml = () =>
   shell(
-    `<h1 style="font-family:Georgia,serif;font-size:28px;line-height:1.2;margin:0 0 12px;color:${BRAND.ink};">
+    `<h1 style="font-family:Georgia,serif;font-size:26px;line-height:1.25;margin:0 0 16px;color:${BRAND.ink};">
       Bekræft din email
     </h1>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 8px;color:${BRAND.ink};">
-      Hej,
-    </p>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 8px;color:${BRAND.ink};">
-      Tak for at du har oprettet en konto på LektieRo. Tryk på knappen herunder for at bekræfte at det er din email-adresse og aktivere din konto.
+    <p style="font-size:16px;line-height:1.6;margin:0 0 20px;color:${BRAND.ink};">
+      Tak for at du oprettede en LektieRo-konto. Bekræft din email for at komme i gang.
     </p>
     ${ctaButton("{{ .ConfirmationURL }}", "Bekræft min email")}
-    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:24px 0 0;">
-      Hvis knappen ikke virker, kan du kopiere dette link ind i din browser:<br>
-      <span style="word-break:break-all;color:${BRAND.blueSoft};">{{ .ConfirmationURL }}</span>
-    </p>
-    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:16px 0 0;">
-      Har du ikke oprettet en konto hos os? Så kan du trygt ignorere denne mail.
+    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:20px 0 0;">
+      Linket udløber efter 24 timer. Har du ikke oprettet en konto hos os? Så kan du trygt ignorere denne mail.
     </p>`,
-    "Et klik og din LektieRo-konto er aktiv."
+    "Ét klik og din LektieRo-konto er aktiv.",
+    "{{ .Email }}"
   )
 
 const inviteUserHtml = () =>
   shell(
-    `<h1 style="font-family:Georgia,serif;font-size:28px;line-height:1.2;margin:0 0 12px;color:${BRAND.ink};">
+    `<h1 style="font-family:Georgia,serif;font-size:26px;line-height:1.25;margin:0 0 16px;color:${BRAND.ink};">
       Du er inviteret til LektieRo
     </h1>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 8px;color:${BRAND.ink};">
-      Hej,
-    </p>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 8px;color:${BRAND.ink};">
-      En administrator har inviteret dig til at få tidlig adgang til LektieRo. Tryk på knappen herunder for at acceptere invitationen og vælge en adgangskode.
+    <p style="font-size:16px;line-height:1.6;margin:0 0 20px;color:${BRAND.ink};">
+      En administrator har givet dig tidlig adgang. Accepter invitationen og vælg din egen adgangskode for at komme i gang.
     </p>
     ${ctaButton("{{ .ConfirmationURL }}", "Accepter invitation")}
-    <div style="background:${BRAND.blueTint};border-radius:12px;padding:16px 20px;margin:24px 0;">
-      <p style="font-size:14px;color:${BRAND.ink};margin:0 0 4px;font-weight:600;">Hvad er LektieRo?</p>
-      <p style="font-size:14px;color:${BRAND.ink};margin:0;line-height:1.6;">
-        AI-lektiehjælp til danske folkeskoleelever. Vi guider barnet trin for trin uden at give facit.
-      </p>
-    </div>
-    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:24px 0 0;">
-      Hvis knappen ikke virker, kan du kopiere dette link ind i din browser:<br>
-      <span style="word-break:break-all;color:${BRAND.blueSoft};">{{ .ConfirmationURL }}</span>
+    <p style="font-size:14px;color:${BRAND.ink};line-height:1.6;margin:28px 0 0;">
+      LektieRo er en dansk AI-lektiehjælp til folkeskoleelever. Vi guider barnet trin for trin uden at give facit.
+    </p>
+    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:16px 0 0;">
+      Har du modtaget denne mail ved en fejl? Så kan du bare ignorere den.
     </p>`,
-    "En forælder-konto venter på dig hos LektieRo."
+    "En forælder-konto venter på dig hos LektieRo.",
+    "{{ .Email }}"
   )
 
 const magicLinkHtml = () =>
   shell(
-    `<h1 style="font-family:Georgia,serif;font-size:28px;line-height:1.2;margin:0 0 12px;color:${BRAND.ink};">
+    `<h1 style="font-family:Georgia,serif;font-size:26px;line-height:1.25;margin:0 0 16px;color:${BRAND.ink};">
       Log ind på LektieRo
     </h1>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 8px;color:${BRAND.ink};">
-      Hej,
-    </p>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 8px;color:${BRAND.ink};">
-      Du har bedt om et login-link. Tryk herunder for at logge ind på din konto.
+    <p style="font-size:16px;line-height:1.6;margin:0 0 20px;color:${BRAND.ink};">
+      Du bad om et engangslink til din konto. Tryk herunder for at logge ind.
     </p>
     ${ctaButton("{{ .ConfirmationURL }}", "Log mig ind")}
-    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:24px 0 0;">
-      Linket udløber efter 1 time og kan kun bruges én gang.
-    </p>
-    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:16px 0 0;">
-      Har du ikke bedt om at logge ind? Så kan du trygt ignorere denne mail — ingen får adgang uden linket herover.
+    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:20px 0 0;">
+      Linket virker i 1 time og kun én gang. Bad du ikke om et login? Ingen kan bruge det uden at have din indbakke, så du kan trygt ignorere mailen.
     </p>`,
-    "Dit login-link til LektieRo."
+    "Dit login-link til LektieRo.",
+    "{{ .Email }}"
   )
 
 const resetPasswordHtml = () =>
   shell(
-    `<h1 style="font-family:Georgia,serif;font-size:28px;line-height:1.2;margin:0 0 12px;color:${BRAND.ink};">
+    `<h1 style="font-family:Georgia,serif;font-size:26px;line-height:1.25;margin:0 0 16px;color:${BRAND.ink};">
       Nulstil din adgangskode
     </h1>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 8px;color:${BRAND.ink};">
-      Hej,
-    </p>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 8px;color:${BRAND.ink};">
-      Du har bedt om at nulstille adgangskoden til din LektieRo-konto. Tryk herunder for at vælge en ny.
+    <p style="font-size:16px;line-height:1.6;margin:0 0 20px;color:${BRAND.ink};">
+      Du bad om at nulstille adgangskoden til din LektieRo-konto. Vælg en ny herunder.
     </p>
     ${ctaButton("{{ .ConfirmationURL }}", "Vælg ny adgangskode")}
-    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:24px 0 0;">
-      Linket udløber efter 1 time. Hvis du ikke bruger det, forbliver din nuværende adgangskode aktiv.
-    </p>
-    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:16px 0 0;">
-      Har du ikke selv bedt om at nulstille? Så kan du trygt ignorere denne mail.
+    <p style="font-size:13px;color:${BRAND.muted};line-height:1.6;margin:20px 0 0;">
+      Linket virker i 1 time. Bad du ikke om at nulstille? Så kan du ignorere mailen — din nuværende adgangskode forbliver aktiv.
     </p>`,
-    "Vælg en ny adgangskode til din LektieRo-konto."
+    "Vælg en ny adgangskode til din LektieRo-konto.",
+    "{{ .Email }}"
   )
 
 // ─── LektieRo-owned templates (sent via Resend) ─────────────────────────────

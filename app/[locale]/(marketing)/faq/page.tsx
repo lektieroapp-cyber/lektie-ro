@@ -51,7 +51,7 @@ export default async function FaqPage({
           <ul className="divide-y divide-ink/5">
             {m.faq.items.map(item => (
               <li key={item.q}>
-                <details className="group">
+                <details name="faq" className="group">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-left text-ink hover:bg-blue-tint/30">
                     <span className="font-semibold">{item.q}</span>
                     <span

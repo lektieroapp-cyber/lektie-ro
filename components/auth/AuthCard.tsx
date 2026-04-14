@@ -49,9 +49,16 @@ export function AuthCard({
       })
       if (err) {
         setStatus("error")
-        setError(
-          err.message.toLowerCase().includes("registered") ? m.errorExists : m.errorGeneric
-        )
+        const msg = err.message.toLowerCase()
+        if (msg.includes("registered") || msg.includes("already") || msg.includes("exists")) {
+          setError(m.errorExists)
+        } else if (msg.includes("compromised") || msg.includes("pwned") || msg.includes("leaked") || msg.includes("known")) {
+          setError(m.errorCompromised)
+        } else if (msg.includes("weak") || msg.includes("password") && msg.includes("short")) {
+          setError(m.errorWeak)
+        } else {
+          setError(m.errorGeneric)
+        }
         return
       }
       setStatus("sent")
@@ -172,6 +179,7 @@ export function AuthCard({
             onChange={e => setPassword(e.target.value)}
             className="rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
+          {mode === "signup" && <PasswordStrength value={password} m={m} />}
         </div>
 
         <button
@@ -194,6 +202,48 @@ export function AuthCard({
           {mode === "login" ? m.switchToSignupLink : m.switchToLoginLink}
         </Link>
       </p>
+    </div>
+  )
+}
+
+type StrengthMessages = (typeof daMessages)["auth"]
+
+function scorePassword(pw: string): 0 | 1 | 2 | 3 {
+  if (pw.length < 8) return 0
+  let score = 1
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++
+  if (/\d/.test(pw) || /[^A-Za-z0-9]/.test(pw)) score++
+  if (pw.length >= 12) score++
+  return Math.min(score, 3) as 0 | 1 | 2 | 3
+}
+
+function PasswordStrength({ value, m }: { value: string; m: StrengthMessages }) {
+  const score = scorePassword(value)
+
+  // Show nothing until the user starts typing; then render 3 bars + label.
+  if (value.length === 0) {
+    return <p className="text-xs text-muted">{m.passwordHint}</p>
+  }
+
+  const label = score <= 1 ? m.strengthWeak : score === 2 ? m.strengthOk : m.strengthStrong
+  const color =
+    score <= 1 ? "bg-coral-deep" : score === 2 ? "bg-amber-pill" : "bg-success"
+  const labelColor =
+    score <= 1 ? "text-coral-deep" : score === 2 ? "text-ink/70" : "text-success"
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex flex-1 gap-1">
+        {[1, 2, 3].map(i => (
+          <span
+            key={i}
+            className={`h-1 flex-1 rounded-full transition-colors ${
+              i <= score ? color : "bg-ink/10"
+            }`}
+          />
+        ))}
+      </div>
+      <span className={`text-xs font-semibold ${labelColor}`}>{label}</span>
     </div>
   )
 }
