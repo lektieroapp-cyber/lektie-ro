@@ -17,6 +17,12 @@ export default async function ParentLayout({
   const user = await getSessionUser()
   if (!user) redirect(`/${locale}/login`)
 
+  // Invited users who skipped the welcome step have a live session but no
+  // password. Force them back through /welcome so they can recover later.
+  if (!user.passwordSet) {
+    redirect(`/${locale}/welcome?next=${encodeURIComponent(`/${locale}/parent/dashboard`)}`)
+  }
+
   const isAdmin = user.role === "admin"
 
   return (

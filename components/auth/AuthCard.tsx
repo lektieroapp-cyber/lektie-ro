@@ -29,7 +29,7 @@ export function AuthCard({
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [status, setStatus] = useState<"idle" | "submitting" | "sent" | "error">("idle")
+  const [status, setStatus] = useState<"idle" | "submitting" | "sent" | "error" | "forgot" | "forgotSent">("idle")
   const [error, setError] = useState("")
 
   async function handleEmail(e: React.FormEvent) {
@@ -45,6 +45,7 @@ export function AuthCard({
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
             `/${locale}/parent/dashboard`
           )}`,
+          data: { password_set: true },
         },
       })
       if (err) {
@@ -75,6 +76,18 @@ export function AuthCard({
     router.refresh()
   }
 
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault()
+    setError("")
+    setStatus("submitting")
+    const welcomeUrl = `/${locale}/welcome?next=${encodeURIComponent(`/${locale}/parent/dashboard`)}`
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(welcomeUrl)}`,
+    })
+    // Always show success — avoid leaking whether an account exists.
+    setStatus("forgotSent")
+  }
+
   async function handleGoogle() {
     setError("")
     await supabase.auth.signInWithOAuth({
@@ -99,6 +112,74 @@ export function AuthCard({
         <p className="mt-3 text-sm text-muted">
           {m.checkEmailBody.replace("{email}", email)}
         </p>
+      </div>
+    )
+  }
+
+  if (status === "forgotSent") {
+    return (
+      <div className="rounded-card bg-white p-8 text-center" style={{ boxShadow: "var(--shadow-card-lg)" }}>
+        <h2
+          className="text-2xl font-bold text-ink"
+          style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+        >
+          {m.forgotSuccessTitle}
+        </h2>
+        <p className="mt-3 text-sm text-muted">{m.forgotSuccessBody}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setStatus("idle")
+            setEmail("")
+          }}
+          className="mt-6 text-sm font-medium text-blue-soft hover:underline"
+        >
+          {m.forgotBack}
+        </button>
+      </div>
+    )
+  }
+
+  if (status === "forgot") {
+    return (
+      <div className="rounded-card bg-white p-6 md:p-8" style={{ boxShadow: "var(--shadow-card-lg)" }}>
+        <h1
+          className="text-2xl font-bold text-ink"
+          style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+        >
+          {m.forgotTitle}
+        </h1>
+        <p className="mt-2 text-sm text-muted">{m.forgotSubtitle}</p>
+        <form onSubmit={handleForgot} className="mt-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-ink" htmlFor="forgot-email">
+              {m.email}
+            </label>
+            <input
+              id="forgot-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!email.trim()}
+            className="w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+          >
+            {m.forgotSubmit}
+          </button>
+        </form>
+        <button
+          type="button"
+          onClick={() => setStatus("idle")}
+          className="mt-4 block w-full text-center text-sm font-medium text-muted hover:text-ink"
+        >
+          {m.forgotBack}
+        </button>
       </div>
     )
   }
@@ -166,9 +247,23 @@ export function AuthCard({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-ink" htmlFor="auth-password">
-            {m.password}
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-ink" htmlFor="auth-password">
+              {m.password}
+            </label>
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setError("")
+                  setStatus("forgot")
+                }}
+                className="text-xs font-medium text-blue-soft hover:underline"
+              >
+                {m.forgotLink}
+              </button>
+            )}
+          </div>
           <input
             id="auth-password"
             type="password"

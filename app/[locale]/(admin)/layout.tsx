@@ -16,6 +16,9 @@ export default async function AdminLayout({
 
   const user = await getSessionUser()
   if (!user) redirect(`/${locale}/login`)
+  if (!user.passwordSet) {
+    redirect(`/${locale}/welcome?next=${encodeURIComponent(`/${locale}/admin`)}`)
+  }
   if (user.role !== "admin") notFound()
 
   return (

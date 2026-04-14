@@ -7,6 +7,7 @@ export type SessionUser = {
   email: string | null
   displayName: string
   role: "parent" | "admin"
+  passwordSet: boolean
 }
 
 // Cached per-request via React's request memo. The parent/admin layout and
@@ -22,6 +23,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
       email: DEV_USER.email,
       displayName: DEV_PROFILE.display_name,
       role: DEV_PROFILE.role,
+      passwordSet: true,
     }
   }
 
@@ -41,5 +43,8 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     displayName:
       profile?.display_name || user.email?.split("@")[0] || "dig",
     role: (profile?.role as SessionUser["role"]) ?? "parent",
+    // Flag stored in user_metadata whenever a password is set. Missing/false
+    // means they were invited but haven't completed the welcome step.
+    passwordSet: user.user_metadata?.password_set === true,
   }
 })
