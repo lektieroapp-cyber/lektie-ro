@@ -19,14 +19,27 @@
 
 import { createAdminClient } from "./supabase/admin"
 
+// Three conditions must ALL be true for bypass to activate:
+//   1. NODE_ENV === "development" (Next dev server)
+//   2. Not a Vercel Production deployment (VERCEL_ENV !== "production")
+//   3. DEV_BYPASS_AUTH === "true" is explicitly opted in
+// The VERCEL_ENV guard is the critical one — even if someone accidentally
+// sets DEV_BYPASS_AUTH=true or NODE_ENV=development in Vercel Production
+// env vars, VERCEL_ENV is set automatically by Vercel and can't be spoofed
+// from the dashboard.
+const IS_VERCEL_PRODUCTION = process.env.VERCEL_ENV === "production"
+
 export const DEV_BYPASS_AUTH =
-  process.env.NODE_ENV === "development" && process.env.DEV_BYPASS_AUTH === "true"
+  !IS_VERCEL_PRODUCTION &&
+  process.env.NODE_ENV === "development" &&
+  process.env.DEV_BYPASS_AUTH === "true"
 
 // One-time boot log so you can verify the server actually saw the env var.
 // Only prints server-side, never in the browser.
 if (typeof window === "undefined") {
   console.log(
     `[dev-user] NODE_ENV=${process.env.NODE_ENV} ` +
+      `VERCEL_ENV=${process.env.VERCEL_ENV ?? "(unset)"} ` +
       `DEV_BYPASS_AUTH="${process.env.DEV_BYPASS_AUTH}" ` +
       `→ bypass ${DEV_BYPASS_AUTH ? "ENABLED" : "disabled"}`
   )

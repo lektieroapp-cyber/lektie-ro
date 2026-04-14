@@ -2,7 +2,10 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { defaultLocale, locales } from "@/lib/i18n/config"
 
-const DEV_BYPASS = process.env.NODE_ENV === "development" && process.env.DEV_BYPASS_AUTH === "true"
+const DEV_BYPASS =
+  process.env.VERCEL_ENV !== "production" &&
+  process.env.NODE_ENV === "development" &&
+  process.env.DEV_BYPASS_AUTH === "true"
 const AUTH_DISABLED = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 const LOCALE_PREFIXES = new Set<string>(locales as readonly string[])
