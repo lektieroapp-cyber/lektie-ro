@@ -35,7 +35,9 @@ export function Hero({ locale }: { locale: Locale }) {
             <span className="block whitespace-nowrap">{m.hero.titleLine2}</span>
           </h1>
 
-          <p className="max-w-xl text-base sm:text-lg text-ink/80">{m.hero.subtitle}</p>
+          <p className="max-w-[22rem] text-base text-ink/80 sm:max-w-md sm:text-lg lg:max-w-lg">
+            {m.hero.subtitle}
+          </p>
 
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-coral-deep font-semibold">
             {[m.hero.values.one, m.hero.values.two, m.hero.values.three].map(v => (

@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
   const tokenHash = searchParams.get("token_hash")
-  const type = searchParams.get("type") as "magiclink" | "signup" | "email" | "recovery" | null
+  const type = searchParams.get("type") as "magiclink" | "signup" | "email" | "recovery" | "invite" | null
   const next = searchParams.get("next") || `/${defaultLocale}/parent/dashboard`
 
   const response = NextResponse.redirect(new URL(next, request.url))
@@ -28,23 +28,38 @@ export async function GET(request: NextRequest) {
     }
   )
 
+  function fail(reason: string): NextResponse {
+    console.error(`[auth/callback] ${reason}`)
+    return NextResponse.redirect(
+      new URL(`/${defaultLocale}/login?error=${encodeURIComponent(reason)}`, request.url)
+    )
+  }
+
   try {
     if (code) {
       const { error } = await supabase.auth.exchangeCodeForSession(code)
       if (error) {
-        return NextResponse.redirect(new URL(`/${defaultLocale}/login?error=auth`, request.url))
+        // Fallback: maybe Supabase already established a session via cookies
+        // earlier in the chain (e.g. OAuth double-trip through proxy). If so,
+        // just proceed to `next`.
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          console.warn(`[auth/callback] exchangeCodeForSession failed ("${error.message}") but user is signed in → continuing`)
+          return response
+        }
+        return fail(`exchange: ${error.message}`)
       }
-    } else if (tokenHash && type) {
-      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
-      if (error) {
-        return NextResponse.redirect(new URL(`/${defaultLocale}/login?error=auth`, request.url))
-      }
-    } else {
-      return NextResponse.redirect(new URL(`/${defaultLocale}/login?error=auth`, request.url))
+      return response
     }
-  } catch {
-    return NextResponse.redirect(new URL(`/${defaultLocale}/login?error=auth`, request.url))
-  }
 
-  return response
+    if (tokenHash && type) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+      if (error) return fail(`verifyOtp: ${error.message}`)
+      return response
+    }
+
+    return fail("no_code_or_token")
+  } catch (err) {
+    return fail(`exception: ${err instanceof Error ? err.message : "unknown"}`)
+  }
 }
