@@ -15,19 +15,11 @@ export default async function AdminLayout({
   if (!isLocale(locale)) notFound()
 
   const user = await getSessionUser()
-  if (!user) {
-    console.log("[admin/layout] no session → redirect to login")
-    redirect(`/${locale}/login`)
-  }
+  if (!user) redirect(`/${locale}/login`)
   if (!user.passwordSet) {
-    console.log(`[admin/layout] user.passwordSet=false → redirect to welcome (id=${user.id})`)
     redirect(`/${locale}/welcome?next=${encodeURIComponent(`/${locale}/admin`)}`)
   }
-  if (user.role !== "admin") {
-    console.log(`[admin/layout] user.role="${user.role}" (not admin) → notFound (id=${user.id})`)
-    notFound()
-  }
-  console.log(`[admin/layout] OK admin (id=${user.id} email=${user.email})`)
+  if (user.role !== "admin") notFound()
 
   return (
     <div className="flex min-h-screen flex-col bg-blue-tint/30 md:h-screen md:min-h-0 md:flex-row md:overflow-hidden">

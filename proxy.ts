@@ -61,8 +61,17 @@ const CRAWLER_CANONICAL_MAP: Map<string, string> = new Map(
   ])
 )
 
+// Headers we set ourselves to forward validated auth state to downstream
+// server components. Stripped from the inbound request first so a malicious
+// client can't spoof these and escalate to admin.
+const TRUSTED_HEADERS = ["x-lr-user-id", "x-lr-user-email", "x-lr-user-meta"]
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
+
+  // Strip any client-supplied trusted headers immediately. If middleware
+  // doesn't re-set them after validation, they're gone — no spoofing window.
+  TRUSTED_HEADERS.forEach(h => request.headers.delete(h))
 
   // Safety net: if Supabase silently falls back to Site URL after OAuth
   // (because its allowlist didn't match our `redirectTo`), we still catch
