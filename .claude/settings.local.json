@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:\\\\Users\\\\Daniel\\\\projects\\\\website-scanner\\\\app\" -type d -name \"\\\\\\\\\\(auth\\\\\\\\\\)\" -o -type d -name \"\\\\\\\\\\(marketing\\\\\\\\\\)\" -o -type d -name \"\\\\\\\\\\(dashboard\\\\\\\\\\)\")",
+      "Bash(npm run:*)"
+    ]
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "brand": {
+    "name": "LektieRo",
+    "tagline": "Fra lektiekonflikt til hjertelig kontakt"
+  },
+  "nav": {
+    "home": "Forside"
+  },
+  "hero": {
+    "badge": "Vi åbner snart – Skriv dig på ventelisten",
+    "title": "Fra lektiekonflikt til hjertelig kontakt",
+    "subtitle": "Giv lektierne ro, og familien nærværet tilbage med LektieRo – jeres kærlige støtte til en tryg hverdag.",
+    "values": {
+      "one": "Nærvær",
+      "two": "Ro",
+      "three": "Overskud"
+    },
+    "learnMore": "Læs mere om hvad vi tilbyder"
+  },
+  "waitlist": {
+    "title": "Få besked når vi åbner",
+    "subtitle": "Tilmeld dig ventelisten og få 7 dages gratis prøveperiode som en af de første.",
+    "emailPlaceholder": "Din email adresse",
+    "submit": "Skriv mig op",
+    "submitting": "Tilmelder …",
+    "successTitle": "Tak! Du er på listen.",
+    "successBody": "Vi sender dig en besked, så snart LektieRo åbner for de første familier.",
+    "duplicateTitle": "Du er allerede på listen",
+    "duplicateBody": "Vi har din email og kontakter dig, så snart vi åbner.",
+    "errorGeneric": "Noget gik galt – prøv igen om lidt.",
+    "errorEmail": "Indtast en gyldig email adresse.",
+    "existingHint": "Har du allerede en kode?",
+    "existingLink": "Fortsæt her"
+  },
+  "promise": {
+    "title": "Vi giver aldrig facit – vi viser vejen",
+    "body": "LektieRo er ikke en genvej til hurtige svar. Vores AI er designet til at guide barnet gennem {highlight}, så de selv finder frem til det rigtige svar. Det skaber ægte læring, selvtillid og fjerner frustrationen ved det svære stof.",
+    "highlight": "løsningsmetoder"
+  },
+  "benefits": {
+    "child": {
+      "title": "Til Barnet",
+      "items": {
+        "learning": {
+          "title": "Læring på egne præmisser",
+          "body": "AI'en tilpasser sig barnets interesser (f.eks. Minecraft eller heste)."
+        },
+        "safety": {
+          "title": "Tryghed",
+          "body": "Ingen \"røde streger\" eller pres – kun støttende vejledning."
+        },
+        "mastery": {
+          "title": "Mestring",
+          "body": "Hjælp til at bryde store opgaver ned i små, overskuelige bidder uden at få svaret serveret."
+        }
+      }
+    },
+    "parent": {
+      "title": "Til Forældrene",
+      "items": {
+        "peace": {
+          "title": "Slut med konflikter",
+          "body": "Vi tager os af det faglige \"pus\", så I kan være familie."
+        },
+        "insight": {
+          "title": "Indsigt uden stress",
+          "body": "Følg med i barnets fremskridt via jeres eget dashboard."
+        },
+        "pedagogy": {
+          "title": "Pædagogisk sikkerhed",
+          "body": "Viden om at barnet lærer hvordan man løser opgaven, fremfor blot at snyde."
+        }
+      }
+    }
+  },
+  "pricing": {
+    "title": "Kommende medlemskaber",
+    "note": "Priserne er vejledende og kan ændres inden åbning.",
+    "standard": {
+      "name": "Standard",
+      "price": "229 kr.",
+      "interval": "/md",
+      "body": "Til det enkelte barn, der har brug for ro til lektierne."
+    },
+    "family": {
+      "name": "Family Premium",
+      "price": "299 kr.",
+      "interval": "/md",
+      "badge": "MEST POPULÆR",
+      "body": "Op til 4 børn. Den ultimative løsning til den store familie."
+    }
+  },
+  "footer": {
+    "tagline": "Ro om lektierne. Plads til familien.",
+    "privacy": "Privatlivspolitik",
+    "terms": "Vilkår",
+    "pricing": "Priser",
+    "copyright": "© {year} LektieRo. Alle rettigheder forbeholdes."
+  },
+  "auth": {
+    "loginTitle": "Log ind",
+    "loginSubtitle": "Velkommen tilbage – log ind for at se familiens oversigt.",
+    "signupTitle": "Opret konto",
+    "signupSubtitle": "Få adgang til LektieRo for din familie.",
+    "email": "Email",
+    "password": "Adgangskode",
+    "submitLogin": "Log ind",
+    "submitSignup": "Opret konto",
+    "submitting": "Vent …",
+    "google": "Fortsæt med Google",
+    "divider": "eller",
+    "switchToSignup": "Har du ikke en konto?",
+    "switchToSignupLink": "Opret en",
+    "switchToLogin": "Har du allerede en konto?",
+    "switchToLoginLink": "Log ind",
+    "checkEmailTitle": "Tjek din indbakke",
+    "checkEmailBody": "Vi har sendt et bekræftelseslink til {email}. Klik på linket for at aktivere din konto.",
+    "errorGeneric": "Noget gik galt – prøv igen.",
+    "errorCredentials": "Forkert email eller adgangskode.",
+    "errorExists": "Der findes allerede en konto med denne email."
+  },
+  "app": {
+    "sidebarTagline": "Skab lektie-ro sammen som familie",
+    "nav": {
+      "dashboard": "Dashboard",
+      "overview": "Forældre Ro",
+      "admin": "Admin"
+    }
+  },
+  "parent": {
+    "greetingWave": "👋",
+    "greeting": "Hej {name}!",
+    "subheading": "Klar til at gøre lektier til en leg uden snyd?",
+    "scanTitle": "Scan din opgave",
+    "scanBody": "Vis mig hvad du arbejder på, så hjælper jeg dig med at forstå det.",
+    "scanCta": "Tag billede",
+    "scanComingSoon": "Kamera-flowet kommer snart — vi er i gang med at færdiggøre AI-vejledningen.",
+    "logout": "Log ud"
+  },
+  "overview": {
+    "title": "Forældre Ro",
+    "subtitle": "Her får du overblik over barnets lektiesessioner og fremskridt.",
+    "statsSessionsLabel": "Sessioner i alt",
+    "statsStreakLabel": "Aktive dage i streg",
+    "statsLastActiveLabel": "Sidste session",
+    "statsLastActiveEmpty": "Ingen endnu",
+    "recentTitle": "Seneste sessioner",
+    "recentEmpty": "Når barnet har løst sin første opgave, dukker den op her.",
+    "subjectsTitle": "Fag barnet har arbejdet med",
+    "subjectsEmpty": "Ingen fagdata endnu.",
+    "adminLink": "Gå til admin"
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Overblik over venteliste, brugere og systemstatus.",
+    "waitlistCount": "Folk på ventelisten",
+    "profilesCount": "Registrerede forældre",
+    "recentSignups": "Seneste tilmeldinger",
+    "empty": "Ingen tilmeldinger endnu.",
+    "email": "Email",
+    "locale": "Sprog",
+    "joinedAt": "Tilmeldt"
+  },
+  "legal": {
+    "privacyTitle": "Privatlivspolitik",
+    "privacyBody": "Denne side opdateres inden åbning med en fuld GDPR-kompatibel privatlivspolitik på dansk.",
+    "termsTitle": "Vilkår",
+    "termsBody": "Denne side opdateres inden åbning med vilkår for brug af LektieRo på dansk."
+  }
+}
