@@ -1,17 +1,67 @@
 import { type NextRequest } from "next/server"
+import { buildChildSystemPrompt } from "@/lib/prompts"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 type Turn = { role: "user" | "assistant"; content: string }
-type Body = { sessionId: string; taskText: string; turns: Turn[]; mode?: string }
+type Body = {
+  sessionId: string
+  taskText: string
+  turns: Turn[]
+  mode?: string
+  childId?: string
+}
 
-// Mock hint/explain responses. Streams text chunks for a typewriter effect.
-// Real version will call Azure OpenAI gpt-4o-mini with the system prompt from
-// lib/prompts.ts. The important invariant — never reveal the answer — is
-// hand-enforced in the mock replies below.
+// Streams a Socratic hint or task explanation back to the client.
+// Real version: fetch child profile, build system prompt via lib/prompts.ts,
+// call Azure OpenAI gpt-4o-mini, stream the response.
+// Mock version: uses prompts.ts for structure but returns canned replies.
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as Body
+  const mode = (body.mode === "explain" ? "explain" : "hint") as "explain" | "hint"
   const turnIndex = body.turns.filter(t => t.role === "assistant").length
-  const isExplain = body.mode === "explain"
-  const reply = isExplain
+
+  // Fetch child profile if childId provided (used for prompt building).
+  let child = null
+  if (body.childId) {
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from("children")
+      .select("name, grade, interests, special_needs")
+      .eq("id", body.childId)
+      .single()
+    if (data) {
+      child = {
+        name: data.name,
+        grade: data.grade,
+        interests: data.interests ?? null,
+        specialNeeds: data.special_needs ?? null,
+      }
+    }
+  }
+
+  // Build the system prompt using curriculum + child context.
+  // This is ready for Azure — just pass it as the system message.
+  const _systemPrompt = buildChildSystemPrompt({
+    mode,
+    subject: "matematik", // TODO: pass from client via body.subject
+    grade: child?.grade ?? 4,
+    taskText: body.taskText,
+    child,
+  })
+
+  // TODO: replace mock with:
+  // const azure = getAzure(process.env.AZURE_OPENAI_MINI_DEPLOYMENT!)
+  // const stream = await azure.chat.completions.create({
+  //   model: process.env.AZURE_OPENAI_MINI_DEPLOYMENT!,
+  //   messages: [
+  //     { role: "system", content: _systemPrompt },
+  //     ...body.turns.map(t => ({ role: t.role, content: t.content })),
+  //     { role: "user", content: body.taskText },
+  //   ],
+  //   stream: true,
+  // })
+
+  const reply = mode === "explain"
     ? pickExplainReply(body.taskText, turnIndex)
     : pickHintReply(body.taskText, turnIndex)
 
@@ -35,27 +85,24 @@ export async function POST(request: NextRequest) {
   })
 }
 
-// "Explain" mode: orient the child to what the task is about, what kind of
-// answer is expected, and what concept it tests — without giving the answer.
 function pickExplainReply(taskText: string, turnIndex: number): string {
   const replies = [
-    `Opgaven "${short(taskText)}" handler om at finde ud af noget ved hjælp af det, du allerede ved. Du skal ikke bare gætte — du skal bruge en bestemt fremgangsmåde. Prøv at læse den igen og tænk: hvad er det, de beder dig beregne eller beskrive?`,
-    "Godt spørgsmål! Det er faktisk et emne, der dukker op mange steder. Tænk på det som en slags opskrift — der er et bestemt rækkefølge af skridt, man følger. Hvad tror du det første skridt er?",
-    "Præcis — du er på rette vej. Det handler om at finde sammenhængen. Prøv at sætte ord på det med dine egne ord, så ved du, at du har forstået det.",
+    `Opgaven "${short(taskText)}" handler om at finde ud af noget ved hjælp af det, du allerede ved. Du skal ikke bare gætte — der er en bestemt fremgangsmåde. Prøv at læse den igen: hvad er det præcist de beder dig beregne eller beskrive?`,
+    "Godt spørgsmål! Det er faktisk et emne der dukker op mange steder. Tænk på det som en slags opskrift med faste skridt. Hvad tror du det første skridt er?",
+    "Præcis — du er på rette vej. Prøv at sætte ord på det med dine egne ord, så ved du at du har forstået det.",
   ]
   return replies[Math.min(turnIndex, replies.length - 1)]
 }
 
-// "Hint" mode: Socratic ladder — guide toward the answer with questions.
 function pickHintReply(taskText: string, turnIndex: number): string {
   const replies = [
-    `God start! Inden vi regner videre, hvad tænker du, er det første du skal kigge efter i opgaven "${short(taskText)}"?`,
-    "Hvis du skulle forklare det til en ven, hvordan ville du så dele problemet op i mindre skridt?",
+    `Hvad tror du er det første du skal kigge efter i opgaven "${short(taskText)}"?`,
+    "Hvis du skulle forklare det til en ven, hvordan ville du dele problemet op i mindre skridt?",
     "Prøv at skrive det første skridt ned. Hvad ser du så?",
     "Kan du huske en lignende opgave fra timen? Hvordan løste I den dengang?",
-    "Du er tæt på. Hvad tror du det næste skridt skulle være?",
-    "Super, du har snart knækket koden. Prøv at læse opgaven igen og tjek: passer det du har gjort indtil videre?",
-    "Husk: der er ikke én rigtig vej. Hvad er den, der giver mest mening for dig lige nu?",
+    "Du er tæt på. Hvad tror du det næste skridt er?",
+    "Super, du har snart knækket koden. Tjek: passer det du har gjort indtil videre?",
+    "Hvad er den fremgangsmåde der giver mest mening for dig lige nu?",
     "Sidste skridt. Du er der næsten. Hvad mangler for at du er helt færdig?",
   ]
   return replies[Math.min(turnIndex, replies.length - 1)]

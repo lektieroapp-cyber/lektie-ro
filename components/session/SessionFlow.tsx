@@ -20,7 +20,6 @@ const EXT_FROM_TYPE: Record<string, string> = {
   "image/heif": "heif",
 }
 
-// Deterministic mock data used by the dev panel.
 const DEV_SOLVE: SolveResponse = {
   sessionId: "dev-session-0000",
   subject: "matematik",
@@ -33,11 +32,18 @@ const DEV_SOLVE: SolveResponse = {
 }
 const DEV_TASK: Task = DEV_SOLVE.tasks[0]
 
-export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
+export function SessionFlow({
+  isAdmin = false,
+  activeChildId,
+}: {
+  isAdmin?: boolean
+  activeChildId?: string | null
+}) {
   const [stage, setStage] = useState<Stage>("idle")
   const [solve, setSolve] = useState<SolveResponse | null>(null)
   const [task, setTask] = useState<Task | null>(null)
   const [mode, setMode] = useState<HintMode | null>(null)
+  const [dbSessionId, setDbSessionId] = useState<string | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [imagePath, setImagePath] = useState<string | null>(null)
@@ -56,7 +62,6 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
       throw new Error(`upload-url ${urlRes.status} ${j.error ?? ""}`)
     }
     const { uploadUrl, path } = (await urlRes.json()) as { uploadUrl: string; path: string }
-
     const putRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": file.type },
@@ -68,13 +73,9 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
 
   async function onFile(file: File) {
     setError(null)
-    if (file.size > MAX_BYTES) {
-      setError("Billedet er for stort. Maks 10 MB.")
-      return
-    }
+    if (file.size > MAX_BYTES) { setError("Billedet er for stort. Maks 10 MB."); return }
     if (!EXT_FROM_TYPE[file.type] && !file.type.startsWith("image/")) {
-      setError("Filen ser ikke ud til at være et billede.")
-      return
+      setError("Filen ser ikke ud til at være et billede."); return
     }
 
     setPreviewUrl(URL.createObjectURL(file))
@@ -107,9 +108,53 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
     setStage("mode")
   }
 
-  function pickMode(m: HintMode) {
+  async function pickMode(m: HintMode) {
     setMode(m)
     setStage("hint")
+
+    // Create a session row if we have a real child (not dev/parent mode).
+    if (activeChildId && activeChildId !== "parent" && solve) {
+      try {
+        const res = await fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            childId: activeChildId,
+            subject: solve.subject,
+            grade: solve.grade,
+            mode: m,
+            problemText: task?.text,
+            problemType: task?.type,
+            imagePath: imagePath ?? undefined,
+          }),
+        })
+        if (res.ok) {
+          const json = await res.json() as { sessionId: string }
+          setDbSessionId(json.sessionId)
+        }
+      } catch {
+        // Non-fatal: session won't be recorded but flow continues.
+      }
+    }
+  }
+
+  async function completeSession(completedTurns: Turn[]) {
+    setStage("done")
+    if (!dbSessionId) return
+    try {
+      await fetch("/api/session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: dbSessionId,
+          turnCount: completedTurns.length,
+          completed: true,
+          turns: completedTurns,
+        }),
+      })
+    } catch {
+      // Non-fatal.
+    }
   }
 
   function reset() {
@@ -117,6 +162,7 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
     setSolve(null)
     setTask(null)
     setMode(null)
+    setDbSessionId(null)
     setTurns([])
     setImagePath(null)
     setError(null)
@@ -125,24 +171,17 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
     if (fileRef.current) fileRef.current.value = ""
   }
 
-  // Dev panel: jump to a stage, injecting mock data as needed.
   function devJump(target: Stage, opts?: { mode?: HintMode }) {
     setError(null)
     setPreviewUrl(null)
     setImagePath(null)
-
     const needsSolve = ["pick", "mode", "hint", "done"].includes(target)
-    const needsTask = ["mode", "hint", "done"].includes(target)
-    const needsMode = ["hint", "done"].includes(target)
-
-    if (needsSolve) setSolve(DEV_SOLVE)
-    else setSolve(null)
-
-    if (needsTask) setTask(DEV_TASK)
-    else setTask(null)
-
-    const targetMode = opts?.mode ?? (needsMode ? "hint" : null)
-    setMode(targetMode)
+    const needsTask  = ["mode", "hint", "done"].includes(target)
+    const needsMode  = ["hint", "done"].includes(target)
+    if (needsSolve) setSolve(DEV_SOLVE); else setSolve(null)
+    if (needsTask)  setTask(DEV_TASK);   else setTask(null)
+    setMode(needsMode ? (opts?.mode ?? "hint") : null)
+    setDbSessionId(null)
     setTurns([])
     setStage(target)
   }
@@ -150,38 +189,22 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <div className="relative">
       {stage === "idle" && (
-        <ScanPanel
-          onSelect={() => fileRef.current?.click()}
-          onFile={onFile}
-          error={error}
-        />
+        <ScanPanel onSelect={() => fileRef.current?.click()} onFile={onFile} error={error} />
       )}
       {(stage === "uploading" || stage === "thinking") && (
         <ThinkingPanel
           previewUrl={previewUrl}
           label={stage === "uploading" ? "Uploader billede …" : "Jeg kigger på opgaven …"}
-          sub={
-            stage === "uploading"
-              ? "Vi sender dit billede sikkert til vores server i Sverige."
-              : "Et øjeblik mens jeg finder ud af, hvad du arbejder med."
-          }
+          sub={stage === "uploading"
+            ? "Vi sender dit billede sikkert til vores server i Sverige."
+            : "Et øjeblik mens jeg finder ud af, hvad du arbejder med."}
         />
       )}
       {stage === "pick" && solve && (
-        <TaskPicker
-          solve={solve}
-          onPick={pickTask}
-          onCancel={reset}
-          imagePath={imagePath}
-        />
+        <TaskPicker solve={solve} onPick={pickTask} onCancel={reset} imagePath={imagePath} />
       )}
       {stage === "mode" && task && solve && (
-        <ModeSelector
-          task={task}
-          solve={solve}
-          onSelect={pickMode}
-          onBack={() => setStage("pick")}
-        />
+        <ModeSelector task={task} solve={solve} onSelect={pickMode} onBack={() => setStage("pick")} />
       )}
       {(stage === "hint" || stage === "done") && task && solve && mode && (
         <HintChat
@@ -190,7 +213,8 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
           mode={mode}
           turns={turns}
           setTurns={setTurns}
-          onComplete={() => setStage("done")}
+          childId={activeChildId ?? undefined}
+          onComplete={completeSession}
           onReset={reset}
           onSwitchToHint={() => { setMode("hint"); setTurns([]) }}
           completed={stage === "done"}
@@ -203,15 +227,10 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
         accept="image/*,.heic,.heif"
         capture="environment"
         className="hidden"
-        onChange={e => {
-          const f = e.target.files?.[0]
-          if (f) onFile(f)
-        }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }}
       />
 
-      {isAdmin && (
-        <DevPanel currentStage={stage} onJump={devJump} />
-      )}
+      {isAdmin && <DevPanel currentStage={stage} onJump={devJump} />}
     </div>
   )
 }
@@ -219,32 +238,25 @@ export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
 // ─── Dev panel ───────────────────────────────────────────────────────────────
 
 const STAGES: { label: string; stage: Stage; opts?: { mode?: HintMode } }[] = [
-  { label: "📷 Scan",        stage: "idle" },
+  { label: "📷 Scan",       stage: "idle" },
   { label: "⏳ Uploading",  stage: "uploading" },
   { label: "🔍 Thinking",   stage: "thinking" },
   { label: "📋 Pick task",  stage: "pick" },
   { label: "🎯 Mode pick",  stage: "mode" },
   { label: "📖 Explain",    stage: "hint", opts: { mode: "explain" } },
   { label: "💡 Hint",       stage: "hint", opts: { mode: "hint" } },
-  { label: "✅ Done",        stage: "done", opts: { mode: "hint" } },
+  { label: "✅ Done",       stage: "done", opts: { mode: "hint" } },
 ]
 
-function DevPanel({
-  currentStage,
-  onJump,
-}: {
+function DevPanel({ currentStage, onJump }: {
   currentStage: Stage
   onJump: (stage: Stage, opts?: { mode?: HintMode }) => void
 }) {
   const [open, setOpen] = useState(false)
-
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
       {open && (
-        <div
-          className="rounded-card border border-coral-deep/25 bg-white p-3 shadow-xl"
-          style={{ minWidth: 190 }}
-        >
+        <div className="rounded-card border border-coral-deep/25 bg-white p-3 shadow-xl" style={{ minWidth: 190 }}>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
             Dev — jump to stage
           </p>
@@ -257,9 +269,7 @@ function DevPanel({
                   type="button"
                   onClick={() => onJump(stage, opts)}
                   className={`rounded-lg px-3 py-1.5 text-left text-[13px] font-medium transition ${
-                    active
-                      ? "bg-coral-deep/10 text-coral-deep"
-                      : "text-ink hover:bg-canvas"
+                    active ? "bg-coral-deep/10 text-coral-deep" : "text-ink hover:bg-canvas"
                   }`}
                 >
                   {label}
@@ -273,7 +283,7 @@ function DevPanel({
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-coral-deep text-white shadow-lg transition hover:bg-coral-deep/80 focus:outline-none focus:ring-2 focus:ring-coral-deep/40"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-coral-deep text-white shadow-lg transition hover:bg-coral-deep/80 focus:outline-none"
         title="Dev flow panel"
       >
         <span className="text-sm">{open ? "✕" : "⚙"}</span>

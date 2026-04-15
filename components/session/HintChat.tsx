@@ -12,6 +12,7 @@ export function HintChat({
   mode,
   turns,
   setTurns,
+  childId,
   onComplete,
   onReset,
   onSwitchToHint,
@@ -22,7 +23,8 @@ export function HintChat({
   mode: HintMode
   turns: Turn[]
   setTurns: (fn: (prev: Turn[]) => Turn[]) => void
-  onComplete: () => void
+  childId?: string
+  onComplete: (turns: Turn[]) => void
   onReset: () => void
   onSwitchToHint: () => void
   completed: boolean
@@ -35,11 +37,11 @@ export function HintChat({
 
   const assistantTurns = turns.filter(t => t.role === "assistant").length
   const atLimit = assistantTurns >= MAX_TURNS
+  const isExplain = mode === "explain"
+  const firstExplainDone = isExplain && assistantTurns >= 1 && !streaming
 
-  // Reset kickoff guard when mode resets (e.g. switching from explain → hint).
-  useEffect(() => {
-    kickedOff.current = false
-  }, [mode])
+  // Reset kickoff guard when mode resets.
+  useEffect(() => { kickedOff.current = false }, [mode])
 
   async function callHint(nextTurns: Turn[]) {
     setStreaming(true)
@@ -53,6 +55,7 @@ export function HintChat({
           taskText: task.text,
           turns: nextTurns,
           mode,
+          childId,
         }),
       })
       const reader = res.body?.getReader()
@@ -72,7 +75,6 @@ export function HintChat({
     }
   }
 
-  // Kick off the first assistant turn automatically.
   useEffect(() => {
     if (kickedOff.current) return
     kickedOff.current = true
@@ -80,7 +82,6 @@ export function HintChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-scroll as new content arrives.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [turns, partial])
@@ -95,14 +96,12 @@ export function HintChat({
     await callHint(next)
   }
 
-  const isExplain = mode === "explain"
-  const firstExplainDone = isExplain && assistantTurns >= 1 && !streaming
-
   return (
     <div
       className="flex flex-col rounded-card bg-white"
       style={{ boxShadow: "var(--shadow-card)", minHeight: "60vh" }}
     >
+      {/* Header */}
       <header className="flex items-start justify-between gap-4 border-b border-ink/5 px-6 py-4">
         <div>
           <p className="text-xs uppercase tracking-wider text-muted">
@@ -112,7 +111,7 @@ export function HintChat({
               {isExplain ? "Forstå opgaven" : "Hint-guide"}
             </span>
           </p>
-          <p className="mt-1 text-ink font-medium">{task.text}</p>
+          <p className="mt-1 text-ink font-medium leading-snug">{task.text}</p>
         </div>
         <button
           type="button"
@@ -123,11 +122,10 @@ export function HintChat({
         </button>
       </header>
 
+      {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
         {turns.map((t, i) => (
-          <Bubble key={i} role={t.role} isExplain={isExplain}>
-            {t.content}
-          </Bubble>
+          <Bubble key={i} role={t.role} isExplain={isExplain}>{t.content}</Bubble>
         ))}
         {streaming && partial && (
           <Bubble role="assistant" isExplain={isExplain}>{partial}</Bubble>
@@ -138,12 +136,12 @@ export function HintChat({
           </Bubble>
         )}
 
-        {/* After explain: offer to try themselves or switch to hint mode */}
+        {/* Explain mode: after first response show action buttons */}
         {firstExplainDone && !completed && (
           <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:gap-3">
             <button
               type="button"
-              onClick={onReset}
+              onClick={() => onComplete(turns)}
               className="rounded-btn border border-ink/15 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-canvas"
             >
               Prøv nu selv 🙌
@@ -157,57 +155,84 @@ export function HintChat({
             </button>
           </div>
         )}
-      </div>
 
-      <div className="border-t border-ink/5 px-6 py-4">
-        {!isExplain && assistantTurns >= WARN_AT && !atLimit && (
-          <p className="mb-3 text-xs text-coral-deep">
-            Du er tæt på grænsen. Få mere ud af sidste spørgsmål.
-          </p>
-        )}
-        {!isExplain && atLimit && !completed && (
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-card bg-blue-tint/60 px-4 py-3 text-sm text-ink">
-            <span>Du har nået grænsen for denne opgave. Godt arbejde!</span>
+        {/* Done celebration */}
+        {completed && (
+          <div className="flex flex-col items-center gap-3 rounded-card bg-blue-tint/60 px-6 py-8 text-center">
+            <span className="text-4xl">🎉</span>
+            <p className="text-lg font-bold text-ink" style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}>
+              Flot arbejde!
+            </p>
+            <p className="text-sm text-muted">Du kom igennem opgaven. Det er præcis sådan man lærer.</p>
             <button
               type="button"
-              onClick={onComplete}
-              className="rounded-btn bg-success px-4 py-2 text-xs font-semibold text-white"
+              onClick={onReset}
+              className="mt-2 rounded-btn bg-primary px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover"
             >
-              Afslut
+              Tag en ny opgave
             </button>
           </div>
         )}
-        <form onSubmit={send} className="flex items-center gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder={
-              isExplain
-                ? "Spørg om noget du ikke forstod …"
-                : "Skriv et svar eller et spørgsmål …"
-            }
-            disabled={streaming || atLimit || completed}
-            className="flex-1 rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-canvas/60"
-          />
-          <button
-            type="submit"
-            disabled={streaming || atLimit || completed || !input.trim()}
-            className="rounded-btn bg-primary px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
-          >
-            Send
-          </button>
-        </form>
       </div>
+
+      {/* Input area */}
+      {!completed && (
+        <div className="border-t border-ink/5 px-6 py-4">
+          {!isExplain && assistantTurns >= WARN_AT && !atLimit && (
+            <p className="mb-3 text-xs text-coral-deep">
+              Du er tæt på grænsen. Få mere ud af dit næste svar.
+            </p>
+          )}
+          {!isExplain && atLimit && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-card bg-blue-tint/60 px-4 py-3 text-sm text-ink">
+              <span>Du har nået grænsen for denne opgave. Godt klaret!</span>
+              <button
+                type="button"
+                onClick={() => onComplete(turns)}
+                className="rounded-btn bg-success px-4 py-2 text-xs font-semibold text-white"
+              >
+                Afslut
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <form onSubmit={send} className="flex flex-1 items-center gap-3">
+              <input
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder={isExplain ? "Spørg om noget du ikke forstod …" : "Skriv et svar eller et spørgsmål …"}
+                disabled={streaming || atLimit}
+                className="flex-1 rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-canvas/60"
+              />
+              <button
+                type="submit"
+                disabled={streaming || atLimit || !input.trim()}
+                className="rounded-btn bg-primary px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+              >
+                Send
+              </button>
+            </form>
+            {/* "I'm done" button — always available after first AI response */}
+            {assistantTurns >= 1 && !atLimit && (
+              <button
+                type="button"
+                onClick={() => onComplete(turns)}
+                title="Jeg er færdig med opgaven"
+                className="shrink-0 rounded-btn border border-success/30 bg-success/10 px-3 py-2.5 text-xs font-semibold text-success transition hover:bg-success/20"
+              >
+                Færdig ✓
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function Bubble({
-  role,
-  isExplain,
-  children,
-}: {
+function Bubble({ role, isExplain, children }: {
   role: "user" | "assistant"
   isExplain: boolean
   children: React.ReactNode
@@ -215,15 +240,9 @@ function Bubble({
   const isUser = role === "user"
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[80%] rounded-card px-4 py-3 text-[15px] leading-relaxed ${
-          isUser
-            ? "bg-primary text-white"
-            : isExplain
-              ? "bg-blue-tint/70 text-ink"
-              : "bg-blue-tint/60 text-ink"
-        }`}
-      >
+      <div className={`max-w-[80%] rounded-card px-4 py-3 text-[15px] leading-relaxed ${
+        isUser ? "bg-primary text-white" : isExplain ? "bg-blue-tint/70 text-ink" : "bg-blue-tint/60 text-ink"
+      }`}>
         {children}
       </div>
     </div>

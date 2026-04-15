@@ -10,5 +10,7 @@
 
 Run in Supabase SQL editor → paste the file contents → verify `subscription_tier` column appears on `profiles`.
 
-Next migrations needed (Phase 2):
-- `006_sessions.sql` — `sessions` + `turns` tables (needed before Azure AI integration)
+| `supabase/migrations/006_sessions_turns.sql` | ☐ | ☐ | `sessions` + `turns` tables + RLS — **run before going live with AI** |
+
+**To apply 006:** paste contents into Supabase SQL editor (dev first, then prod).
+Enables: session tracking, difficulty scoring, parent overview real stats, turn history.
