@@ -22,7 +22,7 @@ export function OnboardingFlow({
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       {/* Logo */}
       <a href={`/${locale}`} className="animate-fade-in mb-10 block">
-        <img src="/logo_with_text.png" alt="LektieRo" className="h-8 w-auto" />
+        <img src="/logo_with_text.png" alt="LektieRo" className="h-12 w-auto" />
       </a>
 
       {/* Step indicator */}

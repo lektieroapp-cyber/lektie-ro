@@ -5,6 +5,15 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
+type ActiveChild = { id: string; name: string; avatar_emoji: string | null }
+
+const SwitchIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
+    <path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+  </svg>
+)
+
 const SettingsIcon = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
@@ -27,19 +36,28 @@ const LogoutIcon = (
   </svg>
 )
 
+function firstName(full: string) {
+  return full.split(" ")[0]
+}
+
 export function AccountMenu({
   email,
   settingsHref,
+  profilesHref,
   locale,
+  activeChild,
 }: {
   email: string
   settingsHref: string
+  profilesHref: string
   locale: string
+  activeChild: ActiveChild | null
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const initial = email[0]?.toUpperCase() ?? "?"
+  const isChildMode = activeChild !== null
 
   useEffect(() => {
     if (!open) return
@@ -64,26 +82,54 @@ export function AccountMenu({
         <div className="absolute bottom-full left-0 right-0 mb-2 rounded-card border border-ink/8 bg-white py-1"
           style={{ boxShadow: "0 -4px 24px rgba(30,42,58,0.10)" }}
         >
+          {/* Header: child avatar or parent email */}
           <div className="border-b border-ink/6 px-4 py-2.5">
-            <p className="truncate text-[12px] text-muted">{email}</p>
+            {isChildMode ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xl leading-none">{activeChild.avatar_emoji ?? "🙂"}</span>
+                <span className="text-[13px] font-semibold text-ink">{firstName(activeChild.name)}</span>
+              </div>
+            ) : (
+              <p className="truncate text-[12px] text-muted">{email}</p>
+            )}
           </div>
-          <Link href={settingsHref} onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
-            {SettingsIcon} Indstillinger
-          </Link>
-          <button type="button" disabled
-            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-muted cursor-not-allowed">
-            {BillingIcon}
-            <span>Fakturering</span>
-            <span className="ml-auto rounded-full bg-amber-pill px-1.5 py-0.5 text-[10px] font-semibold text-ink/60">
-              Snart
-            </span>
-          </button>
-          <div className="mx-3 my-1 border-t border-ink/6" />
-          <button type="button" onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
-            {LogoutIcon} Log ud
-          </button>
+
+          {/* Child mode: only switch + logout */}
+          {isChildMode ? (
+            <>
+              <Link href={profilesHref} onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+                {SwitchIcon} Skift konto
+              </Link>
+              <div className="mx-3 my-1 border-t border-ink/6" />
+              <button type="button" onClick={handleLogout}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
+                {LogoutIcon} Log ud
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href={settingsHref} onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+                {SettingsIcon} Indstillinger
+              </Link>
+              <button type="button" disabled
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-muted cursor-not-allowed">
+                {BillingIcon}
+                <span>Fakturering</span>
+                <span className="ml-auto rounded-full bg-amber-pill px-1.5 py-0.5 text-[10px] font-semibold text-ink/60">Snart</span>
+              </button>
+              <Link href={profilesHref} onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+                {SwitchIcon} Skift konto
+              </Link>
+              <div className="mx-3 my-1 border-t border-ink/6" />
+              <button type="button" onClick={handleLogout}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
+                {LogoutIcon} Log ud
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -92,10 +138,21 @@ export function AccountMenu({
         onClick={() => setOpen(v => !v)}
         className={`flex w-full cursor-pointer items-center gap-3 rounded-card px-3 py-2.5 transition hover:bg-blue-tint/50 ${open ? "bg-blue-tint/50" : ""}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[13px] font-bold text-primary">
-          {initial}
-        </span>
-        <span className="truncate text-[13px] font-medium text-ink/80">{email}</span>
+        {isChildMode ? (
+          <>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl leading-none">
+              {activeChild.avatar_emoji ?? "🙂"}
+            </span>
+            <span className="truncate text-[13px] font-medium text-ink/80">{firstName(activeChild.name)}</span>
+          </>
+        ) : (
+          <>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[13px] font-bold text-primary">
+              {initial}
+            </span>
+            <span className="truncate text-[13px] font-medium text-ink/80">{email}</span>
+          </>
+        )}
         <svg className={`ml-auto h-3.5 w-3.5 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
           viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <polyline points="18 15 12 9 6 15" />

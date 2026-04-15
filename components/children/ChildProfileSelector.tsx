@@ -113,7 +113,7 @@ export function ChildProfileSelector({
 
       {/* Top: logo */}
       <a href="/" className="animate-fade-in block" style={{ animationDelay: "0ms" }}>
-        <img src="/logo_with_text.png" alt="LektieRo" className="h-7 w-auto opacity-70" />
+        <img src="/logo_with_text.png" alt="LektieRo" className="h-12 w-auto" />
       </a>
 
       {/* Centre: heading + profiles */}

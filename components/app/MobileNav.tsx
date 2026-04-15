@@ -8,13 +8,16 @@ import { createClient } from "@/lib/supabase/client"
 import { type Locale } from "@/lib/i18n/config"
 
 type NavItem = { href: string; label: string; icon: React.ReactNode }
+type ActiveChild = { id: string; name: string; avatar_emoji: string | null }
 
 type Props = {
   locale: Locale
   items: NavItem[]
   adminItem: NavItem | null
   settingsHref: string
+  profilesHref: string
   email: string
+  activeChild: ActiveChild | null
   brandTagline: string
   adminSectionLabel: string
 }
@@ -30,11 +33,14 @@ const CloseIcon = (
   </svg>
 )
 
-export function MobileNav({ locale, items, adminItem, settingsHref, email, brandTagline, adminSectionLabel }: Props) {
+function firstName(full: string) { return full.split(" ")[0] }
+
+export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref, email, activeChild, brandTagline, adminSectionLabel }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const initial = email[0]?.toUpperCase() ?? "?"
+  const isChildMode = activeChild !== null
 
   async function handleLogout() {
     setOpen(false)
@@ -114,22 +120,55 @@ export function MobileNav({ locale, items, adminItem, settingsHref, email, brand
 
         {/* Account section at bottom */}
         <div className="mt-auto border-t border-ink/10 px-2 py-3 flex flex-col gap-1">
+          {/* Identity */}
           <div className="flex items-center gap-3 px-3 py-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[13px] font-bold text-primary">{initial}</span>
-            <span className="truncate text-[13px] text-muted">{email}</span>
+            {isChildMode ? (
+              <>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl leading-none">
+                  {activeChild.avatar_emoji ?? "🙂"}
+                </span>
+                <span className="truncate text-[13px] font-medium text-ink/80">{firstName(activeChild.name)}</span>
+              </>
+            ) : (
+              <>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[13px] font-bold text-primary">{initial}</span>
+                <span className="truncate text-[13px] text-muted">{email}</span>
+              </>
+            )}
           </div>
-          <Link href={settingsHref} onClick={() => setOpen(false)}
-            className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
-            Indstillinger
-          </Link>
-          <button type="button" disabled
-            className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-muted cursor-not-allowed">
-            Fakturering <span className="ml-1 rounded-full bg-amber-pill px-1.5 py-0.5 text-[10px] font-semibold text-ink/60">Snart</span>
-          </button>
-          <button type="button" onClick={handleLogout}
-            className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
-            Log ud
-          </button>
+
+          {/* Child mode: only switch + logout */}
+          {isChildMode ? (
+            <>
+              <Link href={profilesHref} onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+                Skift konto
+              </Link>
+              <button type="button" onClick={handleLogout}
+                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
+                Log ud
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href={settingsHref} onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+                Indstillinger
+              </Link>
+              <button type="button" disabled
+                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-muted cursor-not-allowed">
+                Fakturering <span className="ml-1 rounded-full bg-amber-pill px-1.5 py-0.5 text-[10px] font-semibold text-ink/60">Snart</span>
+              </button>
+              <Link href={profilesHref} onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+                Skift konto
+              </Link>
+              <button type="button" onClick={handleLogout}
+                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
+                Log ud
+              </button>
+            </>
+          )}
         </div>
       </aside>
     </>

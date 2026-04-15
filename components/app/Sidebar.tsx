@@ -6,6 +6,8 @@ import { NavLink } from "./NavLink"
 import { MobileNav } from "./MobileNav"
 import { AccountMenu } from "./AccountMenu"
 
+type ActiveChild = { id: string; name: string; avatar_emoji: string | null }
+
 const HomeIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V9.5z" />
@@ -32,17 +34,26 @@ export function Sidebar({
   locale,
   isAdmin,
   email,
+  activeChild,
 }: {
   locale: Locale
   isAdmin: boolean
   email: string
+  activeChild: ActiveChild | null
 }) {
   const m = getMessages(locale)
+  const isChildMode = activeChild !== null
 
-  const userItems = [
-    { href: localePath(locale, "parentDashboard"), icon: HomeIcon, label: m.app.nav.dashboard },
-    { href: localePath(locale, "parentOverview"), icon: OverviewIcon, label: m.app.nav.overview },
-  ]
+  const profilesHref = localePath(locale, "parentProfiles")
+
+  // Child mode: only the homework dashboard. Parent mode: dashboard + overview.
+  const userItems = isChildMode
+    ? [{ href: localePath(locale, "parentDashboard"), icon: HomeIcon, label: m.app.nav.dashboard }]
+    : [
+        { href: localePath(locale, "parentDashboard"), icon: HomeIcon, label: m.app.nav.dashboard },
+        { href: localePath(locale, "parentOverview"), icon: OverviewIcon, label: m.app.nav.overview },
+      ]
+
   const adminItem = {
     href: localePath(locale, "admin"),
     icon: ShieldIcon,
@@ -56,7 +67,9 @@ export function Sidebar({
         items={userItems}
         adminItem={isAdmin ? adminItem : null}
         settingsHref={localePath(locale, "parentSettings")}
+        profilesHref={profilesHref}
         email={email}
+        activeChild={activeChild}
         brandTagline={m.app.sidebarTagline}
         adminSectionLabel={m.app.adminSection}
       />
@@ -96,11 +109,13 @@ export function Sidebar({
           </div>
         )}
 
-        <div className="mt-auto pt-4 border-t border-ink/8">
+        <div className="mt-auto border-t border-ink/8 pt-4">
           <AccountMenu
             email={email}
             settingsHref={localePath(locale, "parentSettings")}
+            profilesHref={profilesHref}
             locale={locale}
+            activeChild={activeChild}
           />
         </div>
       </aside>
