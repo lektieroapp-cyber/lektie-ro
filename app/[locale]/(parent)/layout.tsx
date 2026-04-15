@@ -29,7 +29,7 @@ export default async function ParentLayout({
   const cookieStore = await cookies()
   const activeChildId = cookieStore.get("lr_active_child")?.value
   let activeChild: { id: string; name: string; avatar_emoji: string | null } | null = null
-  if (activeChildId) {
+  if (activeChildId && activeChildId !== "parent") {
     const { data } = await createAdminClient()
       .from("children")
       .select("id, name, avatar_emoji")

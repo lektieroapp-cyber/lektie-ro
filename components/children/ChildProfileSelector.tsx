@@ -100,8 +100,10 @@ export function ChildProfileSelector({
   }
 
   function selectParent() {
-    // Clear any active child so the parent goes to overview without a child context.
-    document.cookie = "lr_active_child=; path=/; max-age=0; samesite=lax"
+    // Use a sentinel value so the dashboard knows parent mode is intentional
+    // (empty/missing cookie = not yet chosen, "parent" = chose parent view).
+    const maxAge = 60 * 60 * 24 * 365
+    document.cookie = `lr_active_child=parent; path=/; max-age=${maxAge}; samesite=lax`
     router.push(overviewHref)
   }
 

@@ -37,15 +37,19 @@ export default async function ParentDashboard({
     redirect(localePath(locale, "parentOnboarding"))
   }
 
-  // Children exist but no active child selected → Netflix selector.
+  // No selection made yet → Netflix selector.
   const activeChildId = cookieStore.get("lr_active_child")?.value
   if (!activeChildId) {
     redirect(localePath(locale, "parentProfiles"))
   }
 
-  const activeChild = children.find(c => c.id === activeChildId) ?? children[0]
-  const greetingName = activeChild?.name || user.displayName
-  const avatar = activeChild?.avatar_emoji
+  // "parent" sentinel means the parent chose their own view — greet by name.
+  const activeChild = activeChildId === "parent"
+    ? null
+    : (children.find(c => c.id === activeChildId) ?? null)
+
+  const greetingName = activeChild?.name ?? user.displayName
+  const avatar = activeChild?.avatar_emoji ?? null
 
   return (
     <>

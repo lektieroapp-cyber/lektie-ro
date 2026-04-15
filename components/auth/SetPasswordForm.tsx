@@ -47,9 +47,21 @@ export function SetPasswordForm({
     })
     if (err) {
       const msg = err.message.toLowerCase()
-      if (msg.includes("compromised") || msg.includes("pwned") || msg.includes("leaked") || msg.includes("known")) {
+      const isBreached =
+        msg.includes("compromised") ||
+        msg.includes("pwned") ||
+        msg.includes("leaked") ||
+        msg.includes("known") ||
+        msg.includes("common") ||
+        msg.includes("breach") ||
+        msg.includes("found in")
+      const isWeak =
+        msg.includes("weak") ||
+        msg.includes("short") ||
+        msg.includes("characters")
+      if (isBreached) {
         setError(authMsgs.errorCompromised)
-      } else if (msg.includes("weak") || msg.includes("short")) {
+      } else if (isWeak) {
         setError(authMsgs.errorWeak)
       } else {
         setError(m.genericError)
@@ -140,6 +152,12 @@ export function SetPasswordForm({
           )}
         </div>
 
+        {error && (
+          <div className="rounded-lg border border-coral-deep/20 bg-coral-deep/8 px-4 py-3">
+            <p className="text-sm font-medium text-coral-deep">{error}</p>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={status === "submitting" || password.length < 8}
@@ -147,8 +165,6 @@ export function SetPasswordForm({
         >
           {status === "submitting" ? m.submitting : m.submit}
         </button>
-
-        {error && <p className="text-sm text-coral-deep">{error}</p>}
       </form>
 
       {GOOGLE_ENABLED && (
