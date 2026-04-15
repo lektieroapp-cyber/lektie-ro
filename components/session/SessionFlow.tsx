@@ -4,10 +4,11 @@ import { useRef, useState } from "react"
 import { ScanPanel } from "./ScanPanel"
 import { ThinkingPanel } from "./ThinkingPanel"
 import { TaskPicker } from "./TaskPicker"
+import { ModeSelector } from "./ModeSelector"
 import { HintChat } from "./HintChat"
-import type { SolveResponse, Task, Turn } from "./types"
+import type { HintMode, SolveResponse, Task, Turn } from "./types"
 
-type Stage = "idle" | "uploading" | "thinking" | "pick" | "hint" | "done"
+type Stage = "idle" | "uploading" | "thinking" | "pick" | "mode" | "hint" | "done"
 
 const MAX_BYTES = 10 * 1024 * 1024
 
@@ -23,6 +24,7 @@ export function SessionFlow() {
   const [stage, setStage] = useState<Stage>("idle")
   const [solve, setSolve] = useState<SolveResponse | null>(null)
   const [task, setTask] = useState<Task | null>(null)
+  const [mode, setMode] = useState<HintMode | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [imagePath, setImagePath] = useState<string | null>(null)
@@ -89,6 +91,11 @@ export function SessionFlow() {
   function pickTask(t: Task) {
     setTask(t)
     setTurns([])
+    setStage("mode")
+  }
+
+  function pickMode(m: HintMode) {
+    setMode(m)
     setStage("hint")
   }
 
@@ -96,6 +103,7 @@ export function SessionFlow() {
     setStage("idle")
     setSolve(null)
     setTask(null)
+    setMode(null)
     setTurns([])
     setImagePath(null)
     setError(null)
@@ -132,14 +140,24 @@ export function SessionFlow() {
           imagePath={imagePath}
         />
       )}
-      {(stage === "hint" || stage === "done") && task && solve && (
+      {stage === "mode" && task && solve && (
+        <ModeSelector
+          task={task}
+          solve={solve}
+          onSelect={pickMode}
+          onBack={() => setStage("pick")}
+        />
+      )}
+      {(stage === "hint" || stage === "done") && task && solve && mode && (
         <HintChat
           task={task}
           solve={solve}
+          mode={mode}
           turns={turns}
           setTurns={setTurns}
           onComplete={() => setStage("done")}
           onReset={reset}
+          onSwitchToHint={() => { setMode("hint"); setTurns([]) }}
           completed={stage === "done"}
         />
       )}

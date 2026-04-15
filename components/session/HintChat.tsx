@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import type { SolveResponse, Task, Turn } from "./types"
+import type { HintMode, SolveResponse, Task, Turn } from "./types"
 
 const MAX_TURNS = 8
 const WARN_AT = 6
@@ -9,18 +9,22 @@ const WARN_AT = 6
 export function HintChat({
   task,
   solve,
+  mode,
   turns,
   setTurns,
   onComplete,
   onReset,
+  onSwitchToHint,
   completed,
 }: {
   task: Task
   solve: SolveResponse
+  mode: HintMode
   turns: Turn[]
   setTurns: (fn: (prev: Turn[]) => Turn[]) => void
   onComplete: () => void
   onReset: () => void
+  onSwitchToHint: () => void
   completed: boolean
 }) {
   const [input, setInput] = useState("")
@@ -31,6 +35,11 @@ export function HintChat({
 
   const assistantTurns = turns.filter(t => t.role === "assistant").length
   const atLimit = assistantTurns >= MAX_TURNS
+
+  // Reset kickoff guard when mode resets (e.g. switching from explain → hint).
+  useEffect(() => {
+    kickedOff.current = false
+  }, [mode])
 
   async function callHint(nextTurns: Turn[]) {
     setStreaming(true)
@@ -43,6 +52,7 @@ export function HintChat({
           sessionId: solve.sessionId,
           taskText: task.text,
           turns: nextTurns,
+          mode,
         }),
       })
       const reader = res.body?.getReader()
@@ -85,6 +95,9 @@ export function HintChat({
     await callHint(next)
   }
 
+  const isExplain = mode === "explain"
+  const firstExplainDone = isExplain && assistantTurns >= 1 && !streaming
+
   return (
     <div
       className="flex flex-col rounded-card bg-white"
@@ -94,6 +107,10 @@ export function HintChat({
         <div>
           <p className="text-xs uppercase tracking-wider text-muted">
             {solve.subject} · {solve.grade}. klasse
+            {" · "}
+            <span className={isExplain ? "text-blue-soft" : "text-primary"}>
+              {isExplain ? "Forstå opgaven" : "Hint-guide"}
+            </span>
           </p>
           <p className="mt-1 text-ink font-medium">{task.text}</p>
         </div>
@@ -108,25 +125,47 @@ export function HintChat({
 
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
         {turns.map((t, i) => (
-          <Bubble key={i} role={t.role}>
+          <Bubble key={i} role={t.role} isExplain={isExplain}>
             {t.content}
           </Bubble>
         ))}
-        {streaming && partial && <Bubble role="assistant">{partial}</Bubble>}
+        {streaming && partial && (
+          <Bubble role="assistant" isExplain={isExplain}>{partial}</Bubble>
+        )}
         {streaming && !partial && (
-          <Bubble role="assistant">
+          <Bubble role="assistant" isExplain={isExplain}>
             <span className="inline-block animate-pulse text-muted">…</span>
           </Bubble>
+        )}
+
+        {/* After explain: offer to try themselves or switch to hint mode */}
+        {firstExplainDone && !completed && (
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:gap-3">
+            <button
+              type="button"
+              onClick={onReset}
+              className="rounded-btn border border-ink/15 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-canvas"
+            >
+              Prøv nu selv 🙌
+            </button>
+            <button
+              type="button"
+              onClick={onSwitchToHint}
+              className="rounded-btn bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover"
+            >
+              Jeg har stadig brug for hjælp 💡
+            </button>
+          </div>
         )}
       </div>
 
       <div className="border-t border-ink/5 px-6 py-4">
-        {assistantTurns >= WARN_AT && !atLimit && (
+        {!isExplain && assistantTurns >= WARN_AT && !atLimit && (
           <p className="mb-3 text-xs text-coral-deep">
             Du er tæt på grænsen. Få mere ud af sidste spørgsmål.
           </p>
         )}
-        {atLimit && !completed && (
+        {!isExplain && atLimit && !completed && (
           <div className="mb-3 flex items-center justify-between gap-3 rounded-card bg-blue-tint/60 px-4 py-3 text-sm text-ink">
             <span>Du har nået grænsen for denne opgave. Godt arbejde!</span>
             <button
@@ -143,7 +182,11 @@ export function HintChat({
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Skriv et svar eller et spørgsmål …"
+            placeholder={
+              isExplain
+                ? "Spørg om noget du ikke forstod …"
+                : "Skriv et svar eller et spørgsmål …"
+            }
             disabled={streaming || atLimit || completed}
             className="flex-1 rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-canvas/60"
           />
@@ -160,13 +203,25 @@ export function HintChat({
   )
 }
 
-function Bubble({ role, children }: { role: "user" | "assistant"; children: React.ReactNode }) {
+function Bubble({
+  role,
+  isExplain,
+  children,
+}: {
+  role: "user" | "assistant"
+  isExplain: boolean
+  children: React.ReactNode
+}) {
   const isUser = role === "user"
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[80%] rounded-card px-4 py-3 text-[15px] leading-relaxed ${
-          isUser ? "bg-primary text-white" : "bg-blue-tint/60 text-ink"
+          isUser
+            ? "bg-primary text-white"
+            : isExplain
+              ? "bg-blue-tint/70 text-ink"
+              : "bg-blue-tint/60 text-ink"
         }`}
       >
         {children}

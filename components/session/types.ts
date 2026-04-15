@@ -16,3 +16,5 @@ export type Turn = {
   role: "user" | "assistant"
   content: string
 }
+
+export type HintMode = "explain" | "hint"
