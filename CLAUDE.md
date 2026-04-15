@@ -26,6 +26,44 @@ The website-scanner skills are the source of truth for shared patterns. **Do not
 
 ---
 
+## Product vision — what we're building toward
+
+LektieRo is **indirectly a parent tool**. The child uses it to get through homework; the parent benefits because the load is taken off them. Every design decision should serve two north stars:
+
+1. **The homework gets done.** The flow always points toward task completion, not just conversation.
+2. **The parent gains insight.** What is my child finding hard? How do I help tonight?
+
+### The three layers
+
+| Layer | What it does | Status |
+|---|---|---|
+| **Session** | Photo → understand/stuck choice → Socratic guidance → "Færdig ✓" | Built (mock AI) |
+| **Child profile** | Learns difficulty per subject over time, feeds back into AI prompt | Built (sessions DB pending migration 006) |
+| **Parent layer** | Difficulty heatmap + coaching Q&A for parents | Built |
+
+### Two help modes (core UX)
+After picking a task, the child chooses:
+- **📖 Forstå opgaven** — "I don't know what this task is asking." AI explains the task (concept, approach) without giving the answer. Ends with "Prøv nu selv" or escalate to hints.
+- **💡 Jeg sidder fast** — "I understand it but I'm stuck." Socratic Q&A ladder, max 8 turns.
+
+These map to the two real situations a child is in. No other homework AI product makes this distinction explicitly — it is LektieRo's differentiator.
+
+### Curriculum knowledge base (`lib/curriculum/`)
+Structured by subject × grade (matematik, dansk, engelsk, grades 1–7).
+Each entry: concepts taught, common mistakes, key terms, pedagogical approach tips.
+Injected into every AI prompt via `formatCurriculumForPrompt()`. This is what makes responses curriculum-appropriate rather than generic. **Needs expansion with real teacher input — see teacher interview questions below.**
+
+### Teacher input needed
+When talking to a teacher, ask:
+1. What concepts do students most commonly struggle with at each grade level?
+2. What mistakes do you see repeatedly — and what explanation finally makes it click?
+3. What vocabulary do Danish textbooks use for each concept? (Exact terms matter for kids.)
+4. What does a "good hint" look like for a stuck student? What does a bad one look like?
+5. Are there concepts where the Socratic approach doesn't work well and direct explanation is better?
+6. What do parents most often ask you for help with at home?
+
+---
+
 ## Current state (v1, pre-Azure)
 
 What's actually shipped vs stubbed. Read this first before suggesting any work.
@@ -37,30 +75,40 @@ What's actually shipped vs stubbed. Read this first before suggesting any work.
 - **Auth** — parent email + password via Supabase. Login, signup (invite-gated), forgot-password, set-password welcome step, invite flow via `auth.admin.inviteUserByEmail`. Google OAuth wired but flag-gated off.
 - **Children** — `public.children` table, onboarding form on first dashboard visit (skippable), inline form on Forældre Ro when no kids exist. Captures name, klassetrin, interests, special_needs.
 - **Admin** — `/da/admin` shows waitlist count + recent signups. Sub-tab `/da/admin/emails` shows all email templates with copy-to-clipboard buttons for the Supabase ones.
-- **Mock AI flow** — `/da/parent/dashboard` accepts photo via camera/file/drag-drop/Cmd+V, uploads to `homework-photos` Supabase Storage bucket, then mock `/api/solve` returns canned tasks, mock `/api/hint` streams Socratic ladder. Image upload is real; AI is mocked.
-- **SEO infrastructure** — `/sitemap.xml` with hreflang + XSL stylesheet, `/robots.txt`, `/openapi.json`, `/icon.svg`, `/icon.png`, `/favicon.ico`, dynamic `/opengraph-image`. Branded 404. Scanner denylist + crawler-canonical redirects in `proxy.ts`.
-- **Email infrastructure** — Supabase auth emails route through Resend SMTP (`smtp.resend.com:465`, username `resend`, password = Resend API key). Branded HTML for Confirm signup / Invite / Magic link / Reset password lives in `lib/email/templates.ts` and is rendered on `/da/admin/emails` for one-click copy into Supabase template editor.
-- **Security** — RLS on every table. Admin checks via `public.is_admin()` SECURITY DEFINER function (avoids policy recursion — see migration `004`). HIBP password protection enabled at Supabase. Custom strength indicator on signup + welcome.
+- **AI flow (mock)** — `/da/parent/dashboard` accepts photo via camera/file/drag-drop/Cmd+V, uploads to `homework-photos` Supabase Storage bucket, then mock `/api/solve` returns canned tasks. After task pick → mode selector (explain/hint) → streaming Socratic chat (`/api/hint`). "Færdig ✓" records session. Image upload is real; AI is mocked.
+- **Two-mode help** — ModeSelector after task pick. Explain mode: task orientation without answer. Hint mode: Socratic ladder max 8 turns. Both use `lib/prompts.ts` + curriculum context.
+- **Curriculum knowledge base** — `lib/curriculum/` — matematik, dansk, engelsk grades 1–7. Structured concepts, mistakes, terms, approach tips. Used in every AI prompt.
+- **Session tracking** — `lib/prompts.ts` builds child-aware system prompts. `/api/session` POST/PATCH creates and completes sessions. Difficulty scored 1–5 from turn count.
+- **Parent overview (Forældre Ro)** — real session stats, per-subject difficulty dots per child, recent sessions list, parent coaching Q&A panel (`/api/coach`).
+- **Profile selector** — Netflix-style full-screen. Picks child or parent mode (sentinel cookie). CSS staggered animations. Last-active chip.
+- **Context-aware sidebar** — child mode hides Forældre Ro, shows simplified menu. Parent mode shows full nav.
+- **Dev flow panel** — admin-only ⚙ button bottom-right. Jump to any session stage with mock data. No photo needed for testing.
+- **SEO infrastructure** — `/sitemap.xml` with hreflang + XSL stylesheet, `/robots.txt`, `/openapi.json`, `/icon.svg`, `/icon.png`, `/favicon.ico`, dynamic `/opengraph-image`. Branded 404.
+- **Email infrastructure** — Supabase auth emails route through Resend SMTP. Branded HTML templates in `lib/email/templates.ts`, rendered at `/da/admin/emails`.
+- **Security** — RLS on every table. `is_admin()` SECURITY DEFINER. HIBP password protection. Invite link security fix: sign out before setting invited session.
 
 ### Stubbed / pending
-- **Azure OpenAI** — keys not set yet. `/api/solve` and `/api/hint` return mock data. Swap-in points are isolated to those two route handlers.
-- **Sessions / turns tables** — phase 2 schema not yet migrated. Forældre Ro stats are placeholder zeros.
-- **Parent Coach email** — phase 3, not built.
-- **Multiple children per parent** — schema supports it, dashboard greets only the first child for now (`children[0]`).
+- **Azure OpenAI** — keys not set. `/api/solve` and `/api/hint` return mock data. Swap-in points isolated to those two handlers + `lib/prompts.ts` (system prompts are ready).
+- **Migration 006** — `sessions` + `turns` tables written, not yet applied. Apply in Supabase SQL editor before going live. See `MIGRATION_STATUS.md`.
+- **`/api/solve` DB write** — currently only returns mock JSON. Real version: fetch image from Storage → Azure gpt-4o vision → create session row.
+- **Subject passed to `/api/hint`** — currently hardcoded `"matematik"` in the mock. Real version: pass `solve.subject` from the client.
+- **PIN auth for children** — schema supports it (pin_hash column), route not yet built.
 - **`families` table** — intentionally NOT created. One parent = one family until multi-parent support is needed.
 
 ### Feature flags (env, all default off)
-- `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` — when `"true"`, the "Fortsæt med Google" button on login/signup/welcome becomes clickable. Otherwise shows greyed out with "Kommer snart" pill.
-- `NEXT_PUBLIC_PUBLIC_SIGNUP_ENABLED` — when `"true"`, `/da/signup` no longer requires `?invite=<code>`. Login page's "Har du ikke en konto?" link points at `/signup` instead of waitlist.
-- `EARLY_ACCESS_INVITE_CODE` — secret invite code. Share `/da/signup?invite=<this>` privately for early testers.
-- `DEV_BYPASS_AUTH` — local-only short-circuit. Triple-guarded: `NODE_ENV === "development"` AND `VERCEL_ENV !== "production"` AND env var is `"true"`. Synthetic dev user (`deadbeef-dead-beef-dead-beefdeadbeef`) auto-created in Supabase via `ensureDevUserExists()`.
-- `DEV_USER_ID` / `DEV_USER_EMAIL` — escape hatch when auto-create fails; point at a real user UUID instead.
+- `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` — Google OAuth button visible/clickable.
+- `NEXT_PUBLIC_PUBLIC_SIGNUP_ENABLED` — removes invite requirement from `/da/signup`.
+- `EARLY_ACCESS_INVITE_CODE` — share `/da/signup?invite=<this>` privately.
+- `DEV_BYPASS_AUTH` — local-only auth short-circuit. Triple-guarded.
+- `DEV_USER_ID` / `DEV_USER_EMAIL` — manual dev user override.
 
 ### Migrations applied (track in `MIGRATION_STATUS.md`)
 - `001_initial.sql` — `profiles`, `waitlist`, `user_role` enum, signup trigger, base RLS
 - `002_children.sql` — `children` table + RLS
 - `003_children_profile.sql` — `children.interests` + `children.special_needs` columns
-- `004_admin_rls_fix.sql` — **CRITICAL** — `is_admin()` SECURITY DEFINER function. Without this, recursion in admin-read policies makes `profiles.role` queries fail silently and admin promotion appears to no-op.
+- `004_admin_rls_fix.sql` — **CRITICAL** — `is_admin()` SECURITY DEFINER function
+- `005_subscription_tier.sql` — `subscription_tier` on profiles
+- `006_sessions_turns.sql` — **PENDING** — sessions + turns tables
 
 ### Routing reference
 - `/` → 307 → `/da`
@@ -68,15 +116,19 @@ What's actually shipped vs stubbed. Read this first before suggesting any work.
 - `/da/{faq,pricing,privacy,terms}` — public
 - `/da/login`, `/da/signup`, `/da/welcome` — auth (no sidebar, centred)
 - `/da/parent/{dashboard,overview}` — protected, parent shell with sidebar
+- `/da/parent/profiles` — Netflix profile selector (full-screen, no sidebar)
+- `/da/parent/onboarding` — first-run onboarding wizard (full-screen)
 - `/da/admin`, `/da/admin/emails` — protected, admin-only
 - `/auth/callback` — server route (PKCE / OTP verify / session-based)
 - `/auth/complete` — client page (extracts implicit-flow fragment, calls `setSession`)
-- `/api/{waitlist,children,upload-url,solve,hint,admin/users}` — REST endpoints
+- `/api/{waitlist,children,upload-url,solve,hint,session,coach,admin/users}` — REST endpoints
 
 ### One-screen redirects (always preserved across flows)
 - Unauthed protected route → `/login`
 - Authed at `/login` → `/parent/dashboard`
 - Authed but `passwordSet=false` → `/welcome?next=...`
+- No children → `/parent/onboarding`
+- No profile selection cookie → `/parent/profiles`
 - Invite link click → Supabase verify → `/auth/callback` → `/auth/complete` → `/welcome` → `/parent/dashboard`
 
 ---
