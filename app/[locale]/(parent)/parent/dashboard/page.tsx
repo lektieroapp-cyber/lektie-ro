@@ -66,7 +66,7 @@ export default async function ParentDashboard({
       </header>
 
       <section className="mt-10">
-        <SessionFlow />
+        <SessionFlow isAdmin={user.role === "admin"} />
       </section>
     </>
   )

@@ -20,7 +20,20 @@ const EXT_FROM_TYPE: Record<string, string> = {
   "image/heif": "heif",
 }
 
-export function SessionFlow() {
+// Deterministic mock data used by the dev panel.
+const DEV_SOLVE: SolveResponse = {
+  sessionId: "dev-session-0000",
+  subject: "matematik",
+  grade: 4,
+  tasks: [
+    { id: "t1", text: "Regn ud: 7 × 8", type: "multiplication" },
+    { id: "t2", text: "Hvad er halvdelen af 56?", type: "division" },
+  ],
+  mocked: true,
+}
+const DEV_TASK: Task = DEV_SOLVE.tasks[0]
+
+export function SessionFlow({ isAdmin = false }: { isAdmin?: boolean }) {
   const [stage, setStage] = useState<Stage>("idle")
   const [solve, setSolve] = useState<SolveResponse | null>(null)
   const [task, setTask] = useState<Task | null>(null)
@@ -112,8 +125,30 @@ export function SessionFlow() {
     if (fileRef.current) fileRef.current.value = ""
   }
 
+  // Dev panel: jump to a stage, injecting mock data as needed.
+  function devJump(target: Stage, opts?: { mode?: HintMode }) {
+    setError(null)
+    setPreviewUrl(null)
+    setImagePath(null)
+
+    const needsSolve = ["pick", "mode", "hint", "done"].includes(target)
+    const needsTask = ["mode", "hint", "done"].includes(target)
+    const needsMode = ["hint", "done"].includes(target)
+
+    if (needsSolve) setSolve(DEV_SOLVE)
+    else setSolve(null)
+
+    if (needsTask) setTask(DEV_TASK)
+    else setTask(null)
+
+    const targetMode = opts?.mode ?? (needsMode ? "hint" : null)
+    setMode(targetMode)
+    setTurns([])
+    setStage(target)
+  }
+
   return (
-    <>
+    <div className="relative">
       {stage === "idle" && (
         <ScanPanel
           onSelect={() => fileRef.current?.click()}
@@ -173,6 +208,76 @@ export function SessionFlow() {
           if (f) onFile(f)
         }}
       />
-    </>
+
+      {isAdmin && (
+        <DevPanel currentStage={stage} onJump={devJump} />
+      )}
+    </div>
+  )
+}
+
+// ─── Dev panel ───────────────────────────────────────────────────────────────
+
+const STAGES: { label: string; stage: Stage; opts?: { mode?: HintMode } }[] = [
+  { label: "📷 Scan",        stage: "idle" },
+  { label: "⏳ Uploading",  stage: "uploading" },
+  { label: "🔍 Thinking",   stage: "thinking" },
+  { label: "📋 Pick task",  stage: "pick" },
+  { label: "🎯 Mode pick",  stage: "mode" },
+  { label: "📖 Explain",    stage: "hint", opts: { mode: "explain" } },
+  { label: "💡 Hint",       stage: "hint", opts: { mode: "hint" } },
+  { label: "✅ Done",        stage: "done", opts: { mode: "hint" } },
+]
+
+function DevPanel({
+  currentStage,
+  onJump,
+}: {
+  currentStage: Stage
+  onJump: (stage: Stage, opts?: { mode?: HintMode }) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+      {open && (
+        <div
+          className="rounded-card border border-coral-deep/25 bg-white p-3 shadow-xl"
+          style={{ minWidth: 190 }}
+        >
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
+            Dev — jump to stage
+          </p>
+          <div className="flex flex-col gap-1">
+            {STAGES.map(({ label, stage, opts }) => {
+              const active = currentStage === stage
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => onJump(stage, opts)}
+                  className={`rounded-lg px-3 py-1.5 text-left text-[13px] font-medium transition ${
+                    active
+                      ? "bg-coral-deep/10 text-coral-deep"
+                      : "text-ink hover:bg-canvas"
+                  }`}
+                >
+                  {label}
+                  {active && <span className="ml-1 text-[11px] opacity-60">← current</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-coral-deep text-white shadow-lg transition hover:bg-coral-deep/80 focus:outline-none focus:ring-2 focus:ring-coral-deep/40"
+        title="Dev flow panel"
+      >
+        <span className="text-sm">{open ? "✕" : "⚙"}</span>
+      </button>
+    </div>
   )
 }
