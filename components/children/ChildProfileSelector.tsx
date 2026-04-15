@@ -96,7 +96,8 @@ export function ChildProfileSelector({
   function selectChild(id: string) {
     const maxAge = 60 * 60 * 24 * 365
     document.cookie = `lr_active_child=${id}; path=/; max-age=${maxAge}; samesite=lax`
-    router.push(dashboardHref)
+    // Full navigation so the server reads the fresh cookie instead of a cached RSC payload.
+    window.location.href = dashboardHref
   }
 
   function selectParent() {
@@ -104,7 +105,7 @@ export function ChildProfileSelector({
     // (empty/missing cookie = not yet chosen, "parent" = chose parent view).
     const maxAge = 60 * 60 * 24 * 365
     document.cookie = `lr_active_child=parent; path=/; max-age=${maxAge}; samesite=lax`
-    router.push(overviewHref)
+    window.location.href = overviewHref
   }
 
   const showAdd = children.length < 4
