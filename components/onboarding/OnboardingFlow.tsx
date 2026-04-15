@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+
 import { type Locale } from "@/lib/i18n/config"
 import { Select } from "@/components/ui/Select"
 import { AvatarButton, AvatarPickerModal } from "@/components/children/AvatarPicker"
@@ -20,18 +21,18 @@ export function OnboardingFlow({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       {/* Logo */}
-      <a href={`/${locale}`} className="mb-10 block">
+      <a href={`/${locale}`} className="animate-fade-in mb-10 block">
         <img src="/logo_with_text.png" alt="LektieRo" className="h-8 w-auto" />
       </a>
 
       {/* Step indicator */}
-      <div className="mb-8 flex items-center gap-2">
+      <div className="animate-fade-in mb-8 flex items-center gap-2" style={{ animationDelay: "60ms" }}>
         <StepDot active={step === "welcome"} done={step === "child"} label="1" />
         <div className="h-px w-8 bg-ink/15" />
         <StepDot active={step === "child"} done={false} label="2" />
       </div>
 
-      <div className="w-full max-w-md">
+      <div className="animate-fade-up w-full max-w-md" style={{ animationDelay: "120ms" }}>
         {step === "welcome" && (
           <WelcomeStep firstName={firstName} onNext={() => setStep("child")} />
         )}

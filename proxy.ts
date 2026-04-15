@@ -154,8 +154,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && isAuthPage) {
+    // Redirect to dashboard — it handles all routing logic from there:
+    // no children → onboarding, no active cookie → profiles, otherwise → dashboard.
     return withRefreshedCookies(
-      NextResponse.redirect(new URL(`/${locale}/parent/profiles`, request.url)),
+      NextResponse.redirect(new URL(`/${locale}/parent/dashboard`, request.url)),
       response
     )
   }
