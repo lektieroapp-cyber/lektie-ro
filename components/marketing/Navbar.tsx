@@ -22,7 +22,7 @@ export async function Navbar({ locale }: { locale: Locale }) {
 
   return (
     <header className="w-full">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-5 md:px-6 md:py-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-2 md:px-6 md:py-3">
         <Link href={`/${locale}`} className="inline-flex items-center">
           <Logo size="md" />
         </Link>

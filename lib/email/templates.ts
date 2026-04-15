@@ -60,7 +60,7 @@ ${preheader ? `<span style="display:none;visibility:hidden;opacity:0;color:trans
       <tr><td style="padding:20px 40px;border-top:1px solid rgba(30,42,58,0.06);font-size:12px;color:${BRAND.muted};line-height:1.6;">
         ${recipient ? `Sendt til <strong style="color:${BRAND.ink};">${recipient}</strong>.<br>` : ""}
         LektieRo ApS · <a href="https://lektiero.dk" style="color:${BRAND.blueSoft};text-decoration:none;">lektiero.dk</a> · <a href="https://lektiero.dk/da/privacy" style="color:${BRAND.blueSoft};text-decoration:none;">Privatlivspolitik</a><br>
-        Har du spørgsmål? Svar direkte på denne mail, eller skriv til <a href="mailto:support@lektiero.dk" style="color:${BRAND.blueSoft};text-decoration:none;">support@lektiero.dk</a>.
+        Har du spørgsmål? Skriv til <a href="mailto:marcuz@lektiero.dk" style="color:${BRAND.blueSoft};text-decoration:none;">marcuz@lektiero.dk</a>.
       </td></tr>
     </table>
   </td></tr>
@@ -157,24 +157,61 @@ const welcomeHtml = () =>
     </p>
     ${ctaButton("https://lektiero.dk/da/parent/dashboard", "Gå til dashboard")}
     <p style="font-size:14px;color:${BRAND.muted};line-height:1.6;margin:0;">
-      Spørgsmål? Skriv til <a href="mailto:support@lektiero.dk" style="color:${BRAND.blueSoft};">support@lektiero.dk</a>.
+      Spørgsmål? Skriv til <a href="mailto:marcuz@lektiero.dk" style="color:${BRAND.blueSoft};">marcuz@lektiero.dk</a>.
     </p>`,
     "Velkommen. Her er hvordan du kommer i gang."
   )
 
 const waitlistHtml = () =>
   shell(
-    `<h1 style="font-family:Georgia,serif;font-size:28px;line-height:1.2;margin:0 0 16px;color:${BRAND.ink};">
-      Tak! Du er på listen.
+    `<h1 style="font-family:Georgia,serif;font-size:26px;line-height:1.25;margin:0 0 16px;color:${BRAND.ink};">
+      Din plads på ventelisten er bekræftet
     </h1>
     <p style="font-size:16px;line-height:1.6;margin:0 0 16px;color:${BRAND.ink};">
-      Vi kontakter dig så snart der er en plads til jeres familie. Første bølge forældre får 7 dages gratis prøveperiode.
+      Tusind tak fordi du har valgt at skrive dig op til LektieRo. Vi er utrolig glade for, at du vil med på rejsen mod en hverdag med mere nærvær og mindre lektiekonflikt.
     </p>
-    <p style="font-size:14px;color:${BRAND.muted};margin:24px 0 0;line-height:1.6;">
-      Imens: læs mere om hvordan vi guider børn gennem lektierne uden at give facit på
-      <a href="https://lektiero.dk/da/faq" style="color:${BRAND.blueSoft};">vores FAQ</a>.
+    <p style="font-size:16px;line-height:1.6;margin:0 0 24px;color:${BRAND.ink};">
+      Vi ved, hvor meget det betyder at kunne lægge dagens skolearbejde bag sig med ro i maven, så eftermiddagene i stedet kan bruges på det, der virkelig tæller: tid sammen som familie.
+    </p>
+
+    <p style="font-size:15px;font-weight:700;margin:0 0 12px;color:${BRAND.ink};">Hvad sker der nu?</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;color:${BRAND.ink};">
+      Vi arbejder på højtryk for at gøre alt klar. Som tak for din tålmodighed og tidlige interesse har vi reserveret følgende til dig:
+    </p>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px;">
+      <tr>
+        <td style="background:${BRAND.blueTint};border-radius:16px;padding:20px 24px;">
+          <p style="font-size:14px;font-weight:700;color:${BRAND.coralDeep};margin:0 0 4px;">
+            ✓ &nbsp;Prioriteret adgang
+          </p>
+          <p style="font-size:14px;line-height:1.5;color:${BRAND.ink};margin:0 0 16px;">
+            Du får besked direkte i din indbakke, så snart vi åbner dørene.
+          </p>
+          <p style="font-size:14px;font-weight:700;color:${BRAND.coralDeep};margin:0 0 4px;">
+            ✓ &nbsp;7 dages gratis prøveperiode
+          </p>
+          <p style="font-size:14px;line-height:1.5;color:${BRAND.ink};margin:0;">
+            Du kan teste hele universet i ro og mag sammen med dit barn.
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size:15px;font-weight:700;margin:0 0 10px;color:${BRAND.ink};">Vores løfte til dig og dit barn</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 28px;color:${BRAND.ink};">
+      I LektieRo giver vi aldrig bare facit. Vores AI fungerer som en pædagogisk guide, der hjælper dit barn med at forstå metoderne bag opgaverne. Vi taler barnets sprog og tilpasser hjælpen til deres interesser, så mestringsfølelsen og selvtilliden vokser for hver opgave.
+    </p>
+
+    <p style="font-size:16px;line-height:1.6;margin:0 0 24px;color:${BRAND.ink};">
+      Vi glæder os helt vildt til at byde dig og din familie rigtigt velkommen indenfor.
+    </p>
+
+    <p style="font-size:15px;line-height:1.6;margin:0;color:${BRAND.muted};">
+      De bedste hilsner,<br>
+      <strong style="color:${BRAND.ink};">Marcuz, Louise &amp; Team LektieRo</strong>
     </p>`,
-    "Du er nu skrevet op til LektieRo's tidlige adgang."
+    "Din plads på ventelisten er bekræftet — vi glæder os til at byde dig velkommen."
   )
 
 // ─── Registry ────────────────────────────────────────────────────────────────
@@ -238,9 +275,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     id: "lektiero-waitlist",
     name: "Venteliste-bekræftelse",
     description: "Sendes når en besøgende har skrevet sig på ventelisten.",
-    subject: "Du er skrevet op til LektieRo",
+    subject: "Velkommen til LektieRo – Din plads på ventelisten er bekræftet",
     owner: "lektiero",
-    status: "planned",
+    status: "live",
     preview: waitlistHtml,
     trigger: "POST /api/waitlist (efter succesfuld insert)",
   },

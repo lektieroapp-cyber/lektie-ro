@@ -11,9 +11,27 @@ export type WaitlistRow = {
 
 type Filter = "all" | "waiting" | "joined"
 
-export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
+export function WaitlistTable({ rows: initial }: { rows: WaitlistRow[] }) {
+  const [rows, setRows] = useState(initial)
   const [filter, setFilter] = useState<Filter>("all")
   const [query, setQuery] = useState("")
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  async function handleDelete(email: string) {
+    if (!confirm(`Fjern ${email} fra ventelisten?`)) return
+    setDeleting(email)
+    const res = await fetch("/api/admin/waitlist", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+    if (res.ok) {
+      setRows(r => r.filter(w => w.email !== email))
+    } else {
+      alert("Sletning fejlede. Prøv igen.")
+    }
+    setDeleting(null)
+  }
 
   const counts = useMemo(() => {
     const joined = rows.filter(r => r.hasAccount).length
@@ -64,6 +82,7 @@ export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
               <th className="px-5 py-3 font-medium">Status</th>
               <th className="px-5 py-3 font-medium">Sprog</th>
               <th className="px-5 py-3 font-medium">Tilmeldt</th>
+              <th className="px-5 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -85,11 +104,21 @@ export function WaitlistTable({ rows }: { rows: WaitlistRow[] }) {
                 <td className="px-5 py-3 text-muted">
                   {new Date(row.created_at).toLocaleString("da-DK")}
                 </td>
+                <td className="px-5 py-3">
+                  <button
+                    type="button"
+                    disabled={deleting === row.email}
+                    onClick={() => handleDelete(row.email)}
+                    className="cursor-pointer text-[12px] font-medium text-muted transition hover:text-coral-deep disabled:opacity-40"
+                  >
+                    {deleting === row.email ? "…" : "Fjern"}
+                  </button>
+                </td>
               </tr>
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-muted">
+                <td colSpan={5} className="px-5 py-8 text-center text-muted">
                   Ingen tilmeldinger matcher.
                 </td>
               </tr>

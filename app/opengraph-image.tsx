@@ -19,25 +19,21 @@ export default function Image() {
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 36,
-              background: "rgba(216, 92, 72, 0.12)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="#D85C48">
-              <path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10z" />
-            </svg>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          {/* Two-figure mark — viewBox crops local coords x=39–148, y=23–148 */}
+          <svg width="54" height="62" viewBox="39 23 109 125">
+            <ellipse cx="66" cy="108" rx="26" ry="44"
+                     transform="rotate(-13 66 108)" fill="#E98873"/>
+            <ellipse cx="126" cy="94" rx="21" ry="37"
+                     transform="rotate(13 126 94)" fill="#7AAEC8"/>
+            <path d="M100,114 L72,122 L74,146 C82,152 92,154 100,148Z" fill="#2E3E56"/>
+            <path d="M100,114 L128,122 L126,146 C118,152 108,154 100,148Z" fill="#2E3E56"/>
+            <circle cx="70" cy="44" r="21" fill="#E98873"/>
+            <circle cx="122" cy="41" r="17" fill="#7AAEC8"/>
+          </svg>
           <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: "#1E2A3A" }}>
             <span>Lektie</span>
-            <span style={{ color: "#D85C48" }}>Ro</span>
+            <span style={{ color: "#E98873" }}>Ro</span>
           </div>
         </div>
 

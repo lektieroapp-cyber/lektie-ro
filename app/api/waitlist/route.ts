@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { addToAudience } from "@/lib/email"
+import { addToAudience, sendTransactional } from "@/lib/email"
+import { getTemplateById } from "@/lib/email/templates"
 import { locales } from "@/lib/i18n/config"
 
 const schema = z.object({
@@ -40,6 +41,11 @@ export async function POST(request: NextRequest) {
   }
 
   await addToAudience(email, { locale })
+
+  const tpl = getTemplateById("lektiero-waitlist")
+  if (tpl?.preview) {
+    await sendTransactional(email, tpl.subject, tpl.preview())
+  }
 
   return NextResponse.json({ ok: true }, { status: 200 })
 }

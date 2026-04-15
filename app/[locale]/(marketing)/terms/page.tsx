@@ -198,8 +198,8 @@ export default async function TermsPage({
         <Section title="11. Klager og tvister">
           <p>
             Har du en klage, kan du kontakte os på{" "}
-            <a href="mailto:support@lektiero.dk" className="text-blue-soft underline">
-              support@lektiero.dk
+            <a href="mailto:marcuz@lektiero.dk" className="text-blue-soft underline">
+              marcuz@lektiero.dk
             </a>
             . Vi forsøger at løse alle klager inden for rimelig tid.
           </p>
@@ -244,8 +244,8 @@ export default async function TermsPage({
             [Adresse]
             <br />
             E-mail:{" "}
-            <a href="mailto:hello@lektiero.dk" className="text-blue-soft underline">
-              hello@lektiero.dk
+            <a href="mailto:marcuz@lektiero.dk" className="text-blue-soft underline">
+              marcuz@lektiero.dk
             </a>
           </p>
         </Section>

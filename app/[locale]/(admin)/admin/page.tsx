@@ -64,6 +64,7 @@ export default async function AdminPage({
       <AdminSubNav
         items={[
           { href: localePath(locale, "admin"), label: "Oversigt" },
+          { href: `/${locale}/admin/users`, label: "Brugere" },
           { href: `/${locale}/admin/emails`, label: "Emails" },
         ]}
       />

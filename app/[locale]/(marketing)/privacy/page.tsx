@@ -49,8 +49,8 @@ export default async function PrivacyPage({
             [Adresse]
             <br />
             E-mail:{" "}
-            <a href="mailto:privacy@lektiero.dk" className="text-blue-soft underline">
-              privacy@lektiero.dk
+            <a href="mailto:marcuz@lektiero.dk" className="text-blue-soft underline">
+              marcuz@lektiero.dk
             </a>
           </p>
           <p className="mt-3">
@@ -203,8 +203,8 @@ export default async function PrivacyPage({
           <p className="mt-3 text-sm">
             Ønsker du sletning af specifikke data før det sker automatisk, kan
             du skrive til{" "}
-            <a href="mailto:privacy@lektiero.dk" className="text-blue-soft underline">
-              privacy@lektiero.dk
+            <a href="mailto:marcuz@lektiero.dk" className="text-blue-soft underline">
+              marcuz@lektiero.dk
             </a>
             .
           </p>
@@ -242,8 +242,8 @@ export default async function PrivacyPage({
           </ul>
           <p className="mt-3">
             Rettighederne udøves ved at skrive til{" "}
-            <a href="mailto:privacy@lektiero.dk" className="text-blue-soft underline">
-              privacy@lektiero.dk
+            <a href="mailto:marcuz@lektiero.dk" className="text-blue-soft underline">
+              marcuz@lektiero.dk
             </a>
             . For børn udøves rettighederne af forælderen som indehaver af
             forældremyndigheden.
