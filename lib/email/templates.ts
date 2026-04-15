@@ -53,8 +53,8 @@ ${preheader ? `<span style="display:none;visibility:hidden;opacity:0;color:trans
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.canvas};padding:40px 16px;">
   <tr><td align="center">
     <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;box-shadow:0 8px 24px rgba(30,42,58,0.06);overflow:hidden;">
-      <tr><td style="padding:32px 40px 16px;font-size:22px;font-weight:700;letter-spacing:-0.01em;color:${BRAND.ink};">
-        Lektie<span style="color:${BRAND.coralDeep};">Ro</span>
+      <tr><td style="padding:28px 40px 16px;">
+        <img src="https://lektiero.dk/logo_with_text.png" alt="LektieRo" width="140" style="display:block;height:auto;border:0;">
       </td></tr>
       <tr><td style="padding:16px 40px 32px;">${content}</td></tr>
       <tr><td style="padding:20px 40px;border-top:1px solid rgba(30,42,58,0.06);font-size:12px;color:${BRAND.muted};line-height:1.6;">

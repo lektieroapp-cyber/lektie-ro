@@ -390,7 +390,7 @@ DEV_BYPASS_AUTH=true             # local only — see lib/dev-user.ts
 
 # Email
 RESEND_API_KEY
-RESEND_FROM_EMAIL                # hello@lektiero.dk after domain verify
+RESEND_FROM_EMAIL                # info@lektiero.dk (alias on marcuz@lektiero.dk in Zoho)
 
 # Analytics
 NEXT_PUBLIC_POSTHOG_KEY

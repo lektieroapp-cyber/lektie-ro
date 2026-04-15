@@ -29,7 +29,7 @@ Work through this top to bottom. Boxes on the left; tick when done.
   - [ x] `SUPABASE_SERVICE_ROLE_KEY` — service_role key (**server-only, never commit**)
   - [ x] `NEXT_PUBLIC_SITE_URL` — `http://localhost:3000`
   - [ x] `RESEND_API_KEY` — from Resend dashboard (optional for local — waitlist still works without it, just skips the audience add)
-  - [ x] `RESEND_FROM_EMAIL` — defaults to `hello@lektiero.dk`
+  - [ x] `RESEND_FROM_EMAIL` — defaults to `info@lektiero.dk`
   - [ x] `RESEND_AUDIENCE_ID` — create an audience in Resend → copy the ID (optional)
 
 ## 3. Resend (optional but recommended)

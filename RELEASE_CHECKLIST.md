@@ -10,7 +10,7 @@ Run through this top to bottom before pointing DNS at production. Tick as you go
   - [ ] `[Virksomhedsnavn indsættes]` → real ApS / IVS name
   - [ ] `[CVR-nummer]` → 8-digit CVR
   - [ ] `[Adresse]` → registered address
-- [ ] **Email forwarding live** for `privacy@lektiero.dk`, `support@lektiero.dk`, `hello@lektiero.dk` (these addresses are referenced in privacy/terms — they must reach a real inbox)
+- [ ] **Email alias live** for `info@lektiero.dk` → `marcuz@lektiero.dk` in Zoho (used as Resend sender)
 - [ ] **Migration applied to prod Supabase** (`supabase/migrations/001_initial.sql`) — verify `public.profiles` and `public.waitlist` exist with RLS enabled
 - [ ] **Supabase Auth** Site URL + redirect URLs include `https://lektiero.dk/**` and `https://lektiero.dk/auth/callback`
 - [ ] **Vercel env vars (Production)** all set per `.env.local.example` Phase 1 block:

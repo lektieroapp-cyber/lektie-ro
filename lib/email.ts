@@ -1,7 +1,7 @@
 import { Resend } from "resend"
 
 const apiKey = process.env.RESEND_API_KEY
-const FROM = process.env.RESEND_FROM_EMAIL || "noreply@lektiero.dk"
+const FROM = process.env.RESEND_FROM_EMAIL || "info@lektiero.dk"
 const AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID || ""
 
 function getClient(): Resend | null {
@@ -28,8 +28,11 @@ export async function sendTransactional(to: string, subject: string, html: strin
   const client = getClient()
   if (!client) return
   try {
-    await client.emails.send({ from: FROM, to, subject, html })
-  } catch {
-    // Swallow — don't block the request path on email failure.
+    const result = await client.emails.send({ from: FROM, to, subject, html })
+    if ("error" in result && result.error) {
+      console.error("[email] send failed:", result.error)
+    }
+  } catch (err) {
+    console.error("[email] send threw:", err)
   }
 }
