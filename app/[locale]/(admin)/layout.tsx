@@ -23,7 +23,7 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-blue-tint/30 md:h-screen md:min-h-0 md:flex-row md:overflow-hidden">
-      <Sidebar locale={locale} isAdmin />
+      <Sidebar locale={locale} isAdmin email={user.email ?? ""} />
       <main className="flex-1 overflow-x-hidden md:overflow-y-auto">
         {DEV_BYPASS_AUTH && (
           <div className="bg-amber-pill px-4 py-2 text-center text-xs font-medium text-ink">

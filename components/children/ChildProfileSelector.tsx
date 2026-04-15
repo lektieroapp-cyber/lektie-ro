@@ -56,9 +56,7 @@ export function ChildProfileSelector({
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6 py-16"
-      style={{ background: "var(--color-canvas)" }}
-    >
+    <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 py-16">
       <h1
         className="text-3xl font-bold text-ink md:text-4xl"
         style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}

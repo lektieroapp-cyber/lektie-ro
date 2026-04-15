@@ -27,7 +27,7 @@ export default async function ParentLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-blue-tint/30 md:h-screen md:min-h-0 md:flex-row md:overflow-hidden">
-      <Sidebar locale={locale} isAdmin={isAdmin} />
+      <Sidebar locale={locale} isAdmin={isAdmin} email={user.email ?? ""} />
       <main className="flex-1 overflow-x-hidden md:overflow-y-auto">
         {DEV_BYPASS_AUTH && <DevBanner />}
         <div className="mx-auto w-full max-w-5xl px-5 py-8 md:px-10 md:py-12">

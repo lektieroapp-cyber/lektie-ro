@@ -45,7 +45,8 @@ export default async function ParentDashboard({
     )
   }
 
-  const activeChild = children[0]
+  const activeChildId = cookieStore.get("lr_active_child")?.value
+  const activeChild = (activeChildId && children.find(c => c.id === activeChildId)) || children[0]
   const greetingName = activeChild?.name || user.displayName
   const avatar = activeChild?.avatar_emoji
 

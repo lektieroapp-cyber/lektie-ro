@@ -3,8 +3,8 @@ import { getMessages } from "@/lib/i18n/getMessages"
 import { localePath } from "@/lib/i18n/routes"
 import { Logo } from "@/components/marketing/Logo"
 import { NavLink } from "./NavLink"
-import { LogoutButton } from "@/components/auth/LogoutButton"
 import { MobileNav } from "./MobileNav"
+import { AccountMenu } from "./AccountMenu"
 
 const HomeIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -12,10 +12,12 @@ const HomeIcon = (
   </svg>
 )
 
-const GearIcon = (
+const OverviewIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
   </svg>
 )
 
@@ -26,28 +28,20 @@ const ShieldIcon = (
   </svg>
 )
 
-const PersonIcon = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="8" r="4" />
-    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-  </svg>
-)
-
-const LogoutIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
-)
-
-export function Sidebar({ locale, isAdmin }: { locale: Locale; isAdmin: boolean }) {
+export function Sidebar({
+  locale,
+  isAdmin,
+  email,
+}: {
+  locale: Locale
+  isAdmin: boolean
+  email: string
+}) {
   const m = getMessages(locale)
 
   const userItems = [
     { href: localePath(locale, "parentDashboard"), icon: HomeIcon, label: m.app.nav.dashboard },
-    { href: localePath(locale, "parentOverview"), icon: GearIcon, label: m.app.nav.overview },
-    { href: localePath(locale, "parentSettings"), icon: PersonIcon, label: m.app.nav.settings },
+    { href: localePath(locale, "parentOverview"), icon: OverviewIcon, label: m.app.nav.overview },
   ]
   const adminItem = {
     href: localePath(locale, "admin"),
@@ -57,18 +51,17 @@ export function Sidebar({ locale, isAdmin }: { locale: Locale; isAdmin: boolean 
 
   return (
     <>
-      {/* Mobile: top bar with logo + hamburger → slide-in drawer. */}
       <MobileNav
         locale={locale}
         items={userItems}
         adminItem={isAdmin ? adminItem : null}
-        logoutLabel={m.parent.logout}
+        settingsHref={localePath(locale, "parentSettings")}
+        email={email}
         brandTagline={m.app.sidebarTagline}
         adminSectionLabel={m.app.adminSection}
       />
 
-      {/* Desktop: full vertical sidebar. */}
-      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-ink/10 bg-white px-4 py-6 md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-ink/10 bg-white px-3 py-6 md:flex">
         <div className="px-3 py-2">
           <div className="flex justify-center">
             <Logo size="sm" />
@@ -103,8 +96,12 @@ export function Sidebar({ locale, isAdmin }: { locale: Locale; isAdmin: boolean 
           </div>
         )}
 
-        <div className="mt-auto">
-          <LogoutButton locale={locale} label={m.parent.logout} icon={LogoutIcon} />
+        <div className="mt-auto pt-4 border-t border-ink/8">
+          <AccountMenu
+            email={email}
+            settingsHref={localePath(locale, "parentSettings")}
+            locale={locale}
+          />
         </div>
       </aside>
     </>
