@@ -30,6 +30,7 @@ export default async function AdminUsersPage({
     id: u.id,
     email: u.email ?? "—",
     role: profileMap.get(u.id) ?? "parent",
+    subscription: "free",
     hasKid: parentsWithKids.has(u.id),
     createdAt: u.created_at,
     lastSignIn: u.last_sign_in_at ?? null,

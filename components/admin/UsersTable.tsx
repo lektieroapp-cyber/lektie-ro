@@ -6,6 +6,7 @@ export type UserRow = {
   id: string
   email: string
   role: "parent" | "admin"
+  subscription: "free"
   hasKid: boolean
   createdAt: string
   lastSignIn: string | null
@@ -14,11 +15,27 @@ export type UserRow = {
 export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
   const [rows, setRows] = useState(initial)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null)
   const [query, setQuery] = useState("")
 
   const visible = query.trim()
     ? rows.filter(u => u.email.toLowerCase().includes(query.trim().toLowerCase()))
     : rows
+
+  async function handleRoleChange(id: string, role: "parent" | "admin") {
+    setUpdatingRole(id)
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    })
+    if (res.ok) {
+      setRows(r => r.map(u => u.id === id ? { ...u, role } : u))
+    } else {
+      alert("Rolleændring fejlede. Prøv igen.")
+    }
+    setUpdatingRole(null)
+  }
 
   async function handleDelete(id: string, email: string) {
     if (!confirm(`Slet brugeren ${email}?\n\nDette sletter kontoen og alle tilknyttede data. Kan ikke fortrydes.`)) return
@@ -53,6 +70,7 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
             <tr>
               <th className="px-5 py-3 font-medium">Email</th>
               <th className="px-5 py-3 font-medium">Rolle</th>
+              <th className="px-5 py-3 font-medium">Abonnement</th>
               <th className="px-5 py-3 font-medium">Barn oprettet</th>
               <th className="px-5 py-3 font-medium">Tilmeldt</th>
               <th className="px-5 py-3 font-medium">Sidst aktiv</th>
@@ -64,13 +82,20 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
               <tr key={u.id} className="border-t border-ink/5">
                 <td className="px-5 py-3 text-ink">{u.email}</td>
                 <td className="px-5 py-3">
-                  {u.role === "admin" ? (
-                    <span className="inline-flex rounded-chip bg-coral-deep/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-coral-deep">
-                      Admin
-                    </span>
-                  ) : (
-                    <span className="text-muted">Forælder</span>
-                  )}
+                  <select
+                    value={u.role}
+                    disabled={updatingRole === u.id}
+                    onChange={e => handleRoleChange(u.id, e.target.value as "parent" | "admin")}
+                    className="cursor-pointer rounded-md border border-ink/15 bg-white px-2 py-1 text-[13px] text-ink focus:border-primary focus:outline-none disabled:opacity-40"
+                  >
+                    <option value="parent">Forælder</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </td>
+                <td className="px-5 py-3">
+                  <span className="inline-flex rounded-chip bg-ink/5 px-2.5 py-0.5 text-[11px] font-medium text-muted">
+                    Gratis
+                  </span>
                 </td>
                 <td className="px-5 py-3">
                   {u.hasKid ? (
@@ -101,7 +126,7 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-muted">
+                <td colSpan={7} className="px-5 py-8 text-center text-muted">
                   Ingen brugere matcher.
                 </td>
               </tr>

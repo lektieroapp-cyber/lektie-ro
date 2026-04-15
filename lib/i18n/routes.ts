@@ -16,7 +16,9 @@ const SHARED_SLUGS = {
   login: "login",
   signup: "signup",
   parentDashboard: "parent/dashboard",
+  parentProfiles: "parent/profiles",
   parentOverview: "parent/overview",
+  parentSettings: "parent/settings",
   admin: "admin",
 } as const
 

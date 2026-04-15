@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation"
 import daMessages from "@/messages/da.json"
 import { type Locale } from "@/lib/i18n/config"
 import { Select } from "@/components/ui/Select"
+import { AvatarPicker } from "@/components/children/AvatarPicker"
 
 const MESSAGES: Record<Locale, typeof daMessages> = { da: daMessages }
 
-// `showSkip=true` on first-run dashboard only. On the Forældre Ro "add a
-// child" page we hide it because the user has already committed to adding.
 export function OnboardingForm({
   locale,
   showSkip = false,
@@ -20,6 +19,7 @@ export function OnboardingForm({
   const m = MESSAGES[locale].onboarding
   const router = useRouter()
 
+  const [avatar, setAvatar] = useState("🦁")
   const [name, setName] = useState("")
   const [grade, setGrade] = useState<number | "">("")
   const [interests, setInterests] = useState("")
@@ -42,6 +42,7 @@ export function OnboardingForm({
       body: JSON.stringify({
         name: name.trim(),
         grade,
+        avatar_emoji: avatar,
         interests: interests.trim() || undefined,
         special_needs: specialNeeds.trim() || undefined,
       }),
@@ -67,6 +68,16 @@ export function OnboardingForm({
       <p className="mt-2 text-sm text-muted">{m.subtitle}</p>
 
       <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-ink">{m.avatarLabel}</label>
+          <div className="flex items-center gap-4">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-blue-tint text-3xl">
+              {avatar}
+            </span>
+            <AvatarPicker value={avatar} onChange={setAvatar} />
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <label htmlFor="child-name" className="text-sm font-semibold text-ink">
             {m.nameLabel}
@@ -139,7 +150,7 @@ export function OnboardingForm({
         <button
           type="submit"
           disabled={status === "submitting" || !name.trim() || grade === ""}
-          className="mt-2 w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+          className="mt-2 w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60 cursor-pointer"
         >
           {status === "submitting" ? m.submitting : m.submit}
         </button>
@@ -154,7 +165,7 @@ export function OnboardingForm({
           <button
             type="button"
             onClick={skip}
-            className="text-sm font-medium text-muted underline hover:text-ink"
+            className="cursor-pointer text-sm font-medium text-muted underline hover:text-ink"
           >
             {m.skip}
           </button>

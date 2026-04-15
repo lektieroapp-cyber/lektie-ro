@@ -198,6 +198,7 @@
     "nav": {
       "dashboard": "Dashboard",
       "overview": "Forældre Ro",
+      "settings": "Indstillinger",
       "admin": "Admin"
     }
   },
@@ -216,6 +217,7 @@
   "onboarding": {
     "title": "Barnets Profil",
     "subtitle": "Dette hjælper AI'en med at tale barnets sprog.",
+    "avatarLabel": "Vælg avatar",
     "nameLabel": "Barnets navn",
     "namePlaceholder": "F.eks. Malthe",
     "gradeLabel": "Klassetrin",

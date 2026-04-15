@@ -155,7 +155,7 @@ export async function proxy(request: NextRequest) {
 
   if (user && isAuthPage) {
     return withRefreshedCookies(
-      NextResponse.redirect(new URL(`/${locale}/parent/dashboard`, request.url)),
+      NextResponse.redirect(new URL(`/${locale}/parent/profiles`, request.url)),
       response
     )
   }
