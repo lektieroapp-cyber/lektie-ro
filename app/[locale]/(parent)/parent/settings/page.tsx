@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation"
+import Link from "next/link"
 import { isLocale, type Locale } from "@/lib/i18n/config"
+import { localePath } from "@/lib/i18n/routes"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getSessionUser } from "@/lib/auth/session"
 import { EditChildCard } from "@/components/children/EditChildCard"
@@ -93,15 +95,21 @@ export default async function SettingsPage({
       <section className="mt-10">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-ink">
-            {children.length === 0 ? "Tilføj dit første barn" : `Dine børn (${children.length}/${limit === Infinity ? "∞" : limit})`}
+            Dine børn ({children.length}/{limit === Infinity ? "∞" : limit})
           </h2>
+          {children.length > 0 && (
+            <Link
+              href={localePath(locale, "parentProfiles")}
+              className="text-[13px] font-medium text-primary hover:text-primary-hover"
+            >
+              Skift profil →
+            </Link>
+          )}
         </div>
 
-        {children.length > 0 && (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {children.map(c => <EditChildCard key={c.id} child={c} />)}
-          </div>
-        )}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {children.map(c => <EditChildCard key={c.id} child={c} />)}
+        </div>
 
         <div className="mt-4">
           <AddChildSection locale={locale as Locale} atLimit={atLimit} tier={tier} isAdmin={isAdmin} />

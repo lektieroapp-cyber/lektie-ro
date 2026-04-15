@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { AvatarPicker } from "./AvatarPicker"
+import { AvatarButton, AvatarPickerModal } from "./AvatarPicker"
 import { Select } from "@/components/ui/Select"
 
 type Child = {
@@ -20,6 +20,7 @@ export function EditChildCard({ child }: { child: Child }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [avatar, setAvatar] = useState(child.avatar_emoji ?? "🙂")
+  const [avatarOpen, setAvatarOpen] = useState(false)
   const [name, setName] = useState(child.name)
   const [grade, setGrade] = useState<number | "">(child.grade)
   const [interests, setInterests] = useState(child.interests ?? "")
@@ -88,10 +89,10 @@ export function EditChildCard({ child }: { child: Child }) {
     <div className="flex flex-col gap-4 rounded-card bg-white p-5" style={{ boxShadow: "var(--shadow-card)" }}>
       <div className="flex flex-col gap-1.5">
         <label className="text-xs font-semibold text-muted uppercase tracking-wide">Avatar</label>
-        <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-tint text-2xl">{avatar}</span>
-          <AvatarPicker value={avatar} onChange={setAvatar} />
-        </div>
+        <AvatarButton value={avatar} onClick={() => setAvatarOpen(true)} />
+        {avatarOpen && (
+          <AvatarPickerModal value={avatar} onChange={setAvatar} onClose={() => setAvatarOpen(false)} />
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">

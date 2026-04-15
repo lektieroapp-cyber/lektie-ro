@@ -45,7 +45,7 @@ export function AddChildSection({
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-card border-2 border-dashed border-ink/15 bg-white/60 py-4 text-[14px] font-medium text-muted transition hover:border-primary/40 hover:text-primary"
       >
         <span className="text-lg leading-none">+</span>
-        Tilføj {expanded ? "" : "endnu "}et barn
+        Tilføj endnu et barn
       </button>
     )
   }

@@ -19,6 +19,7 @@ const ROUTE_META: Record<RouteKey, {
   parentProfiles: null,
   parentOverview: null,
   parentSettings: null,
+  parentOnboarding: null,
   admin: null,
 }
 

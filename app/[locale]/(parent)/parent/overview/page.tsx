@@ -1,9 +1,9 @@
-import { notFound } from "next/navigation"
-import { OnboardingForm } from "@/components/session/OnboardingForm"
+import { notFound, redirect } from "next/navigation"
 import { isLocale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getSessionUser } from "@/lib/auth/session"
+import { localePath } from "@/lib/i18n/routes"
 
 function StatCard({
   label,
@@ -62,18 +62,8 @@ export default async function ParentOverview({
   const formatGrade = (n: number) =>
     n === 0 ? m.overview.gradeKindergarten : m.overview.gradeLabel.replace("{n}", String(n))
 
-  // Primary state: no children yet. Push them to add one — this page is
-  // where they come specifically to manage kids, so we front-load the form.
-  // Mirrors the first-run dashboard state (same layout, same centering) so
-  // navigating between the two feels like one flow.
   if (children.length === 0) {
-    return (
-      <div className="flex min-h-[calc(100vh-200px)] items-center justify-center">
-        <div className="w-full max-w-xl">
-          <OnboardingForm locale={locale} />
-        </div>
-      </div>
-    )
+    redirect(localePath(locale, "parentOnboarding"))
   }
 
   const sessionsTotal = 0

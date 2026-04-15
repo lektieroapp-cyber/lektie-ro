@@ -25,7 +25,7 @@ export default async function ProfilesPage({
   const children: Child[] = data ?? []
 
   if (children.length === 0) {
-    redirect(localePath(locale, "parentDashboard"))
+    redirect(localePath(locale, "parentOnboarding"))
   }
 
   return (
@@ -33,6 +33,7 @@ export default async function ProfilesPage({
       children={children}
       dashboardHref={localePath(locale, "parentDashboard")}
       settingsHref={localePath(locale, "parentSettings")}
+      overviewHref={localePath(locale, "parentOverview")}
     />
   )
 }
