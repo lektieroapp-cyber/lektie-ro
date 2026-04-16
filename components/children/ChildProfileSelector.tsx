@@ -139,14 +139,14 @@ export function ChildProfileSelector({
   function selectChild(id: string) {
     setSelecting(id)
     setCookie(id)
-    // Let the bounce + wiggle play, then navigate client-side
-    setTimeout(() => router.push(dashboardHref), 500)
+    // Full page load so the server reads the new cookie
+    setTimeout(() => { window.location.href = dashboardHref }, 500)
   }
 
   function selectParent() {
     setSelecting("parent")
     setCookie("parent")
-    setTimeout(() => router.push(overviewHref), 500)
+    setTimeout(() => { window.location.href = overviewHref }, 500)
   }
 
   const showAdd = children.length < 4

@@ -76,6 +76,11 @@ export function AccountMenu({
     router.refresh()
   }
 
+  function handleSwitchAccount() {
+    document.cookie = "lr_active_child=; path=/; max-age=0"
+    window.location.href = profilesHref
+  }
+
   return (
     <div ref={ref} className="relative">
       {open && (
@@ -97,10 +102,10 @@ export function AccountMenu({
           {/* Child mode: only switch + logout */}
           {isChildMode ? (
             <>
-              <Link href={profilesHref} onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+              <button type="button" onClick={handleSwitchAccount}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/80 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
                 {SwitchIcon} Skift konto
-              </Link>
+              </button>
               <div className="mx-3 my-1 border-t border-ink/6" />
               <button type="button" onClick={handleLogout}
                 className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
@@ -119,10 +124,10 @@ export function AccountMenu({
                 <span>Fakturering</span>
                 <span className="ml-auto rounded-full bg-amber-pill px-1.5 py-0.5 text-[10px] font-semibold text-ink/60">Snart</span>
               </button>
-              <Link href={profilesHref} onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+              <button type="button" onClick={handleSwitchAccount}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/80 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
                 {SwitchIcon} Skift konto
-              </Link>
+              </button>
               <div className="mx-3 my-1 border-t border-ink/6" />
               <button type="button" onClick={handleLogout}
                 className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">

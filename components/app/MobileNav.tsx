@@ -50,6 +50,13 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
     router.refresh()
   }
 
+  function handleSwitchAccount() {
+    // Clear active child cookie so proxy doesn't redirect back
+    document.cookie = "lr_active_child=; path=/; max-age=0"
+    // Full page load to bypass router cache
+    window.location.href = profilesHref
+  }
+
   useEffect(() => { setOpen(false) }, [pathname])
 
   useEffect(() => {
@@ -140,10 +147,10 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
           {/* Child mode: only switch + logout */}
           {isChildMode ? (
             <>
-              <Link href={profilesHref} onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+              <button type="button" onClick={handleSwitchAccount}
+                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
                 Skift konto
-              </Link>
+              </button>
               <button type="button" onClick={handleLogout}
                 className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
                 Log ud
@@ -159,10 +166,10 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
                 className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-muted cursor-not-allowed">
                 Fakturering <span className="ml-1 rounded-full bg-amber-pill px-1.5 py-0.5 text-[10px] font-semibold text-ink/60">Snart</span>
               </button>
-              <Link href={profilesHref} onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink">
+              <button type="button" onClick={handleSwitchAccount}
+                className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
                 Skift konto
-              </Link>
+              </button>
               <button type="button" onClick={handleLogout}
                 className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/70 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">
                 Log ud
