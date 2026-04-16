@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation"
-import { AdminSubNav } from "@/components/admin/AdminSubNav"
 import { UsersTable, type UserRow } from "@/components/admin/UsersTable"
 import { isLocale } from "@/lib/i18n/config"
-import { localePath } from "@/lib/i18n/routes"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export default async function AdminUsersPage({
@@ -38,29 +36,9 @@ export default async function AdminUsersPage({
 
   rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-  const subNav = [
-    { href: localePath(locale, "admin"), label: "Oversigt" },
-    { href: `/${locale}/admin/users`, label: "Brugere" },
-    { href: `/${locale}/admin/emails`, label: "Emails" },
-  ]
-
   return (
-    <>
-      <header>
-        <h1
-          className="text-4xl md:text-5xl font-bold text-ink"
-          style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
-        >
-          Brugere
-        </h1>
-        <p className="mt-2 text-base text-muted">{rows.length} konti registreret</p>
-      </header>
-
-      <AdminSubNav items={subNav} />
-
-      <section className="mt-10">
-        <UsersTable rows={rows} />
-      </section>
-    </>
+    <section className="mt-10">
+      <UsersTable rows={rows} />
+    </section>
   )
 }

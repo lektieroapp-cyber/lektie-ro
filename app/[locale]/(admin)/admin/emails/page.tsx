@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation"
-import { AdminSubNav } from "@/components/admin/AdminSubNav"
 import { CopyHtmlButton } from "@/components/admin/CopyHtmlButton"
 import { EMAIL_TEMPLATES, type EmailTemplate } from "@/lib/email/templates"
 import { isLocale } from "@/lib/i18n/config"
-import { localePath } from "@/lib/i18n/routes"
 
 function StatusPill({ status }: { status: EmailTemplate["status"] }) {
   const map = {
@@ -103,26 +101,6 @@ export default async function AdminEmailsPage({
 
   return (
     <>
-      <header>
-        <h1
-          className="text-4xl md:text-5xl font-bold text-ink"
-          style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
-        >
-          Email-skabeloner
-        </h1>
-        <p className="mt-2 text-base text-muted max-w-2xl">
-          Alle emails LektieRo kan sende, samlet ét sted. Supabase-skabeloner administreres i Supabase dashboard; LektieRo-skabeloner sendes via Resend.
-        </p>
-      </header>
-
-      <AdminSubNav
-        items={[
-          { href: localePath(locale, "admin"), label: "Oversigt" },
-          { href: `/${locale}/admin/users`, label: "Brugere" },
-          { href: `/${locale}/admin/emails`, label: "Emails" },
-        ]}
-      />
-
       <section className="mt-10">
         <h2 className="text-xl font-semibold text-ink">Supabase-administrerede</h2>
         <p className="mt-1 text-sm text-muted max-w-2xl">

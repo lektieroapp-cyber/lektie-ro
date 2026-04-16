@@ -158,60 +158,25 @@ export function ChildProfileSelector({
   const childCards = children.length + (showAdd ? 1 : 0)
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-between bg-canvas px-6 py-10 sm:py-16">
-
-      {/* Top: logo */}
-      <a href="/" className="animate-fade-in block" style={{ animationDelay: "0ms" }}>
-        <img src="/logo_with_text.png" alt="LektieRo" className="h-12 w-auto md:h-16" />
-      </a>
-
-      {/* Centre: heading + profiles */}
-      <div className="flex flex-col items-center">
-        <h1
-          className="animate-fade-up text-center text-3xl font-bold text-ink sm:text-4xl"
-          style={{ fontFamily: "var(--font-fraunces), var(--font-display)", animationDelay: "0ms",
-            opacity: selecting ? 0 : undefined, transition: "opacity 300ms ease" }}
-        >
-          Hvem laver lektier i dag?
-        </h1>
-        <p className="animate-fade-in mt-2 text-sm text-muted" style={{ animationDelay: "80ms",
-          opacity: selecting ? 0 : undefined, transition: "opacity 300ms ease" }}>
-          Tryk på din profil for at starte
-        </p>
-
-        <div className={`mt-10 grid gap-6 sm:gap-10 ${
-          childCards <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"
-        }`}>
-          {children.map((child, i) => (
-            <ProfileCard
-              key={child.id}
-              child={child}
-              index={i}
-              selecting={selecting}
-              onClick={() => selectChild(child.id)}
-            />
-          ))}
-          {showAdd && <AddCard index={children.length} onClick={() => router.push(settingsHref)} />}
-        </div>
-
-        {/* Parent entry — below profiles, visually distinct but easy to find */}
-        <div className="mt-8">
-          <ParentLink index={childCards} selecting={selecting} onClick={selectParent} />
-        </div>
+    <>
+      <div className={`mt-10 grid gap-6 sm:gap-10 ${
+        childCards <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"
+      }`}>
+        {children.map((child, i) => (
+          <ProfileCard
+            key={child.id}
+            child={child}
+            index={i}
+            selecting={selecting}
+            onClick={() => selectChild(child.id)}
+          />
+        ))}
+        {showAdd && <AddCard index={children.length} onClick={() => router.push(settingsHref)} />}
       </div>
 
-      {/* Bottom: last active chip */}
-      <div
-        className="animate-fade-in flex w-full justify-start"
-        style={{ animationDelay: "400ms", opacity: selecting ? 0 : undefined, transition: "opacity 200ms ease" }}
-      >
-        {lastActive && (
-          <div className="flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 shadow-sm">
-            <span className="text-xl leading-none">{lastActive.avatar_emoji ?? "🙂"}</span>
-            <span className="text-[13px] font-medium text-ink/70">{firstName(lastActive.name)}</span>
-          </div>
-        )}
+      <div className="mt-8">
+        <ParentLink index={childCards} selecting={selecting} onClick={selectParent} />
       </div>
-    </div>
+    </>
   )
 }
