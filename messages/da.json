@@ -161,7 +161,7 @@
     "password": "Adgangskode",
     "submitLogin": "Log ind",
     "submitSignup": "Opret konto",
-    "submitting": "Vent …",
+    "submitting": "Et øjeblik …",
     "google": "Fortsæt med Google",
     "divider": "eller",
     "switchToSignup": "Ikke fået en kode endnu?",
@@ -203,9 +203,9 @@
     }
   },
   "parent": {
-    "greetingWave": "👋",
+    "greetingWave": "",
     "greeting": "Hej {name}!",
-    "subheading": "Klar til at gøre lektier til en leg uden snyd?",
+    "subheading": "Hvad skal vi arbejde med i dag?",
     "scanTitle": "Scan din opgave",
     "scanBody": "Vis mig hvad du arbejder på, så hjælper jeg dig med at forstå det.",
     "scanCta": "Tag billede",

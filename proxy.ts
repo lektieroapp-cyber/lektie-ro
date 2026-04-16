@@ -154,10 +154,23 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && isAuthPage) {
-    // Redirect to dashboard — it handles all routing logic from there:
-    // no children → onboarding, no active cookie → profiles, otherwise → dashboard.
+    // If they already picked a child, go straight to dashboard. Otherwise go
+    // to the profile selector which handles onboarding/child-pick itself.
+    const dest = request.cookies.get("lr_active_child")?.value
+      ? `/${locale}/parent/dashboard`
+      : `/${locale}/parent/profiles`
     return withRefreshedCookies(
-      NextResponse.redirect(new URL(`/${locale}/parent/dashboard`, request.url)),
+      NextResponse.redirect(new URL(dest, request.url)),
+      response
+    )
+  }
+
+  // Authenticated user heading to the dashboard without having picked a child
+  // profile? Short-circuit to the profile selector here — avoids a full server
+  // component render + DB call just to arrive at the same redirect.
+  if (user && subPath === "/parent/dashboard" && !request.cookies.get("lr_active_child")?.value) {
+    return withRefreshedCookies(
+      NextResponse.redirect(new URL(`/${locale}/parent/profiles`, request.url)),
       response
     )
   }

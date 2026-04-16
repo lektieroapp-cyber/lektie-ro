@@ -14,7 +14,8 @@ export function HintChat({
   setTurns,
   childId,
   onComplete,
-  onReset,
+  onMoreHomework,
+  onFinishSession,
   onSwitchToHint,
   completed,
 }: {
@@ -25,7 +26,8 @@ export function HintChat({
   setTurns: (fn: (prev: Turn[]) => Turn[]) => void
   childId?: string
   onComplete: (turns: Turn[]) => void
-  onReset: () => void
+  onMoreHomework: () => void
+  onFinishSession: () => void
   onSwitchToHint: () => void
   completed: boolean
 }) {
@@ -33,17 +35,16 @@ export function HintChat({
   const [streaming, setStreaming] = useState(false)
   const [partial, setPartial] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
-  const kickedOff = useRef(false)
+  const inflightRef = useRef(false)
 
   const assistantTurns = turns.filter(t => t.role === "assistant").length
   const atLimit = assistantTurns >= MAX_TURNS
   const isExplain = mode === "explain"
   const firstExplainDone = isExplain && assistantTurns >= 1 && !streaming
 
-  // Reset kickoff guard when mode resets.
-  useEffect(() => { kickedOff.current = false }, [mode])
-
   async function callHint(nextTurns: Turn[]) {
+    if (inflightRef.current) return
+    inflightRef.current = true
     setStreaming(true)
     setPartial("")
     try {
@@ -53,6 +54,7 @@ export function HintChat({
         body: JSON.stringify({
           sessionId: solve.sessionId,
           taskText: task.text,
+          subject: solve.subject,
           turns: nextTurns,
           mode,
           childId,
@@ -72,19 +74,24 @@ export function HintChat({
       setPartial("")
     } finally {
       setStreaming(false)
+      inflightRef.current = false
     }
   }
 
+  // Kick off the first AI message when the component mounts or mode changes
+  // (e.g. switching from explain → hint clears turns and remounts).
+  // The inflightRef guard prevents double-fire from React strict mode.
   useEffect(() => {
-    if (kickedOff.current) return
-    kickedOff.current = true
-    callHint([])
+    if (turns.length === 0) {
+      callHint([])
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [mode])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [turns, partial])
+
 
   async function send(e: React.FormEvent) {
     e.preventDefault()
@@ -98,32 +105,16 @@ export function HintChat({
 
   return (
     <div
-      className="flex flex-col rounded-card bg-white"
-      style={{ boxShadow: "var(--shadow-card)", minHeight: "60vh" }}
+      className="flex min-h-0 flex-1 flex-col rounded-card bg-white"
+      style={{ boxShadow: "var(--shadow-card)" }}
     >
       {/* Header */}
-      <header className="flex items-start justify-between gap-4 border-b border-ink/5 px-6 py-4">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-muted">
-            {solve.subject} · {solve.grade}. klasse
-            {" · "}
-            <span className={isExplain ? "text-blue-soft" : "text-primary"}>
-              {isExplain ? "Forstå opgaven" : "Hint-guide"}
-            </span>
-          </p>
-          <p className="mt-1 text-ink font-medium leading-snug">{task.text}</p>
-        </div>
-        <button
-          type="button"
-          onClick={onReset}
-          className="shrink-0 text-sm text-muted underline hover:text-ink"
-        >
-          Ny opgave
-        </button>
+      <header className="border-b border-ink/5 px-4 py-3 md:px-6 md:py-4">
+        <p className="text-ink font-medium leading-snug">{task.text}</p>
       </header>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4 md:space-y-4 md:px-6 md:py-6">
         {turns.map((t, i) => (
           <Bubble key={i} role={t.role} isExplain={isExplain}>{t.content}</Bubble>
         ))}
@@ -132,100 +123,118 @@ export function HintChat({
         )}
         {streaming && !partial && (
           <Bubble role="assistant" isExplain={isExplain}>
-            <span className="inline-block animate-pulse text-muted">…</span>
+            <span className="inline-flex items-center gap-1">
+              {[0, 1, 2].map(i => (
+                <span
+                  key={i}
+                  className="inline-block h-2 w-2 rounded-full bg-ink/40 animate-[loading-dot_1.4s_ease-in-out_infinite]"
+                  style={{ animationDelay: `${i * 200}ms` }}
+                />
+              ))}
+              <style>{`
+                @keyframes loading-dot {
+                  0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
+                  40% { transform: scale(1); opacity: 1; }
+                }
+              `}</style>
+            </span>
           </Bubble>
         )}
 
-        {/* Explain mode: after first response show action buttons */}
-        {firstExplainDone && !completed && (
-          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:gap-3">
-            <button
-              type="button"
-              onClick={() => onComplete(turns)}
-              className="rounded-btn border border-ink/15 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-canvas"
-            >
-              Prøv nu selv 🙌
-            </button>
-            <button
-              type="button"
-              onClick={onSwitchToHint}
-              className="rounded-btn bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover"
-            >
-              Jeg har stadig brug for hjælp 💡
-            </button>
-          </div>
-        )}
+        {/* Explain mode action buttons are rendered in the input area below */}
 
-        {/* Done celebration */}
+        {/* Done */}
         {completed && (
-          <div className="flex flex-col items-center gap-3 rounded-card bg-blue-tint/60 px-6 py-8 text-center">
-            <span className="text-4xl">🎉</span>
-            <p className="text-lg font-bold text-ink" style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}>
-              Flot arbejde!
-            </p>
-            <p className="text-sm text-muted">Du kom igennem opgaven. Det er præcis sådan man lærer.</p>
-            <button
-              type="button"
-              onClick={onReset}
-              className="mt-2 rounded-btn bg-primary px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover"
-            >
-              Tag en ny opgave
-            </button>
+          <div className="flex flex-col gap-2 rounded-xl bg-blue-tint/60 px-4 py-4">
+            <p className="text-sm font-medium text-ink">Godt klaret! 🎉</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onMoreHomework}
+                className="flex-1 rounded-btn bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover"
+              >
+                Næste opgave
+              </button>
+              <button
+                type="button"
+                onClick={onFinishSession}
+                className="flex-1 rounded-btn border border-ink/15 bg-white px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-canvas"
+              >
+                Færdig for i dag
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Input area */}
       {!completed && (
-        <div className="border-t border-ink/5 px-6 py-4">
-          {!isExplain && assistantTurns >= WARN_AT && !atLimit && (
-            <p className="mb-3 text-xs text-coral-deep">
-              Du er tæt på grænsen. Få mere ud af dit næste svar.
-            </p>
-          )}
-          {!isExplain && atLimit && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-card bg-blue-tint/60 px-4 py-3 text-sm text-ink">
-              <span>Du har nået grænsen for denne opgave. Godt klaret!</span>
+        <div className="shrink-0 border-t border-ink/5 px-4 py-3 md:px-6 md:py-4">
+          {/* Explain mode: show action buttons instead of text input */}
+          {firstExplainDone ? (
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
               <button
                 type="button"
                 onClick={() => onComplete(turns)}
-                className="rounded-btn bg-success px-4 py-2 text-xs font-semibold text-white"
+                className="flex-1 rounded-btn border border-ink/15 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-canvas"
               >
-                Afslut
+                Prøv nu selv
+              </button>
+              <button
+                type="button"
+                onClick={onSwitchToHint}
+                className="flex-1 rounded-btn bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover"
+              >
+                Jeg har brug for hjælp
               </button>
             </div>
+          ) : (
+            <>
+              {!isExplain && assistantTurns >= WARN_AT && !atLimit && (
+                <p className="mb-3 text-xs text-coral-deep">
+                  Du er tæt på grænsen. Få mere ud af dit næste svar.
+                </p>
+              )}
+              {!isExplain && atLimit && (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-card bg-blue-tint/60 px-4 py-3 text-sm text-ink">
+                  <span>Du har nået grænsen for denne opgave. Godt klaret!</span>
+                  <button
+                    type="button"
+                    onClick={() => onComplete(turns)}
+                    className="rounded-btn bg-success px-4 py-2 text-xs font-semibold text-white"
+                  >
+                    Afslut
+                  </button>
+                </div>
+              )}
+              <form onSubmit={send} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  placeholder={isExplain ? "Spørg om noget …" : "Skriv dit svar …"}
+                  disabled={streaming || atLimit}
+                  className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-3 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-canvas/60"
+                />
+                <button
+                  type="submit"
+                  disabled={streaming || atLimit || !input.trim()}
+                  className="shrink-0 rounded-btn bg-primary px-4 py-2.5 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+                >
+                  Send
+                </button>
+                {assistantTurns >= 1 && !atLimit && (
+                  <button
+                    type="button"
+                    onClick={() => onComplete(turns)}
+                    className="shrink-0 rounded-btn border border-success/30 bg-success/10 px-3 py-2.5 text-[15px] font-semibold text-success transition hover:bg-success/20"
+                  >
+                    ✓
+                  </button>
+                )}
+              </form>
+            </>
           )}
-
-          <div className="flex items-center gap-3">
-            <form onSubmit={send} className="flex flex-1 items-center gap-3">
-              <input
-                type="text"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                placeholder={isExplain ? "Spørg om noget du ikke forstod …" : "Skriv et svar eller et spørgsmål …"}
-                disabled={streaming || atLimit}
-                className="flex-1 rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-[15px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-canvas/60"
-              />
-              <button
-                type="submit"
-                disabled={streaming || atLimit || !input.trim()}
-                className="rounded-btn bg-primary px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
-              >
-                Send
-              </button>
-            </form>
-            {/* "I'm done" button — always available after first AI response */}
-            {assistantTurns >= 1 && !atLimit && (
-              <button
-                type="button"
-                onClick={() => onComplete(turns)}
-                title="Jeg er færdig med opgaven"
-                className="shrink-0 rounded-btn border border-success/30 bg-success/10 px-3 py-2.5 text-xs font-semibold text-success transition hover:bg-success/20"
-              >
-                Færdig ✓
-              </button>
-            )}
-          </div>
         </div>
       )}
     </div>
@@ -240,11 +249,35 @@ function Bubble({ role, isExplain, children }: {
   const isUser = role === "user"
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[80%] rounded-card px-4 py-3 text-[15px] leading-relaxed ${
+      <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
         isUser ? "bg-primary text-white" : isExplain ? "bg-blue-tint/70 text-ink" : "bg-blue-tint/60 text-ink"
       }`}>
-        {children}
+        {typeof children === "string" ? <RichText text={children} /> : children}
       </div>
     </div>
+  )
+}
+
+/** Renders simple markdown: **bold**, \n as line breaks. */
+function RichText({ text }: { text: string }) {
+  const lines = text.split("\n")
+  return (
+    <>
+      {lines.map((line, i) => {
+        if (line.trim() === "") return <br key={i} />
+        const parts = line.split(/(\*\*[^*]+\*\*)/)
+        return (
+          <span key={i}>
+            {i > 0 && lines[i - 1].trim() !== "" && <br />}
+            {parts.map((part, j) => {
+              if (part.startsWith("**") && part.endsWith("**")) {
+                return <strong key={j} className="font-bold">{part.slice(2, -2)}</strong>
+              }
+              return <span key={j}>{part}</span>
+            })}
+          </span>
+        )
+      })}
+    </>
   )
 }

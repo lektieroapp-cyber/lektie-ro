@@ -6,7 +6,7 @@ export type Task = {
 
 export type SolveResponse = {
   sessionId: string
-  subject: string
+  subject: string | null
   grade: number
   tasks: Task[]
   mocked?: boolean

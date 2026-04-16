@@ -286,8 +286,11 @@ export function AuthCard({
         <button
           type="submit"
           disabled={status === "submitting"}
-          className="mt-2 w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
         >
+          {status === "submitting" && (
+            <span className="block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          )}
           {status === "submitting" ? m.submitting : submitLabel}
         </button>
 

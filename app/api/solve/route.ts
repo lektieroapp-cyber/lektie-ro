@@ -1,15 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { randomUUID } from "crypto"
 
-// Mock vision extraction. Real version will fetch the image from Supabase
-// Storage and send it to Azure OpenAI gpt-4o. Shape matches what the real
-// endpoint will return so the client doesn't need to change.
+// Cycles through one math, one Danish, one English demo per session.
+let callCount = 0
+
 export async function POST(_request: NextRequest) {
-  // Simulate model latency.
   await new Promise(r => setTimeout(r, 1200))
 
   const sessionId = randomUUID()
-  const mock = MOCK_PROBLEMS[Math.floor(Math.random() * MOCK_PROBLEMS.length)]
+  const mock = MOCK_PROBLEMS[callCount % MOCK_PROBLEMS.length]
+  callCount++
 
   return NextResponse.json({
     sessionId,
@@ -36,6 +36,7 @@ const MOCK_PROBLEMS = [
     tasks: [
       { id: "t1", text: "Hvad handler teksten om? Skriv med dine egne ord.", type: "reading" },
       { id: "t2", text: "Find tre tillægsord i teksten.", type: "grammar" },
+      { id: "t3", text: "Sæt komma i sætningen: 'Da vi kom hjem var hunden glad'.", type: "grammar" },
     ],
   },
   {
@@ -44,6 +45,7 @@ const MOCK_PROBLEMS = [
     tasks: [
       { id: "t1", text: "Translate: 'Hunden løber i parken'.", type: "translation" },
       { id: "t2", text: "Write a sentence using the word 'yesterday'.", type: "composition" },
+      { id: "t3", text: "Fill in: 'She ___ (go) to school every day.'", type: "grammar" },
     ],
   },
 ]

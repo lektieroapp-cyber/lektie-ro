@@ -1,12 +1,32 @@
+"use client"
+
+import { useEffect, useState } from "react"
+
+const LABELS = [
+  "Sender dit billede",
+  "Kigger på opgaven",
+  "Finder ud af hvad du arbejder med",
+] as const
+
 export function ThinkingPanel({
   previewUrl,
-  label,
-  sub,
+  uploading,
 }: {
   previewUrl?: string | null
-  label?: string
-  sub?: string
+  uploading?: boolean
 }) {
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    if (uploading) {
+      setStep(0)
+      return
+    }
+    setStep(1)
+    const t = setTimeout(() => setStep(2), 2000)
+    return () => clearTimeout(t)
+  }, [uploading])
+
   return (
     <div
       className="rounded-card bg-white p-8 md:p-12 text-center"
@@ -17,24 +37,39 @@ export function ThinkingPanel({
         <img
           src={previewUrl}
           alt=""
-          className="mx-auto mb-6 max-h-48 w-auto rounded-card object-contain"
+          className="mx-auto mb-6 max-h-40 w-auto rounded-xl object-contain transition-opacity duration-500 md:max-h-52"
+          style={{ opacity: uploading ? 0.6 : 1 }}
         />
       )}
-      <div
-        className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-blue-tint"
-        aria-hidden
-      >
-        <span className="block h-4 w-4 animate-pulse rounded-full bg-blue-soft" />
-      </div>
+
       <h2
-        className="mt-5 text-2xl font-bold text-ink"
+        className="text-2xl font-bold text-ink md:text-3xl"
         style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
       >
-        {label || "Jeg kigger på opgaven …"}
+        {LABELS[step]}
       </h2>
-      <p className="mt-2 text-sm text-muted">
-        {sub || "Et øjeblik mens jeg finder ud af, hvad du arbejder med."}
-      </p>
+
+      <LoadingDots />
+    </div>
+  )
+}
+
+function LoadingDots() {
+  return (
+    <div className="mt-5 flex items-center justify-center gap-2">
+      {[0, 1, 2].map(i => (
+        <span
+          key={i}
+          className="inline-block h-3 w-3 rounded-full bg-primary animate-[loading-dot_1.4s_ease-in-out_infinite]"
+          style={{ animationDelay: `${i * 200}ms` }}
+        />
+      ))}
+      <style>{`
+        @keyframes loading-dot {
+          0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
+          40% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }

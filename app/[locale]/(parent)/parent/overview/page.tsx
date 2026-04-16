@@ -4,7 +4,7 @@ import { getMessages } from "@/lib/i18n/getMessages"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getSessionUser } from "@/lib/auth/session"
 import { localePath } from "@/lib/i18n/routes"
-import { CoachPanel } from "@/components/overview/CoachPanel"
+// CoachPanel — Phase 2: will be powered by Azure OpenAI
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,9 +143,6 @@ export default async function ParentOverview({
   const formatGrade = (n: number) =>
     n === 0 ? m.overview.gradeKindergarten : m.overview.gradeLabel.replace("{n}", String(n))
 
-  // For the coach panel: use the first child as context if only one.
-  const coachChild = children.length === 1 ? children[0] : null
-
   return (
     <>
       <header className="flex flex-col gap-2">
@@ -276,19 +273,7 @@ export default async function ParentOverview({
         )}
       </section>
 
-      {/* Parent coaching */}
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold text-ink">Forældre-hjælp</h2>
-        <p className="mt-1 text-sm text-muted max-w-lg">
-          Spørg vores pædagogiske assistent om råd til at støtte lektierne derhjemme.
-        </p>
-        <div className="mt-4">
-          <CoachPanel
-            childName={coachChild?.name}
-            grade={coachChild?.grade}
-          />
-        </div>
-      </section>
+      {/* Parent coaching — Phase 2: will be powered by Azure OpenAI */}
     </>
   )
 }

@@ -9,14 +9,6 @@ function firstName(full: string) {
   return full.split(" ")[0]
 }
 
-function Spinner() {
-  return (
-    <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/10">
-      <span className="block h-7 w-7 rounded-full border-[3px] border-white/40 border-t-white animate-spin" />
-    </span>
-  )
-}
-
 function ProfileCard({
   child,
   index,
@@ -36,28 +28,35 @@ function ProfileCard({
       type="button"
       onClick={onClick}
       disabled={selecting !== null}
-      className="animate-fade-up group flex cursor-pointer flex-col items-center gap-3 focus:outline-none disabled:cursor-default"
+      className={`animate-fade-up group flex cursor-pointer flex-col items-center gap-3 focus:outline-none disabled:cursor-default ${
+        isDimmed ? "animate-page-exit" : ""
+      }`}
       style={{
-        animationDelay: `${index * 70}ms`,
-        opacity: isDimmed ? 0.35 : 1,
-        transform: isSelected ? "scale(1.08)" : undefined,
-        transition: "opacity 250ms ease, transform 250ms ease",
+        animationDelay: isDimmed ? "0s" : `${index * 70}ms`,
+        opacity: isDimmed ? 0 : 1,
+        transition: "opacity 300ms ease",
       }}
     >
-      <span className="relative flex h-28 w-28 items-center justify-center rounded-2xl bg-white/90 text-5xl shadow-md transition duration-200 group-hover:scale-105 group-hover:shadow-xl group-focus:ring-2 group-focus:ring-primary/50 sm:h-36 sm:w-36 sm:text-6xl"
+      <span
+        className={`relative flex h-28 w-28 items-center justify-center rounded-2xl bg-white/90 shadow-md transition duration-200 group-hover:scale-105 group-hover:shadow-xl group-focus:ring-2 group-focus:ring-primary/50 sm:h-36 sm:w-36 ${
+          isSelected ? "animate-bounce-pick" : ""
+        }`}
         style={isSelected ? { boxShadow: "0 0 0 3px var(--color-primary)" } : undefined}
       >
-        {child.avatar_emoji ?? "🙂"}
-        {isSelected && <Spinner />}
+        <span className={`text-5xl sm:text-6xl ${isSelected ? "animate-wiggle" : ""}`}>
+          {child.avatar_emoji ?? "🙂"}
+        </span>
       </span>
-      <span className="text-[15px] font-semibold text-ink/80 transition group-hover:text-ink sm:text-[17px]">
-        {firstName(child.name)}
+      <span className={`font-semibold transition sm:text-[17px] ${
+        isSelected ? "text-[16px] text-ink" : "text-[15px] text-ink/80 group-hover:text-ink"
+      }`}>
+        {isSelected ? `Hej ${firstName(child.name)}!` : firstName(child.name)}
       </span>
     </button>
   )
 }
 
-function ParentCard({
+function ParentLink({
   index,
   selecting,
   onClick,
@@ -74,23 +73,18 @@ function ParentCard({
       type="button"
       onClick={onClick}
       disabled={selecting !== null}
-      className="animate-fade-up group flex cursor-pointer flex-col items-center gap-3 focus:outline-none disabled:cursor-default"
+      className={`animate-fade-up group flex cursor-pointer items-center gap-3 rounded-full bg-white/80 px-6 py-3 shadow-md transition hover:bg-white hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-default ${
+        isSelected ? "animate-bounce-pick" : ""
+      }`}
       style={{
-        animationDelay: `${index * 70}ms`,
-        opacity: isDimmed ? 0.35 : 1,
-        transform: isSelected ? "scale(1.08)" : undefined,
-        transition: "opacity 250ms ease, transform 250ms ease",
+        animationDelay: isDimmed ? "0s" : `${index * 70}ms`,
+        opacity: isDimmed ? 0 : 1,
+        transition: "opacity 300ms ease, transform 250ms ease",
       }}
     >
-      <span
-        className="relative flex h-28 w-28 items-center justify-center rounded-2xl border-2 border-ink/10 bg-white/60 text-5xl shadow-sm transition duration-200 group-hover:scale-105 group-hover:border-ink/25 group-hover:shadow-md group-focus:ring-2 group-focus:ring-primary/50 sm:h-36 sm:w-36 sm:text-6xl"
-        style={isSelected ? { boxShadow: "0 0 0 3px var(--color-primary)" } : undefined}
-      >
-        👤
-        {isSelected && <Spinner />}
-      </span>
-      <span className="text-[15px] font-semibold text-muted transition group-hover:text-ink sm:text-[17px]">
-        Forælder
+      <span className={`text-2xl leading-none ${isSelected ? "animate-wiggle" : ""}`}>☕</span>
+      <span className="text-[15px] font-semibold text-ink/70 transition group-hover:text-ink">
+        Forældre Ro
       </span>
     </button>
   )
@@ -137,29 +131,33 @@ export function ChildProfileSelector({
     }
   }, [children])
 
+  function setCookie(value: string) {
+    const maxAge = 60 * 60 * 24 * 365
+    document.cookie = `lr_active_child=${value}; path=/; max-age=${maxAge}; samesite=lax`
+  }
+
   function selectChild(id: string) {
     setSelecting(id)
-    const maxAge = 60 * 60 * 24 * 365
-    document.cookie = `lr_active_child=${id}; path=/; max-age=${maxAge}; samesite=lax`
-    window.location.href = dashboardHref
+    setCookie(id)
+    // Let the bounce + wiggle play, then navigate client-side
+    setTimeout(() => router.push(dashboardHref), 500)
   }
 
   function selectParent() {
     setSelecting("parent")
-    const maxAge = 60 * 60 * 24 * 365
-    document.cookie = `lr_active_child=parent; path=/; max-age=${maxAge}; samesite=lax`
-    window.location.href = overviewHref
+    setCookie("parent")
+    setTimeout(() => router.push(overviewHref), 500)
   }
 
   const showAdd = children.length < 4
-  const totalCards = children.length + 1 + (showAdd ? 1 : 0)
+  const childCards = children.length + (showAdd ? 1 : 0)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-between bg-canvas px-6 py-10 sm:py-16">
 
       {/* Top: logo */}
       <a href="/" className="animate-fade-in block" style={{ animationDelay: "0ms" }}>
-        <img src="/logo_with_text.png" alt="LektieRo" className="h-12 w-auto" />
+        <img src="/logo_with_text.png" alt="LektieRo" className="h-12 w-auto md:h-16" />
       </a>
 
       {/* Centre: heading + profiles */}
@@ -167,17 +165,17 @@ export function ChildProfileSelector({
         <h1
           className="animate-fade-up text-center text-3xl font-bold text-ink sm:text-4xl"
           style={{ fontFamily: "var(--font-fraunces), var(--font-display)", animationDelay: "0ms",
-            opacity: selecting ? 0.4 : undefined, transition: "opacity 250ms ease" }}
+            opacity: selecting ? 0 : undefined, transition: "opacity 300ms ease" }}
         >
           Hvem laver lektier i dag?
         </h1>
         <p className="animate-fade-in mt-2 text-sm text-muted" style={{ animationDelay: "80ms",
-          opacity: selecting ? 0.4 : undefined, transition: "opacity 250ms ease" }}>
+          opacity: selecting ? 0 : undefined, transition: "opacity 300ms ease" }}>
           Tryk på din profil for at starte
         </p>
 
         <div className={`mt-10 grid gap-6 sm:gap-10 ${
-          totalCards <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4"
+          childCards <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"
         }`}>
           {children.map((child, i) => (
             <ProfileCard
@@ -188,8 +186,12 @@ export function ChildProfileSelector({
               onClick={() => selectChild(child.id)}
             />
           ))}
-          <ParentCard index={children.length} selecting={selecting} onClick={selectParent} />
-          {showAdd && <AddCard index={children.length + 1} onClick={() => router.push(settingsHref)} />}
+          {showAdd && <AddCard index={children.length} onClick={() => router.push(settingsHref)} />}
+        </div>
+
+        {/* Parent entry — below profiles, visually distinct but easy to find */}
+        <div className="mt-8">
+          <ParentLink index={childCards} selecting={selecting} onClick={selectParent} />
         </div>
       </div>
 

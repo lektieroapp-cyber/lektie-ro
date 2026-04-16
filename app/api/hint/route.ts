@@ -9,18 +9,15 @@ type Body = {
   turns: Turn[]
   mode?: string
   childId?: string
+  subject?: string
 }
 
-// Streams a Socratic hint or task explanation back to the client.
-// Real version: fetch child profile, build system prompt via lib/prompts.ts,
-// call Azure OpenAI gpt-4o-mini, stream the response.
-// Mock version: uses prompts.ts for structure but returns canned replies.
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as Body
   const mode = (body.mode === "explain" ? "explain" : "hint") as "explain" | "hint"
   const turnIndex = body.turns.filter(t => t.role === "assistant").length
+  const subject = body.subject ?? "matematik"
 
-  // Fetch child profile if childId provided (used for prompt building).
   let child = null
   if (body.childId) {
     const admin = createAdminClient()
@@ -39,31 +36,20 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Build the system prompt using curriculum + child context.
-  // This is ready for Azure — just pass it as the system message.
+  // Build system prompt.ready for Azure, used for mock structure too.
   const _systemPrompt = buildChildSystemPrompt({
     mode,
-    subject: "matematik", // TODO: pass from client via body.subject
+    subject,
     grade: child?.grade ?? 4,
     taskText: body.taskText,
     child,
   })
 
-  // TODO: replace mock with:
-  // const azure = getAzure(process.env.AZURE_OPENAI_MINI_DEPLOYMENT!)
-  // const stream = await azure.chat.completions.create({
-  //   model: process.env.AZURE_OPENAI_MINI_DEPLOYMENT!,
-  //   messages: [
-  //     { role: "system", content: _systemPrompt },
-  //     ...body.turns.map(t => ({ role: t.role, content: t.content })),
-  //     { role: "user", content: body.taskText },
-  //   ],
-  //   stream: true,
-  // })
+  // TODO: replace mock with Azure OpenAI streaming call using _systemPrompt
 
   const reply = mode === "explain"
-    ? pickExplainReply(body.taskText, turnIndex)
-    : pickHintReply(body.taskText, turnIndex)
+    ? pickExplainReply(subject, body.taskText, turnIndex)
+    : pickHintReply(subject, body.taskText, turnIndex)
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
@@ -85,27 +71,69 @@ export async function POST(request: NextRequest) {
   })
 }
 
-function pickExplainReply(taskText: string, turnIndex: number): string {
-  const replies = [
-    `Opgaven "${short(taskText)}" handler om at finde ud af noget ved hjælp af det, du allerede ved. Du skal ikke bare gætte — der er en bestemt fremgangsmåde. Prøv at læse den igen: hvad er det præcist de beder dig beregne eller beskrive?`,
-    "Godt spørgsmål! Det er faktisk et emne der dukker op mange steder. Tænk på det som en slags opskrift med faste skridt. Hvad tror du det første skridt er?",
-    "Præcis — du er på rette vej. Prøv at sætte ord på det med dine egne ord, så ved du at du har forstået det.",
-  ]
-  return replies[Math.min(turnIndex, replies.length - 1)]
+// ─── Subject-specific mock replies ──────────────────────────────────────────
+
+function pickExplainReply(subject: string, taskText: string, i: number): string {
+  const s = short(taskText)
+  const bank = EXPLAIN_REPLIES[subject] ?? EXPLAIN_REPLIES.matematik
+  return bank[Math.min(i, bank.length - 1)].replace("{task}", s)
 }
 
-function pickHintReply(taskText: string, turnIndex: number): string {
-  const replies = [
-    `Hvad tror du er det første du skal kigge efter i opgaven "${short(taskText)}"?`,
-    "Hvis du skulle forklare det til en ven, hvordan ville du dele problemet op i mindre skridt?",
-    "Prøv at skrive det første skridt ned. Hvad ser du så?",
-    "Kan du huske en lignende opgave fra timen? Hvordan løste I den dengang?",
-    "Du er tæt på. Hvad tror du det næste skridt er?",
-    "Super, du har snart knækket koden. Tjek: passer det du har gjort indtil videre?",
-    "Hvad er den fremgangsmåde der giver mest mening for dig lige nu?",
-    "Sidste skridt. Du er der næsten. Hvad mangler for at du er helt færdig?",
-  ]
-  return replies[Math.min(turnIndex, replies.length - 1)]
+function pickHintReply(subject: string, taskText: string, i: number): string {
+  const s = short(taskText)
+  const bank = HINT_REPLIES[subject] ?? HINT_REPLIES.matematik
+  return bank[Math.min(i, bank.length - 1)].replace("{task}", s)
+}
+
+const EXPLAIN_REPLIES: Record<string, string[]> = {
+  matematik: [
+    "Den her kan du sagtens klare!\n\n**1.** Find tallene\n**2.** Vælg regningsart\n**3.** Regn ud\n\nHvad er det første skridt?",
+    "Godt! Hvad sker der når du lægger dem sammen?",
+    "Prøv at sige svaret med dine egne ord.",
+  ],
+  dansk: [
+    "Læs sætningen langsomt igennem.\n\nHvad er det **vigtigste ord**?",
+    "Godt set! Hvad fortæller det ord dig om teksten?",
+    "Prøv at forklare det som til en ven.",
+  ],
+  engelsk: [
+    "Kig på de danske ord. Hvilke **ligner** de engelske?",
+    "Tænk over rækkefølgen:\n\n**Hvem** → **gør hvad** → **hvornår**",
+    "Sig sætningen højt. Lyder den rigtigt?",
+  ],
+}
+
+const HINT_REPLIES: Record<string, string[]> = {
+  matematik: [
+    "Okay! Hvad er **24 + 17**?\n\nPrøv at starte med tierne: **20 + 10** = ?",
+    "Fint! Og hvad er **4 + 7**?",
+    "Godt! Læg nu de to tal sammen. Hvad får du?",
+    "Stærkt! Giver svaret mening?",
+    "Du er tæt på. Hvad tror du det endelige svar er?",
+    "Kan du huske en lignende opgave?",
+    "Tag en slurk vand. Du er næsten i mål! 💧",
+    "Skriv dit svar. Du har knækket den!",
+  ],
+  dansk: [
+    "Læs sætningen højt for dig selv.\n\nHvor er der en **naturlig pause**?",
+    "Godt! Det er dér kommaet skal sidde.",
+    "Fint! Hvad er **hovedsætningen**?",
+    "Prøv at skrive sætningen med kommaet.",
+    "Læs den højt igen. Lyder det rigtigt?",
+    "Tjek stavningen en sidste gang.",
+    "Rejs dig og stræk dig! 🧘",
+    "Skriv dit svar. Du har styr på det!",
+  ],
+  engelsk: [
+    "**Hunden** = the dog\n**løber** = runs\n**i parken** = in the park\n\nKan du sætte det sammen?",
+    "Godt! Hvad kommer først på engelsk?",
+    "Er det **nutid** eller **datid**?",
+    "Sig sætningen højt. Lyder den naturlig?",
+    "Har du husket **stort bogstav** og **punktum**?",
+    "Kender du ordet fra en sang eller film?",
+    "Hent et glas vand. Du klarer det! 💧",
+    "Skriv dit svar. Du klarede det!",
+  ],
 }
 
 function short(s: string): string {

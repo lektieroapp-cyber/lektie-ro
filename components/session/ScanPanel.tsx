@@ -99,44 +99,28 @@ export function ScanPanel({
 
   return (
     <>
-      <div
-        className="rounded-card bg-white p-10 md:p-14 text-center"
+      <button
+        type="button"
+        onClick={onSelect}
+        className="group w-full cursor-pointer rounded-card bg-white px-6 py-8 text-center transition hover:shadow-xl md:px-8 md:py-16"
         style={{ boxShadow: "var(--shadow-card)" }}
       >
-        <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-blue-soft/15 text-blue-soft">
+        <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary transition group-hover:scale-110 group-hover:bg-primary/20">
           {CameraIcon}
         </div>
-        <h2
-          className="mt-5 text-2xl md:text-3xl font-bold text-ink"
+        <p
+          className="mt-4 text-lg font-bold text-ink md:text-xl"
           style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
         >
-          Scan din opgave
-        </h2>
-        <p className="mt-2 max-w-md mx-auto text-muted">
-          Vis mig hvad du arbejder på, så hjælper jeg dig med at forstå det.
+          Tag et billede af din opgave
         </p>
-        <button
-          type="button"
-          onClick={onSelect}
-          className="mt-6 inline-flex rounded-btn bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
-        >
-          Tag billede eller vælg fra galleri
-        </button>
-        <p className="mt-3 text-xs text-muted">
-          Du kan også trække et billede ind, eller trykke{" "}
-          <kbd className="rounded border border-ink/15 bg-canvas px-1.5 py-0.5 font-mono text-[11px] text-ink/70">
-            Ctrl/Cmd + V
-          </kbd>{" "}
-          for at indsætte et skærmbillede.
+        <p className="mt-1 text-sm text-muted">
+          Tryk her eller træk et billede ind
         </p>
-        {error ? (
+        {error && (
           <p className="mt-3 text-sm text-coral-deep">{error}</p>
-        ) : (
-          <p className="mt-1 text-[11px] text-muted/80">
-            Demo: AI-svar er forhåndsdefinerede indtil Azure kører. Billedet uploades dog rigtigt.
-          </p>
         )}
-      </div>
+      </button>
 
       {/* Full-page drop overlay: shows whenever a file is dragged anywhere. */}
       {dragging && (

@@ -1,10 +1,9 @@
-import { cookies } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { Sidebar } from "@/components/app/Sidebar"
 import { isLocale } from "@/lib/i18n/config"
 import { DEV_BYPASS_AUTH, DEV_PROFILE, DEV_USER, getDevEnsureStatus } from "@/lib/dev-user"
 import { getSessionUser } from "@/lib/auth/session"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { getActiveChild } from "@/lib/auth/active-child"
 
 export default async function ParentLayout({
   children,
@@ -24,27 +23,14 @@ export default async function ParentLayout({
   }
 
   const isAdmin = user.role === "admin"
-
-  // Resolve the active child so the sidebar can adapt to child vs parent mode.
-  const cookieStore = await cookies()
-  const activeChildId = cookieStore.get("lr_active_child")?.value
-  let activeChild: { id: string; name: string; avatar_emoji: string | null } | null = null
-  if (activeChildId && activeChildId !== "parent") {
-    const { data } = await createAdminClient()
-      .from("children")
-      .select("id, name, avatar_emoji")
-      .eq("id", activeChildId)
-      .eq("parent_id", user.id)
-      .single()
-    activeChild = data ?? null
-  }
+  const { activeChild } = await getActiveChild(user.id)
 
   return (
     <div className="flex min-h-screen flex-col bg-blue-tint/30 md:h-screen md:min-h-0 md:flex-row md:overflow-hidden">
       <Sidebar locale={locale} isAdmin={isAdmin} email={user.email ?? ""} activeChild={activeChild} />
-      <main className="flex-1 overflow-x-hidden md:overflow-y-auto">
+      <main className="flex flex-1 flex-col overflow-x-hidden md:overflow-y-auto">
         {DEV_BYPASS_AUTH && <DevBanner />}
-        <div className="mx-auto w-full max-w-5xl px-5 py-8 md:px-10 md:py-12">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-4 md:px-10 md:py-12">
           {children}
         </div>
       </main>

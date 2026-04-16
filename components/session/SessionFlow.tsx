@@ -1,14 +1,15 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ScanPanel } from "./ScanPanel"
 import { ThinkingPanel } from "./ThinkingPanel"
+import { SubjectPicker } from "./SubjectPicker"
 import { TaskPicker } from "./TaskPicker"
 import { ModeSelector } from "./ModeSelector"
 import { HintChat } from "./HintChat"
 import type { HintMode, SolveResponse, Task, Turn } from "./types"
 
-type Stage = "idle" | "uploading" | "thinking" | "pick" | "mode" | "hint" | "done"
+type Stage = "idle" | "uploading" | "thinking" | "subject" | "pick" | "mode" | "hint" | "done" | "sessionDone"
 
 const MAX_BYTES = 10 * 1024 * 1024
 
@@ -20,14 +21,30 @@ const EXT_FROM_TYPE: Record<string, string> = {
   "image/heif": "heif",
 }
 
+// Mock task banks per subject — used when subject is corrected in demo mode.
+const MOCK_TASKS: Record<string, Task[]> = {
+  matematik: [
+    { id: "t1", text: "Regn ud: 24 + 17", type: "addition" },
+    { id: "t2", text: "Regn ud: 36 − 19", type: "subtraction" },
+    { id: "t3", text: "Hvor mange æbler er der i alt, hvis Lærke har 5 og Jonas har 8?", type: "word-problem" },
+  ],
+  dansk: [
+    { id: "t1", text: "Hvad handler teksten om? Skriv med dine egne ord.", type: "reading" },
+    { id: "t2", text: "Find tre tillægsord i teksten.", type: "grammar" },
+    { id: "t3", text: "Sæt komma i sætningen: 'Da vi kom hjem var hunden glad'.", type: "grammar" },
+  ],
+  engelsk: [
+    { id: "t1", text: "Translate: 'Hunden løber i parken'.", type: "translation" },
+    { id: "t2", text: "Write a sentence using the word 'yesterday'.", type: "composition" },
+    { id: "t3", text: "Fill in: 'She ___ (go) to school every day.'", type: "grammar" },
+  ],
+}
+
 const DEV_SOLVE: SolveResponse = {
   sessionId: "dev-session-0000",
   subject: "matematik",
   grade: 4,
-  tasks: [
-    { id: "t1", text: "Regn ud: 7 × 8", type: "multiplication" },
-    { id: "t2", text: "Hvad er halvdelen af 56?", type: "division" },
-  ],
+  tasks: MOCK_TASKS.matematik,
   mocked: true,
 }
 const DEV_TASK: Task = DEV_SOLVE.tasks[0]
@@ -35,9 +52,13 @@ const DEV_TASK: Task = DEV_SOLVE.tasks[0]
 export function SessionFlow({
   isAdmin = false,
   activeChildId,
+  childName,
+  childEmoji,
 }: {
   isAdmin?: boolean
   activeChildId?: string | null
+  childName?: string | null
+  childEmoji?: string | null
 }) {
   const [stage, setStage] = useState<Stage>("idle")
   const [solve, setSolve] = useState<SolveResponse | null>(null)
@@ -49,6 +70,9 @@ export function SessionFlow({
   const [imagePath, setImagePath] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Remember subject across tasks in the same homework session
+  const [sessionSubject, setSessionSubject] = useState<string | null>(null)
+  const [completedTasks, setCompletedTasks] = useState(0)
 
   async function uploadFile(file: File): Promise<string> {
     const ext = EXT_FROM_TYPE[file.type] || file.name.split(".").pop()?.toLowerCase() || "jpg"
@@ -93,13 +117,31 @@ export function SessionFlow({
       })
       if (!res.ok) throw new Error("solve failed")
       const data = (await res.json()) as SolveResponse
-      setSolve(data)
-      setStage("pick")
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "ukendt fejl"
-      setError(`Kunne ikke uploade billedet (${msg}). Prøv igen.`)
+      // Use remembered subject from earlier in the session if AI couldn't detect
+      const resolvedSubject = data.subject || sessionSubject
+      if (resolvedSubject) setSessionSubject(resolvedSubject)
+      const solveWithSubject = resolvedSubject ? { ...data, subject: resolvedSubject } : data
+      setSolve(solveWithSubject)
+      setStage(solveWithSubject.subject ? "pick" : "subject")
+    } catch {
+      setError("Noget gik galt. Prøv at tage billedet igen.")
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
+      setImagePath(null)
+      if (fileRef.current) fileRef.current.value = ""
       setStage("idle")
     }
+  }
+
+  function pickSubject(subject: string) {
+    if (!solve) return
+    setSessionSubject(subject)
+    // In mock mode, swap tasks to match the chosen subject.
+    const tasks = solve.mocked && MOCK_TASKS[subject]
+      ? MOCK_TASKS[subject]
+      : solve.tasks
+    setSolve({ ...solve, subject, tasks })
+    setStage("pick")
   }
 
   function pickTask(t: Task) {
@@ -140,6 +182,7 @@ export function SessionFlow({
 
   async function completeSession(completedTurns: Turn[]) {
     setStage("done")
+    setCompletedTasks(n => n + 1)
     if (!dbSessionId) return
     try {
       await fetch("/api/session", {
@@ -157,7 +200,22 @@ export function SessionFlow({
     }
   }
 
-  function reset() {
+  // Go back to task picker (same photo) or scan (new photo)
+  function nextTask() {
+    setTask(null)
+    setMode(null)
+    setDbSessionId(null)
+    setTurns([])
+    // Go back to task picker if we still have the solve data
+    if (solve) {
+      setStage("pick")
+    } else {
+      setStage("idle")
+    }
+  }
+
+  // New photo — clears solve and goes to camera
+  function newPhoto() {
     setStage("idle")
     setSolve(null)
     setTask(null)
@@ -171,37 +229,109 @@ export function SessionFlow({
     if (fileRef.current) fileRef.current.value = ""
   }
 
+  // Full reset — also forgets subject (new homework session)
+  function reset() {
+    newPhoto()
+    setSessionSubject(null)
+    setCompletedTasks(0)
+  }
+
+  function finishSession() {
+    setStage("sessionDone")
+  }
+
+  // Big confetti blast when the whole session is done
+  useEffect(() => {
+    if (stage !== "sessionDone") return
+    import("@/lib/confetti").then(m => {
+      m.fireConfetti()
+      // Extra burst for the big finish
+      setTimeout(() => m.fireConfetti(), 600)
+    })
+  }, [stage])
+
   function devJump(target: Stage, opts?: { mode?: HintMode }) {
     setError(null)
     setPreviewUrl(null)
     setImagePath(null)
-    const needsSolve = ["pick", "mode", "hint", "done"].includes(target)
+    const needsSolve = ["subject", "pick", "mode", "hint", "done"].includes(target)
     const needsTask  = ["mode", "hint", "done"].includes(target)
     const needsMode  = ["hint", "done"].includes(target)
-    if (needsSolve) setSolve(DEV_SOLVE); else setSolve(null)
-    if (needsTask)  setTask(DEV_TASK);   else setTask(null)
+    // Use remembered subject, fall back to DEV_SOLVE default
+    const sub = sessionSubject ?? DEV_SOLVE.subject ?? "matematik"
+    const tasks = MOCK_TASKS[sub] ?? DEV_SOLVE.tasks
+    const devSolve = { ...DEV_SOLVE, subject: sub, tasks }
+    if (needsSolve) setSolve(devSolve); else setSolve(null)
+    if (needsTask)  setTask(tasks[0]);  else setTask(null)
     setMode(needsMode ? (opts?.mode ?? "hint") : null)
     setDbSessionId(null)
     setTurns([])
     setStage(target)
   }
 
+  const needsFill = stage === "hint" || stage === "done"
+
   return (
-    <div className="relative">
+    <div className={`relative flex flex-col ${needsFill ? "min-h-0 flex-1" : "flex-1 items-center justify-center"}`}>
       {stage === "idle" && (
-        <ScanPanel onSelect={() => fileRef.current?.click()} onFile={onFile} error={error} />
+        <>
+          {childName && (
+            <h1
+              className="mb-4 text-center text-2xl font-bold text-ink md:mb-6 md:text-4xl"
+              style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+            >
+              {childEmoji && <span aria-hidden className="mr-2">{childEmoji}</span>}
+              {completedTasks > 0
+                ? `${completedTasks} opgave${completedTasks > 1 ? "r" : ""} klaret!`
+                : `Hej ${childName}!`}
+            </h1>
+          )}
+          <ScanPanel onSelect={() => fileRef.current?.click()} onFile={onFile} error={error} />
+          {completedTasks > 0 && (
+            <button
+              type="button"
+              onClick={finishSession}
+              className="mt-4 w-full rounded-btn border border-ink/15 bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:bg-canvas"
+              style={{ boxShadow: "var(--shadow-card)" }}
+            >
+              Færdig for i dag
+            </button>
+          )}
+        </>
+      )}
+      {stage === "sessionDone" && (
+        <div
+          className="rounded-card bg-white p-6 text-center md:p-10"
+          style={{ boxShadow: "var(--shadow-card)" }}
+        >
+          <span className="text-4xl">🎉</span>
+          <h2
+            className="mt-3 text-2xl font-bold text-ink md:text-3xl"
+            style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+          >
+            {completedTasks} opgave{completedTasks > 1 ? "r" : ""} klaret i dag!
+          </h2>
+          <p className="mt-2 text-sm text-muted">Godt arbejde. Vi ses næste gang!</p>
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-5 rounded-btn border border-ink/15 bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-canvas"
+          >
+            Start en ny session
+          </button>
+        </div>
       )}
       {(stage === "uploading" || stage === "thinking") && (
         <ThinkingPanel
           previewUrl={previewUrl}
-          label={stage === "uploading" ? "Uploader billede …" : "Jeg kigger på opgaven …"}
-          sub={stage === "uploading"
-            ? "Vi sender dit billede sikkert til vores server i Sverige."
-            : "Et øjeblik mens jeg finder ud af, hvad du arbejder med."}
+          uploading={stage === "uploading"}
         />
       )}
+      {stage === "subject" && solve && (
+        <SubjectPicker onPick={pickSubject} />
+      )}
       {stage === "pick" && solve && (
-        <TaskPicker solve={solve} onPick={pickTask} onCancel={reset} imagePath={imagePath} />
+        <TaskPicker solve={solve} onPick={pickTask} onNewPhoto={newPhoto} />
       )}
       {stage === "mode" && task && solve && (
         <ModeSelector task={task} solve={solve} onSelect={pickMode} onBack={() => setStage("pick")} />
@@ -215,7 +345,8 @@ export function SessionFlow({
           setTurns={setTurns}
           childId={activeChildId ?? undefined}
           onComplete={completeSession}
-          onReset={reset}
+          onMoreHomework={nextTask}
+          onFinishSession={finishSession}
           onSwitchToHint={() => { setMode("hint"); setTurns([]) }}
           completed={stage === "done"}
         />
@@ -241,11 +372,13 @@ const STAGES: { label: string; stage: Stage; opts?: { mode?: HintMode } }[] = [
   { label: "📷 Scan",       stage: "idle" },
   { label: "⏳ Uploading",  stage: "uploading" },
   { label: "🔍 Thinking",   stage: "thinking" },
+  { label: "📚 Subject",    stage: "subject" },
   { label: "📋 Pick task",  stage: "pick" },
   { label: "🎯 Mode pick",  stage: "mode" },
   { label: "📖 Explain",    stage: "hint", opts: { mode: "explain" } },
   { label: "💡 Hint",       stage: "hint", opts: { mode: "hint" } },
   { label: "✅ Done",       stage: "done", opts: { mode: "hint" } },
+  { label: "🏁 Session done", stage: "sessionDone" },
 ]
 
 function DevPanel({ currentStage, onJump }: {
