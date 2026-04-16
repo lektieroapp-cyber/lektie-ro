@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
 
   // Invited users land on /welcome first so they can set a password — without
   // one, they'd have a session now but no way to log in again if they log out.
-  // /welcome redirects to the dashboard once the password is set.
-  const welcomeNext = `/${defaultLocale}/parent/dashboard`
+  // /welcome redirects to profiles once the password is set (profiles handles
+  // the no-children → onboarding redirect).
+  const welcomeNext = `/${defaultLocale}/parent/profiles`
   const welcomeUrl = `/${defaultLocale}/welcome?next=${encodeURIComponent(welcomeNext)}`
   const { data, error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
     redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(welcomeUrl)}`,

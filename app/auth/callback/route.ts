@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const tokenHash = searchParams.get("token_hash")
   const type = searchParams.get("type") as "magiclink" | "signup" | "email" | "recovery" | "invite" | null
-  const next = searchParams.get("next") || `/${defaultLocale}/parent/dashboard`
+  const next = searchParams.get("next") || `/${defaultLocale}/parent/profiles`
 
   const response = NextResponse.redirect(new URL(next, request.url))
 
@@ -49,6 +49,13 @@ export async function GET(request: NextRequest) {
         }
         return fail(`exchange: ${error.message}`)
       }
+
+      // After a successful exchange, clear the old profile-pick cookie so a
+      // previous user's child selection doesn't leak into the new session.
+      // (The sign-out of stale sessions happens naturally — exchangeCodeForSession
+      // replaces the session cookies. For invite links that land on /auth/complete
+      // instead, the explicit signOut there handles it.)
+      response.cookies.set("lr_active_child", "", { maxAge: 0, path: "/" })
       return response
     }
 

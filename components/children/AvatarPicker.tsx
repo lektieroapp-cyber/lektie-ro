@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 
 // Grouped by vibe — easy to extend with new categories later.
 const AVATAR_GROUPS = [
@@ -35,8 +36,10 @@ export function AvatarButton({
       aria-label="Skift avatar"
     >
       {value}
-      <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] text-white">
-        ✏️
+      <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11.5 1.5l3 3L5 14H2v-3z" />
+        </svg>
       </span>
     </button>
   )
@@ -61,7 +64,7 @@ export function AvatarPickerModal({
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
 
-  return (
+  const modal = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -107,6 +110,8 @@ export function AvatarPickerModal({
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }
 
 export { ALL_AVATARS }

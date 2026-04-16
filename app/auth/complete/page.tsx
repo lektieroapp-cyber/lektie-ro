@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/client"
 function CompleteInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get("next") || "/da/parent/dashboard"
+  const next = searchParams.get("next") || "/da/parent/profiles"
   const [status, setStatus] = useState<"working" | "failed">("working")
   const [detail, setDetail] = useState<string>("")
 
@@ -44,6 +44,8 @@ function CompleteInner() {
         // already logged in as someone else would otherwise update the wrong
         // account's password. Sign out first, then set the invited session.
         await supabase.auth.signOut()
+        // Clear stale profile-pick cookie from previous user
+        document.cookie = "lr_active_child=; path=/; max-age=0"
         if (cancelled) return
 
         const { data, error } = await supabase.auth.setSession({

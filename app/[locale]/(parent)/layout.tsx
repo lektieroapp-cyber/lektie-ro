@@ -19,7 +19,7 @@ export default async function ParentLayout({
   if (!user) redirect(`/${locale}/login`)
 
   if (!user.passwordSet) {
-    redirect(`/${locale}/welcome?next=${encodeURIComponent(`/${locale}/parent/dashboard`)}`)
+    redirect(`/${locale}/welcome?next=${encodeURIComponent(`/${locale}/parent/profiles`)}`)
   }
 
   const isAdmin = user.role === "admin"

@@ -140,8 +140,7 @@ export function ChildProfileSelector({
     setSelecting(id)
     setCookie(id)
     setTimeout(() => {
-      router.refresh()
-      router.push(dashboardHref)
+      window.location.href = dashboardHref
     }, 500)
   }
 
@@ -149,8 +148,7 @@ export function ChildProfileSelector({
     setSelecting("parent")
     setCookie("parent")
     setTimeout(() => {
-      router.refresh()
-      router.push(overviewHref)
+      window.location.href = overviewHref
     }, 500)
   }
 

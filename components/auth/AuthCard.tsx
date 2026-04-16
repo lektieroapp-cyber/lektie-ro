@@ -48,7 +48,7 @@ export function AuthCard({
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-            `/${locale}/parent/dashboard`
+            `/${locale}/parent/profiles`
           )}`,
           data: { password_set: true },
         },
@@ -77,15 +77,14 @@ export function AuthCard({
       setError(m.errorCredentials)
       return
     }
-    router.push(`/${locale}/parent/dashboard`)
-    router.refresh()
+    window.location.href = `/${locale}/parent/profiles`
   }
 
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault()
     setError("")
     setForgotLoading(true)
-    const welcomeUrl = `/${locale}/welcome?next=${encodeURIComponent(`/${locale}/parent/dashboard`)}`
+    const welcomeUrl = `/${locale}/welcome?next=${encodeURIComponent(`/${locale}/parent/profiles`)}`
     await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(welcomeUrl)}`,
     })
@@ -100,7 +99,7 @@ export function AuthCard({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-          `/${locale}/parent/dashboard`
+          `/${locale}/parent/profiles`
         )}`,
       },
     })

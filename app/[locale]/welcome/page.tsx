@@ -31,7 +31,7 @@ export default async function WelcomePage({
     if (!user) redirect(`/${locale}/login`)
   }
 
-  const redirectTo = next && next.startsWith("/") ? next : `/${locale}/parent/dashboard`
+  const redirectTo = next && next.startsWith("/") ? next : `/${locale}/parent/profiles`
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-5 py-10">
