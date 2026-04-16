@@ -77,8 +77,10 @@ export function AccountMenu({
   }
 
   function handleSwitchAccount() {
+    setOpen(false)
     document.cookie = "lr_active_child=; path=/; max-age=0"
-    window.location.href = profilesHref
+    router.push(profilesHref)
+    router.refresh()
   }
 
   return (

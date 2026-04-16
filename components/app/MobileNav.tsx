@@ -51,10 +51,10 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
   }
 
   function handleSwitchAccount() {
-    // Clear active child cookie so proxy doesn't redirect back
+    setOpen(false)
     document.cookie = "lr_active_child=; path=/; max-age=0"
-    // Full page load to bypass router cache
-    window.location.href = profilesHref
+    router.push(profilesHref)
+    router.refresh()
   }
 
   useEffect(() => { setOpen(false) }, [pathname])
