@@ -9,6 +9,7 @@ dist
 .DS_Store
 .vercel
 next-env.d.ts
+tsconfig.tsbuildinfo
 
 # Design handoff artifacts — extract, port to code, don't commit
 .design-prototype/
