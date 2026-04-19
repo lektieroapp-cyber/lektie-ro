@@ -32,6 +32,7 @@ export default async function AdminLayout({
           { href: localePath(locale, "admin"), label: "Oversigt" },
           { href: `/${locale}/admin/users`, label: "Brugere" },
           { href: `/${locale}/admin/emails`, label: "Emails" },
+          { href: `/${locale}/admin/costs`, label: "Priser" },
         ]}
       />
 

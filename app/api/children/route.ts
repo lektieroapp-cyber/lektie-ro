@@ -10,12 +10,18 @@ const TIER_LIMITS: Record<string, number> = {
   family: 4,
 }
 
+const COMPANION_TYPES = [
+  "lion", "fox", "owl", "panda", "octopus", "robot",
+  "unicorn", "dragon", "rabbit", "alien", "cat", "polar-bear",
+] as const
+
 const schema = z.object({
   name: z.string().trim().min(1).max(40),
   grade: z.number().int().min(0).max(10),
   avatar_emoji: z.string().max(8).optional(),
   interests: z.string().trim().max(200).optional(),
   special_needs: z.string().trim().max(300).optional(),
+  companion_type: z.enum(COMPANION_TYPES).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -71,8 +77,9 @@ export async function POST(request: NextRequest) {
       avatar_emoji: parsed.data.avatar_emoji ?? null,
       interests: parsed.data.interests ?? null,
       special_needs: parsed.data.special_needs ?? null,
+      companion_type: parsed.data.companion_type ?? null,
     })
-    .select("id, name, grade, avatar_emoji, interests, special_needs")
+    .select("id, name, grade, avatar_emoji, interests, special_needs, companion_type")
     .single()
 
   if (error) {

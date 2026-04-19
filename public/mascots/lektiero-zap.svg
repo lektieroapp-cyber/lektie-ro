@@ -1,0 +1,30 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Antennae -->
+    <path d="M40 20 Q34 10 32 4" stroke="#5FA693" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <circle cx="32" cy="4" r="4" fill="#F2C75A"/>
+    <path d="M64 20 Q70 10 72 4" stroke="#5FA693" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <circle cx="72" cy="4" r="4" fill="#F4A7A3"/>
+    <!-- Head (big-top teardrop) -->
+    <path d="M30 30 Q30 60 52 72 Q74 60 74 30 Q74 16 52 16 Q30 16 30 30 Z" fill="#7FC9B3"/>
+    <!-- Forehead highlight -->
+    <ellipse cx="44" cy="26" rx="10" ry="5" fill="#fff" opacity="0.3"/>
+    <!-- Spots -->
+    <circle cx="34" cy="50" r="2.5" fill="#5FA693" opacity="0.5"/>
+    <circle cx="70" cy="50" r="2.5" fill="#5FA693" opacity="0.5"/>
+    <circle cx="52" cy="62" r="2" fill="#5FA693" opacity="0.5"/>
+    <!-- Three eyes -->
+    <circle cx="40" cy="42" r="7" fill="#fff"/>
+    <circle cx="64" cy="42" r="7" fill="#fff"/>
+    <circle cx="52" cy="30" r="5" fill="#fff"/>
+    <circle cx="40" cy="43" r="3" fill="#2C2138"/>
+    <circle cx="64" cy="43" r="3" fill="#2C2138"/>
+    <circle cx="52" cy="31" r="2.2" fill="#2C2138"/>
+    <circle cx="41" cy="42" r="1" fill="#fff"/>
+    <circle cx="65" cy="42" r="1" fill="#fff"/>
+    <!-- Zigzag mouth -->
+    <path d="M44 58 L47 54 L50 58 L53 54 L56 58 L59 54 L62 58" stroke="#2C2138" stroke-width="2" fill="none" stroke-linejoin="round"/>
+    <!-- Body nub -->
+    <ellipse cx="52" cy="82" rx="22" ry="10" fill="#7FC9B3"/>
+    <path d="M36 82 Q30 92 36 96" stroke="#7FC9B3" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M68 82 Q74 92 68 96" stroke="#7FC9B3" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </svg>

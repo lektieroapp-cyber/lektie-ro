@@ -1,0 +1,35 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Ears -->
+    <path d="M22 36 L26 14 L42 30 Z" fill="#8E98B5"/>
+    <path d="M26 32 L28 20 L38 30 Z" fill="#F4A7A3" opacity="0.6"/>
+    <path d="M82 36 L78 14 L62 30 Z" fill="#8E98B5"/>
+    <path d="M78 32 L76 20 L66 30 Z" fill="#F4A7A3" opacity="0.6"/>
+    <!-- Head -->
+    <circle cx="52" cy="54" r="30" fill="#8E98B5"/>
+    <!-- Darker stripe top -->
+    <path d="M36 32 Q52 40 68 32" stroke="#6B7595" stroke-width="4" fill="none" opacity="0.4" stroke-linecap="round"/>
+    <!-- Side stripes -->
+    <path d="M26 52 Q30 54 30 58" stroke="#6B7595" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.45"/>
+    <path d="M78 52 Q74 54 74 58" stroke="#6B7595" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.45"/>
+    <!-- Muzzle -->
+    <ellipse cx="52" cy="64" rx="12" ry="8" fill="#F5ECE0"/>
+    <!-- Eyes (green, narrowed cool) -->
+    <ellipse cx="40" cy="50" rx="6" ry="7" fill="#9DC49A"/>
+    <ellipse cx="64" cy="50" rx="6" ry="7" fill="#9DC49A"/>
+    <path d="M37 50 Q40 45 43 50" fill="#8E98B5" opacity="0.9"/>
+    <path d="M61 50 Q64 45 67 50" fill="#8E98B5" opacity="0.9"/>
+    <!-- Slit pupils -->
+    <ellipse cx="40" cy="51" rx="1.2" ry="5" fill="#2C2138"/>
+    <ellipse cx="64" cy="51" rx="1.2" ry="5" fill="#2C2138"/>
+    <!-- Nose -->
+    <path d="M48 60 L56 60 L52 65 Z" fill="#F4A7A3"/>
+    <!-- Mouth -->
+    <path d="M52 65 L52 68" stroke="#2C2138" stroke-width="2" stroke-linecap="round"/>
+    <path d="M52 68 Q48 71 46 70" stroke="#2C2138" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M52 68 Q56 71 58 70" stroke="#2C2138" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Whiskers -->
+    <path d="M22 62 L34 62" stroke="#2C2138" stroke-width="1" opacity="0.5"/>
+    <path d="M22 66 L34 64" stroke="#2C2138" stroke-width="1" opacity="0.5"/>
+    <path d="M82 62 L70 62" stroke="#2C2138" stroke-width="1" opacity="0.5"/>
+    <path d="M82 66 L70 64" stroke="#2C2138" stroke-width="1" opacity="0.5"/>
+  </svg>

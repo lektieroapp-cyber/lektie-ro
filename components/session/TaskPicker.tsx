@@ -1,3 +1,9 @@
+"use client"
+
+import { Companion } from "@/components/mascot/Companion"
+import { useCompanion } from "@/components/mascot/CompanionContext"
+import { DEFAULT_COMPANION } from "@/components/mascot/types"
+import { K, SUBJECT_PALETTE, type SubjectKey } from "./design-tokens"
 import type { SolveResponse, Task } from "./types"
 
 export function TaskPicker({
@@ -9,40 +15,157 @@ export function TaskPicker({
   onPick: (t: Task) => void
   onNewPhoto: () => void
 }) {
+  const { type: companionType } = useCompanion()
+  const subjectKey = (solve.subject as SubjectKey | null) ?? "matematik"
+  const palette = SUBJECT_PALETTE[subjectKey] ?? SUBJECT_PALETTE.matematik
+
+  const count = solve.tasks.length
+  const countLabel = count === 1 ? "1 opgave" : `${count} opgaver`
+
   return (
     <div
-      className="rounded-card bg-white p-5 md:p-8"
-      style={{ boxShadow: "var(--shadow-card)" }}
+      style={{
+        fontFamily: K.sans,
+        color: K.ink,
+        maxWidth: 440,
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: 18,
+      }}
     >
-      <h2
-        className="text-xl font-bold text-ink md:text-2xl"
-        style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
-      >
-        Hvilken opgave skal vi kigge på?
-      </h2>
+      <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+        <Companion type={companionType ?? DEFAULT_COMPANION} mood="happy" size={56} />
+        <div style={{ flex: 1, paddingTop: 2 }}>
+          <div style={{ fontFamily: K.serif, fontSize: 22, fontWeight: 600, color: K.ink, lineHeight: 1.2 }}>
+            Jeg fandt {countLabel}!
+          </div>
+          <div style={{ fontSize: 14, color: K.ink2, marginTop: 4 }}>
+            Hvilken én skal vi kigge på først?
+          </div>
+        </div>
+      </div>
 
-      <ul className="mt-4 flex flex-col gap-2">
-        {solve.tasks.map(t => (
-          <li key={t.id}>
-            <button
-              type="button"
-              onClick={() => onPick(t)}
-              className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-xl border border-ink/10 bg-white px-4 py-3.5 text-left transition hover:border-primary/40 hover:bg-blue-tint/30"
-            >
-              <span className="text-[15px] text-ink leading-relaxed">{t.text}</span>
-              <span aria-hidden className="shrink-0 text-primary">→</span>
-            </button>
-          </li>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {solve.tasks.map((t, i) => (
+          <TaskRow key={t.id} task={t} index={i} palette={palette} onPick={() => onPick(t)} />
         ))}
-      </ul>
+      </div>
 
       <button
         type="button"
         onClick={onNewPhoto}
-        className="mt-4 text-sm text-muted underline hover:text-ink"
+        style={{
+          alignSelf: "flex-start",
+          border: "none",
+          background: "transparent",
+          color: K.ink2,
+          fontSize: 13,
+          textDecoration: "underline",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          padding: 4,
+        }}
       >
-        Tag nyt billede
+        Tag et nyt billede
       </button>
     </div>
+  )
+}
+
+function TaskRow({
+  task,
+  index,
+  palette,
+  onPick,
+}: {
+  task: Task
+  index: number
+  palette: { tint: string; dot: string; ink: string }
+  onPick: () => void
+}) {
+  const isWord = task.text.length > 36
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      style={{
+        border: "1px solid rgba(31,27,51,0.05)",
+        background: K.card,
+        borderRadius: 18,
+        padding: "14px 16px",
+        cursor: "pointer",
+        textAlign: "left",
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        boxShadow: K.shadowCard,
+        animation: `slideIn 0.4s ${index * 0.08}s backwards`,
+        fontFamily: "inherit",
+        transition: "all 0.15s",
+        color: K.ink,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = "translateX(4px)"
+        e.currentTarget.style.borderColor = K.coral + "40"
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = "translateX(0)"
+        e.currentTarget.style.borderColor = "rgba(31,27,51,0.05)"
+      }}
+    >
+      <div
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          background: palette.tint,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 14,
+          fontWeight: 700,
+          color: palette.ink,
+          flexShrink: 0,
+        }}
+      >
+        {index + 1}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 11,
+            color: K.ink2,
+            fontWeight: 600,
+            letterSpacing: 0.4,
+            textTransform: "uppercase",
+          }}
+        >
+          {isWord ? "Tekststykke" : "Regn ud"}
+        </div>
+        <div
+          style={{
+            fontFamily: K.serif,
+            fontSize: isWord ? 14 : 18,
+            fontWeight: 600,
+            color: K.ink,
+            marginTop: 2,
+            lineHeight: 1.25,
+          }}
+        >
+          {task.text}
+        </div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 14 14" style={{ flexShrink: 0 }}>
+        <path
+          d="M3 7h8m-3-3l3 3-3 3"
+          stroke={K.coral}
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
   )
 }

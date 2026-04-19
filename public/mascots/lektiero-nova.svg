@@ -1,0 +1,31 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Antenna -->
+    <line x1="52" y1="12" x2="52" y2="20" stroke="#9FAEC0" stroke-width="2.5"/>
+    <circle cx="52" cy="10" r="4" fill="#B5DEC8"/>
+    <circle cx="52" cy="10" r="2" fill="#fff"/>
+    <!-- Ear dishes -->
+    <circle cx="18" cy="44" r="6" fill="#9FAEC0"/>
+    <circle cx="18" cy="44" r="3" fill="#6FA8C9"/>
+    <circle cx="86" cy="44" r="6" fill="#9FAEC0"/>
+    <circle cx="86" cy="44" r="3" fill="#6FA8C9"/>
+    <!-- Head (rounded rect) -->
+    <rect x="20" y="20" width="64" height="60" rx="18" fill="#D4DEE8"/>
+    <!-- Head shading -->
+    <rect x="20" y="62" width="64" height="18" rx="18" fill="#9FAEC0" opacity="0.25"/>
+    <!-- Highlight -->
+    <rect x="26" y="26" width="20" height="8" rx="4" fill="#fff" opacity="0.5"/>
+    <!-- Screen face -->
+    <rect x="28" y="36" width="48" height="28" rx="8" fill="#1F2D4A"/>
+    <!-- Eyes (glowing pixels) -->
+    <circle cx="42" cy="50" r="4" fill="#B5DEC8"/>
+    <circle cx="62" cy="50" r="4" fill="#B5DEC8"/>
+    <circle cx="42" cy="50" r="2" fill="#fff"/>
+    <circle cx="62" cy="50" r="2" fill="#fff"/>
+    <!-- Smile (pixel curve) -->
+    <path d="M44 58 Q52 62 60 58" stroke="#B5DEC8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <!-- Cheek lights -->
+    <circle cx="30" cy="70" r="2.5" fill="#F4A7A3"/>
+    <circle cx="74" cy="70" r="2.5" fill="#F4A7A3"/>
+    <!-- Neck bolts -->
+    <rect x="44" y="80" width="16" height="6" rx="2" fill="#9FAEC0"/>
+  </svg>

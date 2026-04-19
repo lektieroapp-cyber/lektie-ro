@@ -1,0 +1,26 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Ears -->
+    <path d="M22 38 L28 14 L44 34 Z" fill="#E87850"/>
+    <path d="M26 34 L30 20 L40 32 Z" fill="#F9E8D4"/>
+    <path d="M82 38 L76 14 L60 34 Z" fill="#E87850"/>
+    <path d="M78 34 L74 20 L64 32 Z" fill="#F9E8D4"/>
+    <!-- Head shape — pointy fox face -->
+    <path d="M20 48 Q20 78 52 88 Q84 78 84 48 Q84 36 72 34 Q52 32 32 34 Q20 36 20 48 Z" fill="#E87850"/>
+    <!-- Cream muzzle/chin -->
+    <path d="M32 58 Q32 80 52 88 Q72 80 72 58 Q62 68 52 68 Q42 68 32 58 Z" fill="#F9E8D4"/>
+    <!-- Forehead highlight -->
+    <path d="M30 42 Q52 36 74 42 Q52 46 30 42 Z" fill="#C5603C" opacity="0.3"/>
+    <!-- Cheek blush -->
+    <circle cx="28" cy="60" r="5" fill="#F4A7A3" opacity="0.5"/>
+    <circle cx="76" cy="60" r="5" fill="#F4A7A3" opacity="0.5"/>
+    <!-- Eyes (kvik - slightly narrowed) -->
+    <path d="M38 52 q4 -2 8 0 q-4 5 -8 0 z" fill="#2C2138"/>
+    <path d="M58 52 q4 -2 8 0 q-4 5 -8 0 z" fill="#2C2138"/>
+    <circle cx="40" cy="51" r="1" fill="#fff"/>
+    <circle cx="60" cy="51" r="1" fill="#fff"/>
+    <!-- Nose (triangle) -->
+    <path d="M48 68 L56 68 L52 74 Z" fill="#2C2138"/>
+    <!-- Mouth (sly smile) -->
+    <path d="M52 74 Q48 78 44 76" stroke="#2C2138" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M52 74 Q56 78 60 76" stroke="#2C2138" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  </svg>

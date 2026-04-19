@@ -1,9 +1,17 @@
 import { notFound, redirect } from "next/navigation"
+import { Companion } from "@/components/mascot/Companion"
+import { COMPANIONS, DEFAULT_COMPANION, type CompanionType } from "@/components/mascot/types"
 import { isLocale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getSessionUser } from "@/lib/auth/session"
 import { localePath } from "@/lib/i18n/routes"
+
+const VALID_COMPANIONS = new Set<string>(COMPANIONS.map(c => c.type))
+
+function toCompanion(value: string | null): CompanionType {
+  return value && VALID_COMPANIONS.has(value) ? (value as CompanionType) : DEFAULT_COMPANION
+}
 // CoachPanel — Phase 2: will be powered by Azure OpenAI
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -15,6 +23,7 @@ type Child = {
   avatar_emoji: string | null
   interests: string | null
   special_needs: string | null
+  companion_type: string | null
 }
 
 type Session = {
@@ -95,7 +104,7 @@ export default async function ParentOverview({
   // Load children.
   const { data: childrenData } = await admin
     .from("children")
-    .select("id, name, grade, avatar_emoji, interests, special_needs")
+    .select("id, name, grade, avatar_emoji, interests, special_needs, companion_type")
     .eq("parent_id", user.id)
     .order("created_at", { ascending: true })
   const children: Child[] = childrenData ?? []
@@ -185,8 +194,8 @@ export default async function ParentOverview({
                 style={{ boxShadow: "var(--shadow-card)" }}
               >
                 <div className="flex items-center gap-4">
-                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-tint text-2xl">
-                    {c.avatar_emoji ?? "🙂"}
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-tint">
+                    <Companion type={toCompanion(c.companion_type)} size={44} />
                   </span>
                   <div className="min-w-0">
                     <p className="font-semibold text-ink">{c.name}</p>
@@ -251,7 +260,9 @@ export default async function ParentOverview({
                   className="flex items-center gap-4 rounded-card bg-white px-5 py-4"
                   style={{ boxShadow: "var(--shadow-card)" }}
                 >
-                  <span className="text-xl" aria-hidden>{child?.avatar_emoji ?? "🙂"}</span>
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-tint" aria-hidden>
+                    <Companion type={toCompanion(child?.companion_type ?? null)} size={30} />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">
                       {s.problem_text ?? `${s.subject} — ${s.grade}. klasse`}

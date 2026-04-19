@@ -1,0 +1,27 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Ear tufts -->
+    <path d="M24 24 L18 10 L30 20 Z" fill="#6B5336"/>
+    <path d="M80 24 L86 10 L74 20 Z" fill="#6B5336"/>
+    <!-- Body (oval) -->
+    <ellipse cx="52" cy="56" rx="34" ry="36" fill="#8A6E4B"/>
+    <!-- Feather tufts - subtle stripes -->
+    <path d="M22 66 Q30 62 38 66 Q30 70 22 66" fill="#6B5336" opacity="0.4"/>
+    <path d="M66 66 Q74 62 82 66 Q74 70 66 66" fill="#6B5336" opacity="0.4"/>
+    <!-- Belly -->
+    <ellipse cx="52" cy="64" rx="18" ry="24" fill="#F0DFB8"/>
+    <!-- Eye discs (big owl eyes) -->
+    <circle cx="38" cy="48" r="14" fill="#fff"/>
+    <circle cx="66" cy="48" r="14" fill="#fff"/>
+    <circle cx="38" cy="48" r="14" fill="none" stroke="#6B5336" stroke-width="2"/>
+    <circle cx="66" cy="48" r="14" fill="none" stroke="#6B5336" stroke-width="2"/>
+    <!-- Pupils -->
+    <circle cx="38" cy="49" r="5" fill="#2C2138"/>
+    <circle cx="66" cy="49" r="5" fill="#2C2138"/>
+    <circle cx="39.5" cy="47.5" r="1.8" fill="#fff"/>
+    <circle cx="67.5" cy="47.5" r="1.8" fill="#fff"/>
+    <!-- Beak (triangle) -->
+    <path d="M48 60 L56 60 L52 68 Z" fill="#F2C75A" stroke="#6B5336" stroke-width="1"/>
+    <!-- Feet -->
+    <path d="M40 88 L38 94 M44 88 L44 94 M48 88 L50 94" stroke="#F2C75A" stroke-width="3" stroke-linecap="round"/>
+    <path d="M56 88 L54 94 M60 88 L60 94 M64 88 L66 94" stroke="#F2C75A" stroke-width="3" stroke-linecap="round"/>
+  </svg>

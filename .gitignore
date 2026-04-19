@@ -9,3 +9,7 @@ dist
 .DS_Store
 .vercel
 next-env.d.ts
+
+# Design handoff artifacts — extract, port to code, don't commit
+.design-prototype/
+.design-prototype.bin

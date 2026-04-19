@@ -1,0 +1,25 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <path d="M24 62 Q10 88 18 98" stroke="#B89FCF" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M32 68 Q22 94 32 100" stroke="#B89FCF" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M42 72 Q38 96 46 100" stroke="#B89FCF" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M52 74 Q52 98 56 100" stroke="#B89FCF" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M62 72 Q66 96 72 100" stroke="#B89FCF" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M72 68 Q82 94 88 100" stroke="#B89FCF" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M80 62 Q94 88 92 98" stroke="#B89FCF" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M52 76 Q52 92 52 102" stroke="#B89FCF" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <!-- Suction dots on legs (some) -->
+    <circle cx="22" cy="88" r="2" fill="#F4A7A3"/>
+    <circle cx="82" cy="88" r="2" fill="#F4A7A3"/>
+    <circle cx="52" cy="94" r="2" fill="#F4A7A3"/>
+    <!-- Body/head (big round dome) -->
+    <ellipse cx="52" cy="48" rx="32" ry="30" fill="#B89FCF"/>
+    <!-- Shading -->
+    <ellipse cx="52" cy="70" rx="30" ry="8" fill="#9575B5" opacity="0.4"/>
+    <!-- Top highlight -->
+    <ellipse cx="44" cy="32" rx="10" ry="6" fill="#fff" opacity="0.3"/>
+    <!-- Blush -->
+    <circle cx="28" cy="56" r="5" fill="#F4A7A3" opacity="0.6"/>
+    <circle cx="76" cy="56" r="5" fill="#F4A7A3" opacity="0.6"/>
+    <!-- Eyes (big, excited) -->
+    <circle cx="40" cy="44" r="5" fill="#fff"/>
+    <circle cx="64" cy="44" r="5" fill="#fff"/>
+    <circle cx="41" cy="45" r="2.5" fill="#2C2138"/>
+    <circle cx="65" cy="45" r="2.5" fill="#2C2138"/>
+    <circle cx="42" cy="44" r="1" fill="#fff"/>
+    <circle cx="66" cy="44" r="1" fill="#fff"/>
+    <!-- Mouth (little 'o') -->
+    <circle cx="52" cy="58" r="2.5" fill="#2C2138"/>
+  </svg>

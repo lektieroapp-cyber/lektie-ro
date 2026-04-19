@@ -1,0 +1,36 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Back spikes -->
+    <path d="M18 30 L24 18 L28 32 Z" fill="#4F9374"/>
+    <path d="M76 32 L80 18 L86 30 Z" fill="#4F9374"/>
+    <!-- Wings -->
+    <path d="M16 44 Q4 40 6 60 Q14 58 20 56 Z" fill="#4F9374"/>
+    <path d="M88 44 Q100 40 98 60 Q90 58 84 56 Z" fill="#4F9374"/>
+    <path d="M10 48 Q8 54 12 58" stroke="#6DB894" stroke-width="1" fill="none"/>
+    <path d="M94 48 Q96 54 92 58" stroke="#6DB894" stroke-width="1" fill="none"/>
+    <!-- Head -->
+    <ellipse cx="52" cy="52" rx="32" ry="30" fill="#6DB894"/>
+    <!-- Horns -->
+    <path d="M34 28 L30 14 L42 24 Z" fill="#EBDFA8"/>
+    <path d="M70 28 L74 14 L62 24 Z" fill="#EBDFA8"/>
+    <!-- Belly scales -->
+    <ellipse cx="52" cy="64" rx="18" ry="14" fill="#EBDFA8"/>
+    <path d="M40 60 Q52 66 64 60" stroke="#4F9374" stroke-width="1" fill="none" opacity="0.5"/>
+    <path d="M42 68 Q52 72 62 68" stroke="#4F9374" stroke-width="1" fill="none" opacity="0.5"/>
+    <!-- Nostrils -->
+    <circle cx="46" cy="62" r="1.5" fill="#2C2138"/>
+    <circle cx="58" cy="62" r="1.5" fill="#2C2138"/>
+    <!-- Eyes (determined, not angry) -->
+    <ellipse cx="40" cy="48" rx="5" ry="5" fill="#fff"/>
+    <ellipse cx="64" cy="48" rx="5" ry="5" fill="#fff"/>
+    <circle cx="41" cy="49" r="2.5" fill="#2C2138"/>
+    <circle cx="65" cy="49" r="2.5" fill="#2C2138"/>
+    <circle cx="42" cy="48" r="0.8" fill="#fff"/>
+    <circle cx="66" cy="48" r="0.8" fill="#fff"/>
+    <!-- Little tooth smile -->
+    <path d="M44 70 Q52 76 60 70" stroke="#2C2138" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <path d="M48 71 L48 74 L50 72 Z" fill="#fff"/>
+    <path d="M54 72 L54 74 L56 71 Z" fill="#fff"/>
+    <!-- Tiny ember puff -->
+    <circle cx="78" cy="76" r="3" fill="#E8846A" opacity="0.7"/>
+    <circle cx="82" cy="72" r="2" fill="#F2C75A" opacity="0.7"/>
+  </svg>

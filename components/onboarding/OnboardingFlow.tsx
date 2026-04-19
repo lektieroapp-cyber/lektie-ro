@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { type Locale } from "@/lib/i18n/config"
 import { Select } from "@/components/ui/Select"
 import { AvatarButton, AvatarPickerModal } from "@/components/children/AvatarPicker"
+import { DEFAULT_COMPANION, type CompanionType } from "@/components/mascot/types"
 
 type Step = "welcome" | "child"
 
@@ -101,7 +102,7 @@ function WelcomeStep({ firstName, onNext }: { firstName: string; onNext: () => v
 
 function ChildStep({ locale, onBack }: { locale: Locale; onBack: () => void }) {
   const router = useRouter()
-  const [avatar, setAvatar] = useState("🦁")
+  const [companion, setCompanion] = useState<CompanionType>(DEFAULT_COMPANION)
   const [avatarOpen, setAvatarOpen] = useState(false)
   const [name, setName] = useState("")
   const [grade, setGrade] = useState<number | "">("")
@@ -119,7 +120,7 @@ function ChildStep({ locale, onBack }: { locale: Locale; onBack: () => void }) {
       body: JSON.stringify({
         name: name.trim(),
         grade,
-        avatar_emoji: avatar,
+        companion_type: companion,
         interests: interests.trim() || undefined,
         special_needs: specialNeeds.trim() || undefined,
       }),
@@ -146,7 +147,7 @@ function ChildStep({ locale, onBack }: { locale: Locale; onBack: () => void }) {
         <div className="flex items-end gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-muted">Avatar</label>
-            <AvatarButton value={avatar} onClick={() => setAvatarOpen(true)} />
+            <AvatarButton value={companion} onClick={() => setAvatarOpen(true)} />
           </div>
           <div className="flex-1 flex flex-col gap-1">
             <label htmlFor="ob-name" className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -166,7 +167,7 @@ function ChildStep({ locale, onBack }: { locale: Locale; onBack: () => void }) {
         </div>
 
         {avatarOpen && (
-          <AvatarPickerModal value={avatar} onChange={setAvatar} onClose={() => setAvatarOpen(false)} />
+          <AvatarPickerModal value={companion} onChange={setCompanion} onClose={() => setAvatarOpen(false)} />
         )}
 
         {/* Grade */}

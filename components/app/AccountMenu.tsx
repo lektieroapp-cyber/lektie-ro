@@ -4,8 +4,15 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { Companion } from "@/components/mascot/Companion"
+import type { CompanionType } from "@/components/mascot/types"
 
-type ActiveChild = { id: string; name: string; avatar_emoji: string | null }
+type ActiveChild = {
+  id: string
+  name: string
+  avatar_emoji: string | null
+  companion_type: string | null
+}
 
 const SwitchIcon = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -38,6 +45,32 @@ const LogoutIcon = (
 
 function firstName(full: string) {
   return full.split(" ")[0]
+}
+
+function ChildAvatar({
+  child,
+  size,
+  wrapperClass = "",
+}: {
+  child: ActiveChild
+  size: number
+  wrapperClass?: string
+}) {
+  // If the kid picked a companion, render the animal SVG. Otherwise fall back
+  // to their emoji avatar. Both sit in a matching-size rounded pill.
+  const hasCompanion = !!child.companion_type
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full ${wrapperClass}`}
+      style={{ width: size, height: size }}
+    >
+      {hasCompanion ? (
+        <Companion type={child.companion_type as CompanionType} size={Math.round(size * 0.95)} />
+      ) : (
+        <span className="text-xl leading-none">{child.avatar_emoji ?? "🙂"}</span>
+      )}
+    </span>
+  )
 }
 
 export function AccountMenu({
@@ -93,7 +126,7 @@ export function AccountMenu({
           <div className="border-b border-ink/6 px-4 py-2.5">
             {isChildMode ? (
               <div className="flex items-center gap-2">
-                <span className="text-xl leading-none">{activeChild.avatar_emoji ?? "🙂"}</span>
+                <ChildAvatar child={activeChild} size={28} />
                 <span className="text-[13px] font-semibold text-ink">{firstName(activeChild.name)}</span>
               </div>
             ) : (
@@ -147,9 +180,7 @@ export function AccountMenu({
       >
         {isChildMode ? (
           <>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl leading-none">
-              {activeChild.avatar_emoji ?? "🙂"}
-            </span>
+            <ChildAvatar child={activeChild} size={32} wrapperClass="bg-primary/15" />
             <span className="truncate text-[13px] font-medium text-ink/80">{firstName(activeChild.name)}</span>
           </>
         ) : (

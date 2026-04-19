@@ -1,0 +1,32 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Flowing mane back -->
+    <path d="M18 40 Q14 60 20 80 Q26 70 26 58 Z" fill="#D4B8E8"/>
+    <path d="M22 34 Q16 50 22 68 Q30 58 30 46 Z" fill="#EBC9D9"/>
+    <!-- Ears -->
+    <path d="M34 24 L36 10 L44 26 Z" fill="#FAF4EC"/>
+    <path d="M36 22 L38 14 L42 24 Z" fill="#F4A7A3" opacity="0.6"/>
+    <path d="M66 24 L64 10 L72 26 Z" fill="#FAF4EC"/>
+    <!-- Horn -->
+    <path d="M52 8 L48 26 L56 26 Z" fill="#F2C75A"/>
+    <path d="M52 12 L50 24 M52 16 L50 22" stroke="#D9A838" stroke-width="1" fill="none"/>
+    <!-- Head -->
+    <ellipse cx="52" cy="54" rx="30" ry="30" fill="#FAF4EC"/>
+    <!-- Forelock -->
+    <path d="M38 28 Q46 36 40 44 Q50 38 52 42 Q54 38 64 44 Q58 36 66 28 Q52 24 38 28 Z" fill="#D4B8E8"/>
+    <!-- Muzzle -->
+    <ellipse cx="52" cy="66" rx="14" ry="10" fill="#F5ECE0"/>
+    <!-- Blush -->
+    <circle cx="28" cy="60" r="5" fill="#F4A7A3" opacity="0.6"/>
+    <circle cx="76" cy="60" r="5" fill="#F4A7A3" opacity="0.6"/>
+    <!-- Eyes (with long lashes) -->
+    <path d="M38 50 q4 4 8 0" stroke="#2C2138" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M58 50 q4 4 8 0" stroke="#2C2138" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M38 48 l-2 -3 M42 46 l0 -3 M46 48 l2 -3" stroke="#2C2138" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M58 48 l-2 -3 M62 46 l0 -3 M66 48 l2 -3" stroke="#2C2138" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- Nostrils + smile -->
+    <circle cx="48" cy="64" r="1.2" fill="#2C2138"/>
+    <circle cx="56" cy="64" r="1.2" fill="#2C2138"/>
+    <path d="M46 70 Q52 74 58 70" stroke="#2C2138" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <!-- Sparkle -->
+    <path d="M78 22 l2 4 4 2 -4 2 -2 4 -2 -4 -4 -2 4 -2 z" fill="#F2C75A"/>
+  </svg>

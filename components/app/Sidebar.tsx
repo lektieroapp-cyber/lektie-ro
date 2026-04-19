@@ -6,7 +6,12 @@ import { NavLink } from "./NavLink"
 import { MobileNav } from "./MobileNav"
 import { AccountMenu } from "./AccountMenu"
 
-type ActiveChild = { id: string; name: string; avatar_emoji: string | null }
+type ActiveChild = {
+  id: string
+  name: string
+  avatar_emoji: string | null
+  companion_type: string | null
+}
 
 const HomeIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

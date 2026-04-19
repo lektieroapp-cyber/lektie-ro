@@ -1,6 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { SparkleIcon } from "@/components/icons/RewardIcons"
+import { logDevEvent } from "./dev-log"
+import { DevLog } from "./DevLog"
+import { EmptyPhotoPanel } from "./EmptyPhotoPanel"
 import { ScanPanel } from "./ScanPanel"
 import { ThinkingPanel } from "./ThinkingPanel"
 import { SubjectPicker } from "./SubjectPicker"
@@ -9,7 +13,17 @@ import { ModeSelector } from "./ModeSelector"
 import { HintChat } from "./HintChat"
 import type { HintMode, SolveResponse, Task, Turn } from "./types"
 
-type Stage = "idle" | "uploading" | "thinking" | "subject" | "pick" | "mode" | "hint" | "done" | "sessionDone"
+type Stage =
+  | "idle"
+  | "uploading"
+  | "thinking"
+  | "emptyPhoto"
+  | "subject"
+  | "pick"
+  | "mode"
+  | "hint"
+  | "done"
+  | "sessionDone"
 
 const MAX_BYTES = 10 * 1024 * 1024
 
@@ -53,13 +67,16 @@ export function SessionFlow({
   isAdmin = false,
   activeChildId,
   childName,
-  childEmoji,
+  childEmoji: _childEmoji,
 }: {
   isAdmin?: boolean
   activeChildId?: string | null
   childName?: string | null
   childEmoji?: string | null
 }) {
+  // Companion defaults to lion everywhere consumers read it — no forced picker.
+  // Kids can still reach the picker via the dev panel (🐾 Makker) or a future
+  // settings button.
   const [stage, setStage] = useState<Stage>("idle")
   const [solve, setSolve] = useState<SolveResponse | null>(null)
   const [task, setTask] = useState<Task | null>(null)
@@ -104,11 +121,13 @@ export function SessionFlow({
 
     setPreviewUrl(URL.createObjectURL(file))
     setStage("uploading")
+    logDevEvent("upload", `Uploader ${file.name}`, { size: file.size, type: file.type })
 
     try {
       const path = await uploadFile(file)
       setImagePath(path)
       setStage("thinking")
+      logDevEvent("stage", "uploading → thinking", { path })
 
       const res = await fetch("/api/solve", {
         method: "POST",
@@ -117,13 +136,31 @@ export function SessionFlow({
       })
       if (!res.ok) throw new Error("solve failed")
       const data = (await res.json()) as SolveResponse
-      // Use remembered subject from earlier in the session if AI couldn't detect
       const resolvedSubject = data.subject || sessionSubject
       if (resolvedSubject) setSessionSubject(resolvedSubject)
       const solveWithSubject = resolvedSubject ? { ...data, subject: resolvedSubject } : data
       setSolve(solveWithSubject)
-      setStage(solveWithSubject.subject ? "pick" : "subject")
-    } catch {
+      logDevEvent("solve", `${data.tasks.length} opgaver fundet`, {
+        subject: solveWithSubject.subject,
+        confidence: solveWithSubject.subjectConfidence ?? "—",
+        grade: solveWithSubject.grade,
+        reason: solveWithSubject.reason ?? "—",
+        mocked: !!solveWithSubject.mocked,
+      })
+
+      // Smart routing:
+      //  1. No tasks → tell the kid, let them try another photo
+      //  2. Tasks exist but subject guess is low-confidence OR null → confirm first
+      //  3. Tasks exist + confident subject → straight to task picker
+      if (solveWithSubject.tasks.length === 0) {
+        setStage("emptyPhoto")
+      } else if (!solveWithSubject.subject || solveWithSubject.subjectConfidence === "low") {
+        setStage("subject")
+      } else {
+        setStage("pick")
+      }
+    } catch (err) {
+      logDevEvent("ai-error", `Solve fejlede: ${(err as Error).message}`)
       setError("Noget gik galt. Prøv at tage billedet igen.")
       if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPreviewUrl(null)
@@ -136,23 +173,25 @@ export function SessionFlow({
   function pickSubject(subject: string) {
     if (!solve) return
     setSessionSubject(subject)
-    // In mock mode, swap tasks to match the chosen subject.
     const tasks = solve.mocked && MOCK_TASKS[subject]
       ? MOCK_TASKS[subject]
       : solve.tasks
     setSolve({ ...solve, subject, tasks })
     setStage("pick")
+    logDevEvent("subject", `Valgt: ${subject}`)
   }
 
   function pickTask(t: Task) {
     setTask(t)
     setTurns([])
     setStage("mode")
+    logDevEvent("task", t.text.slice(0, 60), { type: t.type })
   }
 
   async function pickMode(m: HintMode) {
     setMode(m)
     setStage("hint")
+    logDevEvent("mode", m)
 
     // Create a session row if we have a real child (not dev/parent mode).
     if (activeChildId && activeChildId !== "parent" && solve) {
@@ -182,6 +221,7 @@ export function SessionFlow({
 
   async function completeSession(completedTurns: Turn[]) {
     setStage("done")
+    logDevEvent("complete", `Opgave klaret på ${completedTurns.length} ture`)
     setCompletedTasks(n => n + 1)
     if (!dbSessionId) return
     try {
@@ -261,7 +301,22 @@ export function SessionFlow({
     const sub = sessionSubject ?? DEV_SOLVE.subject ?? "matematik"
     const tasks = MOCK_TASKS[sub] ?? DEV_SOLVE.tasks
     const devSolve = { ...DEV_SOLVE, subject: sub, tasks }
-    if (needsSolve) setSolve(devSolve); else setSolve(null)
+    if (target === "emptyPhoto") {
+      // Dev-only: fake an empty solve so the panel renders.
+      setSolve({
+        sessionId: "dev-empty",
+        subject: null,
+        grade: 0,
+        tasks: [],
+        reason: "no_tasks",
+        detectionNotes: "Dev jump — ingen rigtig analyse.",
+        mocked: true,
+      })
+    } else if (needsSolve) {
+      setSolve(devSolve)
+    } else {
+      setSolve(null)
+    }
     if (needsTask)  setTask(tasks[0]);  else setTask(null)
     setMode(needsMode ? (opts?.mode ?? "hint") : null)
     setDbSessionId(null)
@@ -275,18 +330,14 @@ export function SessionFlow({
     <div className={`relative flex flex-col ${needsFill ? "min-h-0 flex-1" : "flex-1 items-center justify-center"}`}>
       {stage === "idle" && (
         <>
-          {childName && (
-            <h1
-              className="mb-4 text-center text-2xl font-bold text-ink md:mb-6 md:text-4xl"
-              style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
-            >
-              {childEmoji && <span aria-hidden className="mr-2">{childEmoji}</span>}
-              {completedTasks > 0
-                ? `${completedTasks} opgave${completedTasks > 1 ? "r" : ""} klaret!`
-                : `Hej ${childName}!`}
-            </h1>
-          )}
-          <ScanPanel onSelect={() => fileRef.current?.click()} onFile={onFile} error={error} />
+          <ScanPanel
+            onSelect={() => fileRef.current?.click()}
+            onFile={onFile}
+            error={error}
+            childName={completedTasks > 0
+              ? `${childName ?? "du"}! ${completedTasks} klaret`
+              : childName ?? undefined}
+          />
           {completedTasks > 0 && (
             <button
               type="button"
@@ -304,7 +355,9 @@ export function SessionFlow({
           className="rounded-card bg-white p-6 text-center md:p-10"
           style={{ boxShadow: "var(--shadow-card)" }}
         >
-          <span className="text-4xl">🎉</span>
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <SparkleIcon size={32} color="#E8846A" />
+          </span>
           <h2
             className="mt-3 text-2xl font-bold text-ink md:text-3xl"
             style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
@@ -327,8 +380,20 @@ export function SessionFlow({
           uploading={stage === "uploading"}
         />
       )}
+      {stage === "emptyPhoto" && solve && (
+        <EmptyPhotoPanel
+          reason={solve.reason ?? "no_tasks"}
+          detectionNotes={solve.detectionNotes}
+          onRetry={newPhoto}
+        />
+      )}
       {stage === "subject" && solve && (
-        <SubjectPicker onPick={pickSubject} />
+        <SubjectPicker
+          onPick={pickSubject}
+          guess={solve.subject}
+          guessConfidence={solve.subjectConfidence}
+          detectionNotes={solve.detectionNotes}
+        />
       )}
       {stage === "pick" && solve && (
         <TaskPicker solve={solve} onPick={pickTask} onNewPhoto={newPhoto} />
@@ -361,7 +426,19 @@ export function SessionFlow({
         onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }}
       />
 
-      {isAdmin && <DevPanel currentStage={stage} onJump={devJump} />}
+      {isAdmin && (
+        <>
+          <DevPanel currentStage={stage} onJump={devJump} />
+          <DevLog
+            stage={stage}
+            solve={solve}
+            task={task}
+            mode={mode}
+            turns={turns}
+            completedTasks={completedTasks}
+          />
+        </>
+      )}
     </div>
   )
 }
@@ -372,6 +449,7 @@ const STAGES: { label: string; stage: Stage; opts?: { mode?: HintMode } }[] = [
   { label: "📷 Scan",       stage: "idle" },
   { label: "⏳ Uploading",  stage: "uploading" },
   { label: "🔍 Thinking",   stage: "thinking" },
+  { label: "❓ Empty photo", stage: "emptyPhoto" },
   { label: "📚 Subject",    stage: "subject" },
   { label: "📋 Pick task",  stage: "pick" },
   { label: "🎯 Mode pick",  stage: "mode" },
@@ -386,12 +464,74 @@ function DevPanel({ currentStage, onJump }: {
   onJump: (stage: Stage, opts?: { mode?: HintMode }) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [aiMode, setAiMode] = useState<"live" | "test" | null>(null)
+  const [liveAvailable, setLiveAvailable] = useState(false)
+  const [flipping, setFlipping] = useState(false)
+
+  // Fetch current AI mode when the panel opens.
+  useEffect(() => {
+    if (!open || aiMode) return
+    fetch("/api/ai-mode")
+      .then(r => r.json())
+      .then(d => {
+        setAiMode(d.mode ?? null)
+        setLiveAvailable(Boolean(d.liveAvailable))
+      })
+      .catch(() => {})
+  }, [open, aiMode])
+
+  async function flipAiMode(next: "live" | "test") {
+    if (flipping) return
+    setFlipping(true)
+    try {
+      const res = await fetch("/api/ai-mode", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: next }),
+      })
+      if (res.ok) {
+        const j = await res.json()
+        setAiMode(j.mode)
+      }
+    } finally {
+      setFlipping(false)
+    }
+  }
+
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
       {open && (
-        <div className="rounded-card border border-coral-deep/25 bg-white p-3 shadow-xl" style={{ minWidth: 190 }}>
+        <div className="rounded-card border border-coral-deep/25 bg-white p-3 shadow-xl" style={{ minWidth: 210 }}>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
-            Dev — jump to stage
+            AI mode
+          </p>
+          <div className="mb-3 flex gap-1 rounded-lg bg-canvas p-1">
+            {(["test", "live"] as const).map(m => {
+              const active = aiMode === m
+              const disabled = m === "live" && !liveAvailable
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => !disabled && !active && flipAiMode(m)}
+                  disabled={flipping || disabled}
+                  className={`flex-1 rounded-md px-2 py-1 text-[12px] font-semibold transition ${
+                    active
+                      ? "bg-white text-ink shadow-sm"
+                      : disabled
+                        ? "text-ink/30 cursor-not-allowed"
+                        : "text-ink/60 hover:text-ink cursor-pointer"
+                  }`}
+                  title={disabled ? "Azure ikke konfigureret" : undefined}
+                >
+                  {m === "live" ? "🔴 Live" : "🧪 Test"}
+                </button>
+              )
+            })}
+          </div>
+
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
+            Jump to stage
           </p>
           <div className="flex flex-col gap-1">
             {STAGES.map(({ label, stage, opts }) => {

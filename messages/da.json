@@ -52,14 +52,21 @@
     "badge": "Tidlig adgang – Skriv dig på listen",
     "title": "Ro om lektierne. Plads til familien.",
     "titleLine1": "Ro om lektierne.",
-    "titleLine2": "Plads til familien.",
+    "titleLine2": "Plads til ",
+    "titleItalic": "familien.",
     "subtitle": "AI-lektiehjælp til danske folkeskoleelever. Vi guider barnet trin for trin, uden at give facit.",
     "values": {
       "one": "Nærvær",
       "two": "Ro",
       "three": "Overskud"
     },
-    "learnMore": "Læs mere om hvad vi tilbyder"
+    "learnMore": "Læs mere om hvad vi tilbyder",
+    "perks": [
+      "7 dages gratis",
+      "Ingen binding",
+      "GDPR, EU-data",
+      "Ingen reklamer"
+    ]
   },
   "waitlist": {
     "title": "Få tidlig adgang",
@@ -77,9 +84,16 @@
     "existingLink": "Fortsæt her"
   },
   "promise": {
-    "title": "Vi giver aldrig facit – vi viser vejen",
-    "body": "Vi guider barnet gennem {highlight}, så de selv når svaret. Det skaber ægte læring og selvtillid.",
-    "highlight": "løsningsmetoden"
+    "title": "Vi giver aldrig facit",
+    "titleItalic": "vi viser vejen",
+    "body": "Vi guider barnet gennem {highlight}, så de selv når svaret. Det skaber ægte læring og selvtillid — ikke afhængighed af en app.",
+    "highlight": "løsningsmetoden",
+    "demoBadge": "Live eksempel",
+    "demoTabs": {
+      "math": "Matematik",
+      "dansk": "Dansk",
+      "eng": "Engelsk"
+    }
   },
   "benefits": {
     "child": {
@@ -119,12 +133,14 @@
   },
   "pricing": {
     "title": "Kommende medlemskaber",
+    "lead": "Start med 7 dages gratis prøve. Ingen binding. Opsig når som helst.",
     "note": "Vejledende priser. Endelige priser bekræftes inden tidlig adgang aktiveres.",
     "standard": {
       "name": "Enkelt",
       "price": "229 kr.",
       "interval": "/md",
       "body": "Til det enkelte barn, der har brug for ro til lektierne.",
+      "cta": "Vælg Enkelt",
       "features": [
         "1 barn",
         "AI-vejledning uden facit",
@@ -138,9 +154,12 @@
       "interval": "/md",
       "badge": "MEST POPULÆR",
       "body": "Op til 4 børn. Den ultimative løsning til den store familie.",
+      "cta": "Vælg Familie",
       "features": [
         "Op til 4 børn",
-        "Alt i Enkelt"
+        "Alt i Enkelt",
+        "Personlige profiler & interesser",
+        "Ugentlig digest pr. barn"
       ]
     }
   },

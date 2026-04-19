@@ -8,7 +8,15 @@ import { createClient } from "@/lib/supabase/client"
 import { type Locale } from "@/lib/i18n/config"
 
 type NavItem = { href: string; label: string; icon: React.ReactNode }
-type ActiveChild = { id: string; name: string; avatar_emoji: string | null }
+import { Companion } from "@/components/mascot/Companion"
+import type { CompanionType } from "@/components/mascot/types"
+
+type ActiveChild = {
+  id: string
+  name: string
+  avatar_emoji: string | null
+  companion_type: string | null
+}
 
 type Props = {
   locale: Locale
@@ -131,8 +139,12 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
           <div className="flex items-center gap-3 px-3 py-2">
             {isChildMode ? (
               <>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl leading-none">
-                  {activeChild.avatar_emoji ?? "🙂"}
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/15">
+                  {activeChild.companion_type ? (
+                    <Companion type={activeChild.companion_type as CompanionType} size={30} />
+                  ) : (
+                    <span className="text-xl leading-none">{activeChild.avatar_emoji ?? "🙂"}</span>
+                  )}
                 </span>
                 <span className="truncate text-[13px] font-medium text-ink/80">{firstName(activeChild.name)}</span>
               </>

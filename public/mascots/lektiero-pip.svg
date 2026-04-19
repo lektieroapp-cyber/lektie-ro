@@ -1,0 +1,30 @@
+<svg viewBox="-12 -12 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Long ears -->
+    <ellipse cx="36" cy="22" rx="8" ry="18" fill="#FAF4EC" transform="rotate(-12 36 22)"/>
+    <ellipse cx="36" cy="22" rx="4" ry="14" fill="#F4A7A3" opacity="0.6" transform="rotate(-12 36 22)"/>
+    <ellipse cx="68" cy="22" rx="8" ry="18" fill="#FAF4EC" transform="rotate(12 68 22)"/>
+    <ellipse cx="68" cy="22" rx="4" ry="14" fill="#F4A7A3" opacity="0.6" transform="rotate(12 68 22)"/>
+    <!-- Head -->
+    <circle cx="52" cy="58" r="30" fill="#FAF4EC"/>
+    <!-- Fluffy cheek fur -->
+    <circle cx="24" cy="62" r="6" fill="#FAF4EC"/>
+    <circle cx="80" cy="62" r="6" fill="#FAF4EC"/>
+    <!-- Grey spot -->
+    <ellipse cx="52" cy="44" rx="14" ry="6" fill="#E8DCC8" opacity="0.5"/>
+    <!-- Blush -->
+    <circle cx="30" cy="64" r="5" fill="#F4A7A3" opacity="0.65"/>
+    <circle cx="74" cy="64" r="5" fill="#F4A7A3" opacity="0.65"/>
+    <!-- Eyes (big and sweet) -->
+    <circle cx="42" cy="56" r="5" fill="#2C2138"/>
+    <circle cx="62" cy="56" r="5" fill="#2C2138"/>
+    <circle cx="43.5" cy="54.5" r="1.8" fill="#fff"/>
+    <circle cx="63.5" cy="54.5" r="1.8" fill="#fff"/>
+    <!-- Nose (pink triangle) -->
+    <path d="M48 66 L56 66 L52 70 Z" fill="#F4A7A3"/>
+    <!-- Mouth (cute Y) -->
+    <path d="M52 70 L52 73" stroke="#2C2138" stroke-width="2" stroke-linecap="round"/>
+    <path d="M52 73 Q48 76 46 74" stroke="#2C2138" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M52 73 Q56 76 58 74" stroke="#2C2138" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Front teeth -->
+    <rect x="50" y="76" width="4" height="4" rx="1" fill="#fff" stroke="#2C2138" stroke-width="0.8"/>
+  </svg>

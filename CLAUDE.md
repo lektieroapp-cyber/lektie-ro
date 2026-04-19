@@ -143,7 +143,9 @@ What's actually shipped vs stubbed. Read this first before suggesting any work.
 | Storage | Supabase Storage, private bucket, 24h auto-delete | homework photos are PII |
 | Realtime | Supabase Realtime | parent dashboard subscribes to sessions |
 | AI vendor | **Azure OpenAI — Sweden Central only** | GDPR. No OpenAI direct, no Anthropic, ever. |
-| Models | `gpt-4o` (vision + complex), `gpt-4o-mini` (text + classify) | |
+| Model | `gpt-5-mini` (single deployment, Data Zone Standard) | Handles vision extraction + streaming Socratic hints. Configure via `AZURE_OPENAI_DEPLOYMENT`. |
+| Endpoint | Foundry v1, e.g. `https://<resource>.services.ai.azure.com/api/projects/<project>/openai/v1` (or classic `https://<resource>.openai.azure.com/openai/v1`) | Set `AZURE_OPENAI_ENDPOINT` — no trailing slash, no `/responses` suffix. The OpenAI SDK appends `/chat/completions`. |
+| AI mode | `AI_MODE=live` in prod, `test` for demos | `test` returns canned mocks, `live` hits Azure. Admins can flip per-browser via the ⚙ dev panel. |
 | Styling | Tailwind v4 (no config file) + Nunito (kids) + Inter (parents) | |
 | Email | Resend | Random Code default |
 | Analytics | PostHog EU, cookieless default | GDPR |
@@ -427,11 +429,11 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY        # server only — never NEXT_PUBLIC_
 
-# Azure OpenAI (Sweden Central)
-AZURE_OPENAI_ENDPOINT            # https://<resource>.openai.azure.com
+# Azure OpenAI (Sweden Central, Foundry v1 endpoint)
+AZURE_OPENAI_ENDPOINT            # https://<resource>.services.ai.azure.com/api/projects/<project>/openai/v1
 AZURE_OPENAI_KEY
-AZURE_OPENAI_DEPLOYMENT          # gpt-4o
-AZURE_OPENAI_MINI_DEPLOYMENT     # gpt-4o-mini
+AZURE_OPENAI_DEPLOYMENT          # gpt-5-mini
+AI_MODE                          # live | test  (optional, auto-detects)
 
 # Child auth
 CHILD_JWT_SECRET                 # 32+ random bytes, server only

@@ -21,7 +21,10 @@ export async function Navbar({ locale }: { locale: Locale }) {
   }
 
   return (
-    <header className="w-full">
+    <header
+      className="sticky top-0 z-50 w-full border-b border-ink/[0.06] backdrop-blur-[12px]"
+      style={{ background: "rgba(251,243,232,0.85)" }}
+    >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-2 md:px-6 md:py-3">
         <Link href={`/${locale}`} className="inline-flex items-center">
           <Logo size="md" />

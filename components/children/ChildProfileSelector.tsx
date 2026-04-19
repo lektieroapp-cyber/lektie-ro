@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Companion } from "@/components/mascot/Companion"
+import type { CompanionType } from "@/components/mascot/types"
 
-type Child = { id: string; name: string; avatar_emoji: string | null }
+type Child = {
+  id: string
+  name: string
+  avatar_emoji: string | null
+  companion_type: string | null
+}
 
 function firstName(full: string) {
   return full.split(" ")[0]
@@ -38,13 +45,21 @@ function ProfileCard({
       }}
     >
       <span
-        className={`relative flex h-28 w-28 items-center justify-center rounded-2xl bg-white/90 shadow-md transition duration-200 group-hover:scale-105 group-hover:shadow-xl group-focus:ring-2 group-focus:ring-primary/50 sm:h-36 sm:w-36 ${
+        className={`relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl bg-white/90 shadow-md transition duration-200 group-hover:scale-105 group-hover:shadow-xl group-focus:ring-2 group-focus:ring-primary/50 sm:h-36 sm:w-36 ${
           isSelected ? "animate-bounce-pick" : ""
         }`}
         style={isSelected ? { boxShadow: "0 0 0 3px var(--color-primary)" } : undefined}
       >
-        <span className={`text-5xl sm:text-6xl ${isSelected ? "animate-wiggle" : ""}`}>
-          {child.avatar_emoji ?? "🙂"}
+        <span className={isSelected ? "animate-wiggle" : ""}>
+          {child.companion_type ? (
+            <Companion
+              type={child.companion_type as CompanionType}
+              size={112}
+              bobbing={isSelected}
+            />
+          ) : (
+            <span className="text-5xl sm:text-6xl">{child.avatar_emoji ?? "🙂"}</span>
+          )}
         </span>
       </span>
       <span className={`font-semibold transition sm:text-[17px] ${

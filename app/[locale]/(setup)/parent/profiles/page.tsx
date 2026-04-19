@@ -5,7 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getSessionUser } from "@/lib/auth/session"
 import { ChildProfileSelector } from "@/components/children/ChildProfileSelector"
 
-type Child = { id: string; name: string; avatar_emoji: string | null }
+type Child = {
+  id: string
+  name: string
+  avatar_emoji: string | null
+  companion_type: string | null
+}
 
 export default async function ProfilesPage({
   params,
@@ -19,7 +24,7 @@ export default async function ProfilesPage({
   const admin = createAdminClient()
   const { data } = await admin
     .from("children")
-    .select("id, name, avatar_emoji")
+    .select("id, name, avatar_emoji, companion_type")
     .eq("parent_id", user.id)
     .order("created_at", { ascending: true })
   const children: Child[] = data ?? []

@@ -6,6 +6,7 @@ import daMessages from "@/messages/da.json"
 import { type Locale } from "@/lib/i18n/config"
 import { Select } from "@/components/ui/Select"
 import { AvatarButton, AvatarPickerModal } from "@/components/children/AvatarPicker"
+import { DEFAULT_COMPANION, type CompanionType } from "@/components/mascot/types"
 
 const MESSAGES: Record<Locale, typeof daMessages> = { da: daMessages }
 
@@ -13,7 +14,7 @@ export function OnboardingForm({ locale }: { locale: Locale }) {
   const m = MESSAGES[locale].onboarding
   const router = useRouter()
 
-  const [avatar, setAvatar] = useState("🦁")
+  const [companion, setCompanion] = useState<CompanionType>(DEFAULT_COMPANION)
   const [avatarOpen, setAvatarOpen] = useState(false)
   const [name, setName] = useState("")
   const [grade, setGrade] = useState<number | "">("")
@@ -31,7 +32,7 @@ export function OnboardingForm({ locale }: { locale: Locale }) {
       body: JSON.stringify({
         name: name.trim(),
         grade,
-        avatar_emoji: avatar,
+        companion_type: companion,
         interests: interests.trim() || undefined,
         special_needs: specialNeeds.trim() || undefined,
       }),
@@ -64,7 +65,7 @@ export function OnboardingForm({ locale }: { locale: Locale }) {
             <label className="text-xs font-semibold uppercase tracking-wide text-muted">
               {m.avatarLabel}
             </label>
-            <AvatarButton value={avatar} onClick={() => setAvatarOpen(true)} />
+            <AvatarButton value={companion} onClick={() => setAvatarOpen(true)} />
           </div>
           <div className="flex-1 flex flex-col gap-1">
             <label htmlFor="child-name" className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -85,8 +86,8 @@ export function OnboardingForm({ locale }: { locale: Locale }) {
 
         {avatarOpen && (
           <AvatarPickerModal
-            value={avatar}
-            onChange={setAvatar}
+            value={companion}
+            onChange={setCompanion}
             onClose={() => setAvatarOpen(false)}
           />
         )}

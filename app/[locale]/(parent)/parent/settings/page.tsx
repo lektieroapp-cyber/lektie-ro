@@ -16,7 +16,8 @@ const TIER_LIMITS: Record<string, number> = { free: 0, standard: 1, family: 4 }
 
 type Child = {
   id: string; name: string; grade: number
-  avatar_emoji: string | null; interests: string | null; special_needs: string | null
+  avatar_emoji: string | null; companion_type: string | null
+  interests: string | null; special_needs: string | null
 }
 
 export default async function SettingsPage({
@@ -30,7 +31,7 @@ export default async function SettingsPage({
 
   const [{ data: profileData }, { data: childrenData }] = await Promise.all([
     admin.from("profiles").select("role, subscription_tier").eq("id", user.id).single(),
-    admin.from("children").select("id, name, grade, avatar_emoji, interests, special_needs")
+    admin.from("children").select("id, name, grade, avatar_emoji, companion_type, interests, special_needs")
       .eq("parent_id", user.id).order("created_at", { ascending: true }),
   ])
 

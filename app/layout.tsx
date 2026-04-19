@@ -1,10 +1,16 @@
 import type { Metadata } from "next"
-import { Fraunces, Inter } from "next/font/google"
+import { Fraunces, Inter, Nunito } from "next/font/google"
 import "./globals.css"
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
   variable: "--font-inter",
+  display: "swap",
+})
+
+const nunito = Nunito({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-nunito",
   display: "swap",
 })
 
@@ -25,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="da" className={`${inter.variable} ${fraunces.variable}`}>
+    <html lang="da" className={`${inter.variable} ${nunito.variable} ${fraunces.variable}`}>
       <body>{children}</body>
     </html>
   )
