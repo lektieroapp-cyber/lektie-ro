@@ -9,7 +9,12 @@ export type SolveResponse = {
   subject: string | null
   /** AI's confidence in the subject detection. "low" → prompt the user. */
   subjectConfidence?: "high" | "medium" | "low"
-  grade: number
+  /**
+   * @deprecated Not populated from photo analysis anymore. Grade comes from
+   * the child's profile — read `activeChild.grade` instead. Kept on the type
+   * for backwards-compatibility with old sessions.
+   */
+  grade?: number | null
   tasks: Task[]
   /**
    * Populated when tasks is empty to explain why (in Danish, kid-friendly).

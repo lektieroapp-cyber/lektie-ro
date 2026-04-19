@@ -68,15 +68,27 @@ export function SessionFlow({
   activeChildId,
   childName,
   childEmoji: _childEmoji,
+  childGrade,
 }: {
   isAdmin?: boolean
   activeChildId?: string | null
   childName?: string | null
   childEmoji?: string | null
+  /** Grade from the child's profile. Null if no child or grade unset. */
+  childGrade?: number | null
 }) {
   // Companion defaults to lion everywhere consumers read it — no forced picker.
   // Kids can still reach the picker via the dev panel (🐾 Makker) or a future
   // settings button.
+  // Dev tools (scene jumper + dev log) render only on localhost, never in prod
+  // or preview — even for admins. Keeps the staging/prod surface clean.
+  const [isLocalhost, setIsLocalhost] = useState(false)
+  useEffect(() => {
+    const h = window.location.hostname
+    setIsLocalhost(h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0")
+  }, [])
+  const showDevTools = isAdmin && isLocalhost
+
   const [stage, setStage] = useState<Stage>("idle")
   const [solve, setSolve] = useState<SolveResponse | null>(null)
   const [task, setTask] = useState<Task | null>(null)
@@ -121,19 +133,29 @@ export function SessionFlow({
 
     setPreviewUrl(URL.createObjectURL(file))
     setStage("uploading")
-    logDevEvent("upload", `Uploader ${file.name}`, { size: file.size, type: file.type })
+    const flowStart = performance.now()
+    logDevEvent("upload", `Starter: ${file.name}`, {
+      size: file.size,
+      type: file.type,
+    })
 
     try {
+      const uploadStart = performance.now()
       const path = await uploadFile(file)
+      const uploadMs = Math.round(performance.now() - uploadStart)
       setImagePath(path)
       setStage("thinking")
-      logDevEvent("stage", "uploading → thinking", { path })
+      logDevEvent("upload", "Billede sendt til Supabase", { path, ms: uploadMs })
+      logDevEvent("stage", "uploading → thinking")
 
+      const solveStart = performance.now()
+      logDevEvent("info", "→ /api/solve (Azure vision)")
       const res = await fetch("/api/solve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imagePath: path, imageName: file.name }),
       })
+      const solveMs = Math.round(performance.now() - solveStart)
       if (!res.ok) throw new Error("solve failed")
       const data = (await res.json()) as SolveResponse
       const resolvedSubject = data.subject || sessionSubject
@@ -146,6 +168,8 @@ export function SessionFlow({
         grade: solveWithSubject.grade,
         reason: solveWithSubject.reason ?? "—",
         mocked: !!solveWithSubject.mocked,
+        ms: solveMs,
+        totalMs: Math.round(performance.now() - flowStart),
       })
 
       // Smart routing:
@@ -202,7 +226,8 @@ export function SessionFlow({
           body: JSON.stringify({
             childId: activeChildId,
             subject: solve.subject,
-            grade: solve.grade,
+            // Grade comes from the child's profile, not the photo.
+            grade: childGrade ?? null,
             mode: m,
             problemText: task?.text,
             problemType: task?.type,
@@ -329,26 +354,14 @@ export function SessionFlow({
   return (
     <div className={`relative flex flex-col ${needsFill ? "min-h-0 flex-1" : "flex-1 items-center justify-center"}`}>
       {stage === "idle" && (
-        <>
-          <ScanPanel
-            onSelect={() => fileRef.current?.click()}
-            onFile={onFile}
-            error={error}
-            childName={completedTasks > 0
-              ? `${childName ?? "du"}! ${completedTasks} klaret`
-              : childName ?? undefined}
-          />
-          {completedTasks > 0 && (
-            <button
-              type="button"
-              onClick={finishSession}
-              className="mt-4 w-full rounded-btn border border-ink/15 bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:bg-canvas"
-              style={{ boxShadow: "var(--shadow-card)" }}
-            >
-              Færdig for i dag
-            </button>
-          )}
-        </>
+        <ScanPanel
+          onSelect={() => fileRef.current?.click()}
+          onFile={onFile}
+          error={error}
+          childName={childName ?? undefined}
+          completedCount={completedTasks}
+          onFinish={completedTasks > 0 ? finishSession : undefined}
+        />
       )}
       {stage === "sessionDone" && (
         <div
@@ -412,7 +425,6 @@ export function SessionFlow({
           onComplete={completeSession}
           onMoreHomework={nextTask}
           onFinishSession={finishSession}
-          onSwitchToHint={() => { setMode("hint"); setTurns([]) }}
           completed={stage === "done"}
         />
       )}
@@ -426,7 +438,7 @@ export function SessionFlow({
         onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }}
       />
 
-      {isAdmin && (
+      {showDevTools && (
         <>
           <DevPanel currentStage={stage} onJump={devJump} />
           <DevLog

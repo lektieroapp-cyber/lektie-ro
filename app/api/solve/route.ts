@@ -19,7 +19,6 @@ type SolveResult = {
   sessionId: string
   subject: string | null
   subjectConfidence?: Confidence
-  grade: number
   tasks: Task[]
   reason?: Reason
   detectionNotes?: string | null
@@ -45,7 +44,6 @@ export async function POST(request: NextRequest) {
       sessionId: randomUUID(),
       subject: extracted.subject,
       subjectConfidence: extracted.subjectConfidence,
-      grade: extracted.grade,
       tasks: extracted.tasks,
       reason: extracted.reason,
       detectionNotes: extracted.detectionNotes,
@@ -62,12 +60,17 @@ export async function POST(request: NextRequest) {
 async function callVision(imageDataUrl: string): Promise<{
   subject: string | null
   subjectConfidence: Confidence
-  grade: number
   tasks: Task[]
   reason: Reason
   detectionNotes: string | null
 }> {
   const client = getAzure()
+  // Vision extraction needs some reasoning (to pick subject + grade) but
+  // "minimal" still gives enough. Caps latency below 8s in most cases.
+  const gpt5Extras = {
+    reasoning_effort: "minimal",
+    max_completion_tokens: 1000,
+  } as unknown as Record<string, never>
   const completion = await client.chat.completions.create({
     model: getDeployment(),
     response_format: { type: "json_object" },
@@ -90,13 +93,13 @@ async function callVision(imageDataUrl: string): Promise<{
         ],
       },
     ],
+    ...gpt5Extras,
   })
 
   const raw = completion.choices[0]?.message?.content ?? "{}"
   const parsed = JSON.parse(raw) as {
     subject?: string | null
     subjectConfidence?: string
-    grade?: number | null
     tasks?: { text?: string; type?: string }[]
     reason?: string
     detectionNotes?: string | null
@@ -113,7 +116,6 @@ async function callVision(imageDataUrl: string): Promise<{
 
   const subject = normaliseSubject(parsed.subject ?? null)
   const subjectConfidence = normaliseConfidence(parsed.subjectConfidence)
-  const grade = clampGrade(parsed.grade)
   const reason = normaliseReason(parsed.reason)
   const detectionNotes =
     typeof parsed.detectionNotes === "string" && parsed.detectionNotes.trim().length > 0
@@ -123,7 +125,6 @@ async function callVision(imageDataUrl: string): Promise<{
   return {
     subject,
     subjectConfidence,
-    grade,
     tasks,
     // If AI didn't give a reason but also found no tasks, default to no_tasks.
     reason: tasks.length === 0 ? (reason ?? "no_tasks") : null,
@@ -138,7 +139,6 @@ Returnér UDELUKKENDE valid JSON med denne struktur:
 {
   "subject": "matematik" | "dansk" | "engelsk" | null,
   "subjectConfidence": "high" | "medium" | "low",
-  "grade": 1..10,
   "tasks": [
     { "text": "opgaveteksten ordret som på billedet", "type": "addition"|"subtraction"|"word-problem"|"reading"|"grammar"|"translation"|"composition"|"task" }
   ],
@@ -154,7 +154,7 @@ REGLER:
   - medium: sandsynligt men der mangler entydig kontekst
   - low: du gætter — måske rigtigt, måske forkert
 - "subject": null kun hvis du virkelig ikke kan afgøre det.
-- "grade": gæt et klassetrin (1-10) baseret på opgavens sværhedsgrad.
+- GÆT IKKE KLASSETRIN. Klassetrinnet kommer fra barnets profil, ikke fra billedet.
 - "tasks": [] hvis der ikke er skoleopgaver på billedet.
 - "reason": udfyld KUN hvis tasks er tom.
   - "not_homework": billedet viser ikke skoleopgaver
@@ -210,11 +210,6 @@ function normaliseReason(r: string | undefined): Reason {
   return null
 }
 
-function clampGrade(g: number | null | undefined): number {
-  const n = Number(g)
-  if (!Number.isFinite(n)) return 4
-  return Math.min(10, Math.max(1, Math.round(n)))
-}
 
 // ─── Fallback mock ──────────────────────────────────────────────────────────
 
@@ -222,7 +217,6 @@ function mockSolve(soft = false): SolveResult {
   const pool = [
     {
       subject: "matematik",
-      grade: 3,
       tasks: [
         { id: "t1", text: "Regn ud: 24 + 17", type: "addition" },
         { id: "t2", text: "Regn ud: 36 − 19", type: "subtraction" },
@@ -231,7 +225,6 @@ function mockSolve(soft = false): SolveResult {
     },
     {
       subject: "dansk",
-      grade: 4,
       tasks: [
         { id: "t1", text: "Hvad handler teksten om? Skriv med dine egne ord.", type: "reading" },
         { id: "t2", text: "Find tre tillægsord i teksten.", type: "grammar" },
@@ -240,7 +233,6 @@ function mockSolve(soft = false): SolveResult {
     },
     {
       subject: "engelsk",
-      grade: 5,
       tasks: [
         { id: "t1", text: "Translate: 'Hunden løber i parken'.", type: "translation" },
         { id: "t2", text: "Write a sentence using the word 'yesterday'.", type: "composition" },
@@ -252,7 +244,6 @@ function mockSolve(soft = false): SolveResult {
   return {
     sessionId: randomUUID(),
     subject: pick.subject,
-    grade: pick.grade,
     tasks: pick.tasks,
     mocked: !soft ? true : undefined,
   }

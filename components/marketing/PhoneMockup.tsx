@@ -76,7 +76,7 @@ export function PhoneMockup() {
                 flex: 1,
               }}
             >
-              Okay! Lad os kigge på <b>24 + 17</b>. Kan vi dele det op i tier og enere?
+              Okay! Lad os kigge på <b>8 + 5</b>. Hvor mange mangler du for at fylde ti-rammen?
             </div>
           </div>
 
@@ -93,39 +93,17 @@ export function PhoneMockup() {
               color: "#1F2D4A",
             }}
           >
-            Regn ud: 24 + 17
+            Regn ud: 8 + 5
             <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-              <span
-                style={{
-                  background: "linear-gradient(135deg, #E6F0F7, #E6F0F7)",
-                  color: "#3A5F7A",
-                  padding: "3px 10px",
-                  borderRadius: 999,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  fontFamily: "var(--font-nunito), sans-serif",
-                }}
-              >
-                20 + 4
-              </span>
-              <span style={{ color: "#8A95AD", fontWeight: 700 }}>+</span>
-              <span
-                style={{
-                  background: "linear-gradient(135deg, #FBEBC2, #FDF3D8)",
-                  color: "#7A5A10",
-                  padding: "3px 10px",
-                  borderRadius: 999,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  fontFamily: "var(--font-nunito), sans-serif",
-                }}
-              >
-                10 + 7
-              </span>
+              <NumChip bg="#FDE4D8" fg="#B9452D">8</NumChip>
+              <Plus />
+              <NumChip bg="#FBEBC2" fg="#7A5A10">2</NumChip>
+              <Plus />
+              <NumChip bg="#FBEBC2" fg="#7A5A10">3</NumChip>
             </div>
           </div>
 
-          {/* Ten-frame */}
+          {/* Ten-frame: 8 coral + 2 butter fills the ten. */}
           <div
             style={{
               display: "grid",
@@ -137,7 +115,7 @@ export function PhoneMockup() {
               borderRadius: 12,
             }}
           >
-            {[..."aaaabbbbbb"].map((t, i) => (
+            {[..."aaaaaaaabb"].map((t, i) => (
               <div
                 key={i}
                 style={{
@@ -145,6 +123,31 @@ export function PhoneMockup() {
                   borderRadius: 6,
                   border: `1.5px solid ${t === "a" ? "#E8846A" : "#F2C75A"}`,
                   background: t === "a" ? "#E8846A" : "#F2C75A",
+                }}
+              />
+            ))}
+          </div>
+          {/* Overflow row: 3 butter cells spill past the ten. */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gap: 4,
+              padding: 6,
+              borderRadius: 10,
+              border: "1.5px dashed #F2C75A",
+              background: "rgba(251,235,194,0.35)",
+              marginTop: -4,
+            }}
+          >
+            {[..."bbbxx"].map((t, i) => (
+              <div
+                key={i}
+                style={{
+                  aspectRatio: "1",
+                  borderRadius: 5,
+                  border: `1.5px solid ${t === "b" ? "#F2C75A" : "rgba(31,45,74,0.13)"}`,
+                  background: t === "b" ? "#F2C75A" : "transparent",
                 }}
               />
             ))}
@@ -157,7 +160,7 @@ export function PhoneMockup() {
               lineHeight: 1.4,
             }}
           >
-            Ser du? Du fylder ti-rammen — og der er noget tilbage.
+            Ti-rammen er fuld, og der er <b>3 tilbage</b>. Hvad bliver det i alt?
           </div>
 
           {/* Buttons pinned to bottom */}
@@ -194,11 +197,45 @@ export function PhoneMockup() {
                 boxShadow: "0 4px 12px -4px rgba(232,132,106,0.5)",
               }}
             >
-              Jeg har det!
+              Opgave løst ✓
             </div>
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+// Colored number pill used in the task card — bg/fg mirror the ten-frame
+// block colors so each number maps visually to its squares below.
+function NumChip({
+  bg,
+  fg,
+  children,
+}: {
+  bg: string
+  fg: string
+  children: React.ReactNode
+}) {
+  return (
+    <span
+      style={{
+        background: bg,
+        color: fg,
+        padding: "3px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 700,
+        fontFamily: "var(--font-nunito), sans-serif",
+        minWidth: 24,
+        textAlign: "center",
+      }}
+    >
+      {children}
+    </span>
+  )
+}
+
+function Plus() {
+  return <span style={{ color: "#8A95AD", fontWeight: 700 }}>+</span>
 }

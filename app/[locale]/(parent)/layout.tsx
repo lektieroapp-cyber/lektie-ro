@@ -30,7 +30,7 @@ export default async function ParentLayout({
       <Sidebar locale={locale} isAdmin={isAdmin} email={user.email ?? ""} activeChild={activeChild} />
       <main className="flex flex-1 flex-col overflow-x-hidden md:overflow-y-auto">
         {DEV_BYPASS_AUTH && <DevBanner />}
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-4 md:px-10 md:py-12">
+        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 py-4 md:px-10 md:py-12">
           {children}
         </div>
       </main>

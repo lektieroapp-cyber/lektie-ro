@@ -5,12 +5,16 @@ import { Companion, Sparkles } from "@/components/mascot/Companion"
 import { useCompanion } from "@/components/mascot/CompanionContext"
 import { companionByType, DEFAULT_COMPANION } from "@/components/mascot/types"
 import { IdeaIcon } from "@/components/icons/ModeIcons"
+import { renderWithBlocks } from "./blocks/parse"
 import { logDevEvent } from "./dev-log"
 import { K } from "./design-tokens"
 import type { HintMode, SolveResponse, Task, Turn } from "./types"
 
-const MAX_TURNS = 8
-const WARN_AT = 6
+const MAX_TURNS = 25
+const WARN_AT = 20
+// Minimum time the typing dots show before any text renders — makes Azure's
+// fast-start responses feel less abrupt + gives the "Dani er ved at tænke" beat.
+const MIN_THINKING_MS = 700
 
 function aiTurnsBefore(turns: Turn[]): number {
   return turns.filter(t => t.role === "assistant").length
@@ -26,7 +30,6 @@ export function HintChat({
   onComplete,
   onMoreHomework,
   onFinishSession,
-  onSwitchToHint,
   completed,
 }: {
   task: Task
@@ -38,7 +41,6 @@ export function HintChat({
   onComplete: (turns: Turn[]) => void
   onMoreHomework: () => void
   onFinishSession: () => void
-  onSwitchToHint: () => void
   completed: boolean
 }) {
   const [input, setInput] = useState("")
@@ -46,11 +48,11 @@ export function HintChat({
   const [partial, setPartial] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
   const inflightRef = useRef(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const assistantTurns = turns.filter(t => t.role === "assistant").length
   const atLimit = assistantTurns >= MAX_TURNS
   const isExplain = mode === "explain"
-  const firstExplainDone = isExplain && assistantTurns >= 1 && !streaming
 
   async function callHint(nextTurns: Turn[]) {
     if (inflightRef.current) return
@@ -58,6 +60,24 @@ export function HintChat({
     setStreaming(true)
     setPartial("")
     const start = performance.now()
+    logDevEvent("info", "→ /api/hint", {
+      subject: solve.subject,
+      mode,
+      turn: aiTurnsBefore(nextTurns) + 1,
+      chars: nextTurns.reduce((n, t) => n + t.content.length, 0),
+    })
+
+    // Buffer any bytes that arrive before MIN_THINKING_MS so the typing dots
+    // always show for at least that long. Once the gate is open, commit the
+    // buffer and stream the rest as it arrives.
+    let buffered = ""
+    let gateOpen = false
+    let firstTokenAt: number | null = null
+    const gateTimer = window.setTimeout(() => {
+      gateOpen = true
+      if (buffered) setPartial(buffered)
+    }, MIN_THINKING_MS)
+
     try {
       const res = await fetch("/api/hint", {
         method: "POST",
@@ -79,20 +99,52 @@ export function HintChat({
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
-        acc += decoder.decode(value, { stream: true })
-        setPartial(acc)
+        const chunk = decoder.decode(value, { stream: true })
+        acc += chunk
+        if (firstTokenAt === null) {
+          firstTokenAt = Math.round(performance.now() - start)
+          logDevEvent("info", "first token", { ms: firstTokenAt })
+        }
+        if (gateOpen) {
+          setPartial(acc)
+        } else {
+          buffered = acc
+        }
       }
+      window.clearTimeout(gateTimer)
+
+      // Respect the min-thinking-time even if the stream finished early —
+      // otherwise typing dots flash then disappear on fast Azure responses.
+      const elapsed = performance.now() - start
+      if (elapsed < MIN_THINKING_MS) {
+        await new Promise(r => setTimeout(r, MIN_THINKING_MS - elapsed))
+      }
+
+      // Batched: all three state updates in one synchronous tick so React
+      // renders exactly once — no intermediate "streaming=true, partial=''"
+      // state that would flash the typing dots.
       setTurns(prev => [...prev, { role: "assistant", content: acc }])
       setPartial("")
+      setStreaming(false)
+
+      const totalMs = Math.round(performance.now() - start)
+      const wordCount = acc.split(/\s+/).filter(Boolean).length
       logDevEvent("turn-ai", acc.slice(0, 80) + (acc.length > 80 ? "…" : ""), {
         chars: acc.length,
-        ms: Math.round(performance.now() - start),
+        words: wordCount,
+        firstTokenMs: firstTokenAt ?? -1,
+        totalMs,
         mocked,
       })
+      if (wordCount > 70) {
+        logDevEvent("ai-error", "⚠ Over 70-ord grænse", { words: wordCount })
+      }
     } catch (err) {
+      window.clearTimeout(gateTimer)
+      setStreaming(false)
+      setPartial("")
       logDevEvent("ai-error", `Hint fejlede: ${(err as Error).message}`)
     } finally {
-      setStreaming(false)
       inflightRef.current = false
     }
   }
@@ -109,6 +161,25 @@ export function HintChat({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [turns, partial])
 
+  // Re-focus the input as soon as streaming finishes so the kid can type the
+  // next answer without clicking. `disabled` strips focus on submit, so we
+  // restore it here. Skipped when atLimit (the input is gone).
+  useEffect(() => {
+    if (streaming || atLimit) return
+    inputRef.current?.focus()
+  }, [streaming, atLimit])
+
+  // Answer from an inline [tryit] block in a Dani bubble — same path as
+  // typing in the main input, just sourced from the inline field.
+  async function submitAnswer(text: string) {
+    const trimmed = text.trim()
+    if (!trimmed || streaming || atLimit) return
+    const next: Turn[] = [...turns, { role: "user", content: trimmed }]
+    setTurns(() => next)
+    logDevEvent("turn-user", `[tryit] ${trimmed.slice(0, 60)}`)
+    await callHint(next)
+  }
+
   async function send(e: React.FormEvent) {
     e.preventDefault()
     const text = input.trim()
@@ -122,7 +193,7 @@ export function HintChat({
 
   async function askHint() {
     if (streaming || atLimit) return
-    const hintText = "Jeg er stadig lidt i tvivl — kan jeg få et lille hint?"
+    const hintText = "Jeg er stadig lidt i tvivl. Kan jeg få et lille hint?"
     const next: Turn[] = [
       ...turns,
       { role: "user", content: hintText },
@@ -142,10 +213,18 @@ export function HintChat({
     )
   }
 
-  const pipCount = Math.max(3, Math.min(5, assistantTurns + 1))
+  // Render turns + any in-flight partial as a single list with stable keys.
+  // When the stream completes and the partial flips over to `turns`, the
+  // bubble at position `turns.length` keeps its key and just changes content.
+  // No unmount/remount = no jump.
+  const renderTurns: Turn[] =
+    streaming && partial
+      ? [...turns, { role: "assistant", content: partial }]
+      : turns
 
   return (
     <div
+      className="lr-hint-chat"
       style={{
         fontFamily: K.sans,
         color: K.ink,
@@ -153,51 +232,34 @@ export function HintChat({
         flexDirection: "column",
         height: "100%",
         width: "100%",
-        maxWidth: 480,
         margin: "0 auto",
         background: K.bg,
+        borderRadius: 24,
+        boxShadow:
+          "0 1px 0 rgba(31,27,51,0.04), 0 20px 48px -16px rgba(31,27,51,0.14)",
+        border: "1px solid rgba(31,27,51,0.04)",
+        overflow: "hidden",
       }}
     >
-      {/* Task pill at top with step pips */}
+      {/* Task pill at top */}
       <div
         style={{
-          padding: "10px 18px 14px",
+          padding: "14px 22px 16px",
           borderBottom: "1px solid rgba(31,27,51,0.06)",
           background: "rgba(255,255,255,0.6)",
           backdropFilter: "blur(8px)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: K.ink2,
-              letterSpacing: 0.4,
-              textTransform: "uppercase",
-            }}
-          >
-            Opgave
-          </div>
-          <div style={{ flex: 1, height: 1, background: "rgba(31,27,51,0.08)" }} />
-          <div style={{ display: "flex", gap: 4 }}>
-            {Array.from({ length: pipCount }).map((_, i) => {
-              const past = i < assistantTurns
-              const current = i === assistantTurns && !completed
-              return (
-                <div
-                  key={i}
-                  style={{
-                    width: current ? 18 : 6,
-                    height: 6,
-                    borderRadius: 999,
-                    background: past ? K.mint : current ? K.coral : "#E5DFD1",
-                    transition: "all 0.3s",
-                  }}
-                />
-              )
-            })}
-          </div>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: K.ink2,
+            letterSpacing: 0.4,
+            textTransform: "uppercase",
+          }}
+        >
+          Opgave
         </div>
         <div
           style={{
@@ -213,30 +275,31 @@ export function HintChat({
         </div>
       </div>
 
-      {/* Scrollable conversation */}
+      {/* Scrollable conversation — render turns + pending-partial as one
+          list so the streaming bubble keeps its React key when it commits
+          to turns (prevents the "jump" on stream-end). */}
       <div
         ref={scrollRef}
         style={{
           flex: 1,
           overflow: "auto",
-          padding: "18px 18px 10px",
+          padding: "22px 22px 14px",
         }}
       >
-        {turns.map((t, i) =>
+        {renderTurns.map((t, i) =>
           t.role === "assistant" ? (
-            <DaniMessage key={i}>{t.content}</DaniMessage>
+            <DaniMessage key={i} content={t.content} onAnswer={submitAnswer} />
           ) : (
             <UserMessage key={i}>{t.content}</UserMessage>
           )
         )}
-        {streaming && partial && <DaniMessage>{partial}</DaniMessage>}
         {streaming && !partial && <DaniTyping />}
       </div>
 
       {/* Bottom input + action bar */}
       <div
         style={{
-          padding: "12px 16px 18px",
+          padding: "14px 22px 22px",
           borderTop: "1px solid rgba(31,27,51,0.06)",
           background: "#fff",
           display: "flex",
@@ -244,17 +307,7 @@ export function HintChat({
           gap: 10,
         }}
       >
-        {firstExplainDone ? (
-          // Explain mode: after first reply, choose path
-          <div style={{ display: "flex", gap: 10 }}>
-            <BigBtn tone="ghost" onClick={() => onComplete(turns)} style={{ flex: 1 }}>
-              Prøv nu selv
-            </BigBtn>
-            <BigBtn tone="coral" onClick={onSwitchToHint} style={{ flex: 1 }}>
-              Jeg har brug for hjælp
-            </BigBtn>
-          </div>
-        ) : atLimit ? (
+        {atLimit ? (
           <div
             style={{
               display: "flex",
@@ -296,6 +349,7 @@ export function HintChat({
             )}
             <form onSubmit={send} style={{ display: "flex", gap: 8 }}>
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
@@ -352,7 +406,7 @@ export function HintChat({
               </BigBtn>
               {assistantTurns >= 1 && (
                 <BigBtn tone="coral" onClick={() => onComplete(turns)} style={{ flex: 1 }}>
-                  Jeg har det!
+                  Opgave løst ✓
                 </BigBtn>
               )}
             </div>
@@ -365,7 +419,13 @@ export function HintChat({
 
 // ─── Message bubbles ──────────────────────────────────────────────────────
 
-function DaniMessage({ children }: { children: React.ReactNode }) {
+function DaniMessage({
+  content,
+  onAnswer,
+}: {
+  content: string
+  onAnswer?: (value: string) => void
+}) {
   const { type } = useCompanion()
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
@@ -384,7 +444,7 @@ function DaniMessage({ children }: { children: React.ReactNode }) {
           maxWidth: "85%",
         }}
       >
-        {typeof children === "string" ? <RichText text={children} /> : children}
+        {renderWithBlocks(content, onAnswer)}
       </div>
     </div>
   )
@@ -422,7 +482,7 @@ function DaniTyping() {
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
       <div style={{ flexShrink: 0 }}>
-        <Companion type={type ?? DEFAULT_COMPANION} mood="thinking" size={44} thinking />
+        <Companion type={type ?? DEFAULT_COMPANION} mood="thinking" size={44} />
       </div>
       <div
         style={{
@@ -565,16 +625,24 @@ function CelebrationPanel({
         padding: "40px 24px 32px",
         position: "relative",
         overflow: "hidden",
+        // Match HintChat's card treatment so the done screen sits in the
+        // same rounded panel on desktop. On mobile the parent gives it full
+        // width, so the card corners still "fit" the viewport.
+        background: K.bg,
+        borderRadius: 24,
+        boxShadow:
+          "0 1px 0 rgba(31,27,51,0.04), 0 20px 48px -16px rgba(31,27,51,0.14)",
+        border: "1px solid rgba(31,27,51,0.04)",
       }}
     >
-      {/* Soft radial glow behind the companion — fades to the surrounding
-          page canvas so there's no visible panel edge on desktop. */}
+      {/* Soft radial glow behind the companion — fades INTO the card bg
+          (K.bg) so the gradient edge is invisible against the panel. */}
       <div
         aria-hidden
         style={{
           position: "absolute",
           inset: 0,
-          background: `radial-gradient(ellipse 520px 380px at 50% 28%, ${K.butterSoft} 0%, var(--color-canvas) 80%)`,
+          background: `radial-gradient(ellipse 520px 380px at 50% 28%, ${K.butterSoft} 0%, ${K.bg} 80%)`,
           pointerEvents: "none",
           zIndex: 0,
         }}
@@ -633,7 +701,7 @@ function CelebrationPanel({
               lineHeight: 1.4,
             }}
           >
-            Og det bedste — <b>du</b> fandt svaret. Jeg viste dig bare stierne.
+            Og det bedste: <b>du</b> fandt svaret. Jeg viste dig bare stierne.
           </div>
         </div>
 

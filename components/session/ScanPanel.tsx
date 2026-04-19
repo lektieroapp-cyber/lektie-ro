@@ -19,11 +19,17 @@ export function ScanPanel({
   onFile,
   error,
   childName,
+  completedCount = 0,
+  onFinish,
 }: {
   onSelect: () => void
   onFile: (file: File) => void
   error?: string | null
   childName?: string | null
+  /** Tasks completed in this session (>0 shows a subtle pill + finish link) */
+  completedCount?: number
+  /** Click handler for "Færdig for i dag" text link — only rendered if provided */
+  onFinish?: () => void
 }) {
   const [dragging, setDragging] = useState(false)
   const [hover, setHover] = useState(false)
@@ -87,6 +93,10 @@ export function ScanPanel({
 
   const { type: companionType } = useCompanion()
   const greeting = childName ? `Hej ${childName}!` : "Klar til lektier?"
+  const subhead =
+    completedCount > 0
+      ? `${completedCount} ${completedCount === 1 ? "opgave" : "opgaver"} klaret i dag — godt gået!`
+      : "Klar til at løse noget sjovt i dag?"
 
   return (
     <div className="w-full" style={{ fontFamily: K.sans, color: K.ink }}>
@@ -120,7 +130,7 @@ export function ScanPanel({
             {greeting}
           </h1>
           <p style={{ margin: 0, color: K.ink2, fontSize: 15 }}>
-            Klar til at løse noget sjovt i dag?
+            {subhead}
           </p>
         </div>
 
@@ -211,33 +221,66 @@ export function ScanPanel({
           </div>
         </button>
 
-        {/* Footer hint — plum pill */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "12px 16px",
-            background: K.plumSoft,
-            borderRadius: 16,
-            color: "#5A3F7A",
-            fontSize: 13,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <circle cx="8" cy="8" r="7" stroke="#5A3F7A" strokeWidth="1.5" fill="none" />
-            <path
-              d="M8 4v4l2 2"
-              stroke="#5A3F7A"
-              strokeWidth="1.5"
-              fill="none"
-              strokeLinecap="round"
-            />
-          </svg>
-          <span>
-            Jeg viser dig aldrig svaret. Vi løser opgaven <b>sammen</b>.
-          </span>
-        </div>
+        {/* Footer reassurance — shown only on a fresh session.
+            Once the kid has solved at least one task they know the deal;
+            repeating "we never give the answer" becomes noise. */}
+        {completedCount === 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "12px 16px",
+              background: K.plumSoft,
+              borderRadius: 16,
+              color: "#5A3F7A",
+              fontSize: 13,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <circle cx="8" cy="8" r="7" stroke="#5A3F7A" strokeWidth="1.5" fill="none" />
+              <path
+                d="M8 4v4l2 2"
+                stroke="#5A3F7A"
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span>
+              Jeg viser dig aldrig svaret. Vi løser opgaven <b>sammen</b>.
+            </span>
+          </div>
+        )}
+
+        {/* End-of-day button — ghost tone so it doesn't compete with the
+            coral photo card, but still follows the main button shape so
+            it reads as a real action. Only rendered after ≥1 task solved. */}
+        {onFinish && (
+          <button
+            type="button"
+            onClick={onFinish}
+            style={{
+              width: "100%",
+              height: 52,
+              borderRadius: 999,
+              background: "#fff",
+              color: K.ink,
+              border: `1.5px solid ${K.ink}20`,
+              fontFamily: "inherit",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "transform 0.12s ease, border-color 0.15s",
+              boxShadow: "0 1px 0 rgba(31,27,51,0.04), 0 6px 18px -12px rgba(31,27,51,0.18)",
+            }}
+            onMouseDown={e => (e.currentTarget.style.transform = "scale(0.98)")}
+            onMouseUp={e => (e.currentTarget.style.transform = "scale(1)")}
+            onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            Færdig for i dag
+          </button>
+        )}
       </div>
 
       {/* Full-page drop overlay */}

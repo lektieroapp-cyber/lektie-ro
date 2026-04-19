@@ -21,13 +21,11 @@ export function Dani({
   mood = "happy",
   size = 80,
   bobbing = false,
-  thinking = false,
   className = "",
 }: {
   mood?: DaniMood
   size?: number
   bobbing?: boolean
-  thinking?: boolean
   className?: string
 }) {
   return (
@@ -81,22 +79,6 @@ export function Dani({
         <circle cx="62" cy="66" r="0.9" fill="#2C2138" opacity="0.5" />
       </svg>
 
-      {thinking && (
-        <div
-          style={{
-            position: "absolute",
-            top: -6,
-            right: -14,
-            animation: "daniThink 1.6s ease-in-out infinite",
-          }}
-        >
-          <svg width="30" height="24" viewBox="0 0 30 24">
-            <circle cx="8" cy="18" r="3" fill="#fff" stroke="#2C2138" strokeWidth="1.5" />
-            <circle cx="14" cy="12" r="4" fill="#fff" stroke="#2C2138" strokeWidth="1.5" />
-            <circle cx="22" cy="8" r="6" fill="#fff" stroke="#2C2138" strokeWidth="1.5" />
-          </svg>
-        </div>
-      )}
     </div>
   )
 }

@@ -15,7 +15,6 @@ type Props = {
   mood?: CompanionMood
   size?: number
   bobbing?: boolean
-  thinking?: boolean
   className?: string
 }
 
@@ -24,7 +23,6 @@ export function Companion({
   mood = "happy",
   size = 80,
   bobbing = false,
-  thinking = false,
   className = "",
 }: Props) {
   const [failed, setFailed] = useState(false)
@@ -39,7 +37,6 @@ export function Companion({
           mood={mood}
           size={size}
           bobbing={bobbing}
-          thinking={thinking}
           className={className}
         />
       )
@@ -86,22 +83,6 @@ export function Companion({
           pointerEvents: "none",
         }}
       />
-      {thinking && (
-        <div
-          style={{
-            position: "absolute",
-            top: -6,
-            right: -14,
-            animation: "daniThink 1.6s ease-in-out infinite",
-          }}
-        >
-          <svg width="30" height="24" viewBox="0 0 30 24">
-            <circle cx="8" cy="18" r="3" fill="#fff" stroke="#2C2138" strokeWidth="1.5" />
-            <circle cx="14" cy="12" r="4" fill="#fff" stroke="#2C2138" strokeWidth="1.5" />
-            <circle cx="22" cy="8" r="6" fill="#fff" stroke="#2C2138" strokeWidth="1.5" />
-          </svg>
-        </div>
-      )}
     </div>
   )
 }

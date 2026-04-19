@@ -155,7 +155,7 @@ export function ThinkingPanel({
         ))}
       </div>
 
-      <Companion type={companionType ?? DEFAULT_COMPANION} mood="thinking" size={72} thinking />
+      <Companion type={companionType ?? DEFAULT_COMPANION} mood="thinking" size={72} />
 
       <div style={{ textAlign: "center", minHeight: 48 }}>
         {PHASES.map((p, i) => (

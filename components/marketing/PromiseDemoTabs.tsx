@@ -120,7 +120,7 @@ function MathDemo() {
       <KidRow text="20 + 10 er 30. Så 4 + 7 er 11…" tint={COLORS.coralSoft} />
       <DemoRow
         type="lion"
-        text="Skønt! Nu har du to bidder: 30 og 11. Læg dem sammen — <b>du</b> er der næsten."
+        text="Godt set! Nu har du 30 og 11. Læg dem sammen, så er <b>du</b> næsten i mål."
       />
     </>
   )
@@ -175,7 +175,7 @@ function DanskDemo() {
       </div>
       <DemoRow
         type="rabbit"
-        text="Præcis! Nu kan du læse det højt — én stavelse ad gangen."
+        text="Præcis! Nu kan du læse det højt, én stavelse ad gangen."
       />
     </>
   )
@@ -186,7 +186,7 @@ function EngDemo() {
     <>
       <DemoRow
         type="owl"
-        text={'"Yesterday I <b>_____</b> to the park." Er det nu, før eller senere?'}
+        text={'"Yesterday I <b>_____</b> to the park." Skal verbet være <b>go</b> eller <b>went</b>?'}
       />
       <div
         style={{
@@ -196,16 +196,40 @@ function EngDemo() {
           marginBottom: 16,
         }}
       >
-        <div style={{ width: 48, flexShrink: 0 }} />
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <TimelinePill>før ←</TimelinePill>
-          <TimelinePill active>Yesterday</TimelinePill>
-          <TimelinePill>→ senere</TimelinePill>
+        <div
+          style={{
+            width: 48,
+            flexShrink: 0,
+            display: "flex",
+            justifyContent: "center",
+            paddingTop: 8,
+          }}
+        >
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 999,
+              background: COLORS.cream2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              color: COLORS.ink2,
+              fontSize: 13,
+            }}
+          >
+            K
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <VerbPill label="nutid">go</VerbPill>
+          <VerbPill label="datid" active>went</VerbPill>
         </div>
       </div>
       <DemoRow
         type="owl"
-        text={'Yes! "Yesterday" er før — så hvad skal der ske med <b>go</b>?'}
+        text={'Præcis! "Yesterday" er datid, så verbet bliver <b>went</b>.'}
       />
     </>
   )
@@ -330,26 +354,43 @@ function SyllableChip({
   )
 }
 
-function TimelinePill({
+function VerbPill({
   active,
+  label,
   children,
 }: {
   active?: boolean
+  label: string
   children: React.ReactNode
 }) {
   return (
-    <span
-      style={{
-        padding: "6px 12px",
-        border: active ? "none" : "1.5px solid rgba(31,45,74,0.1)",
-        borderRadius: 10,
-        fontSize: 13,
-        color: active ? "#fff" : COLORS.ink2,
-        background: active ? COLORS.coral : "transparent",
-        fontWeight: active ? 700 : 500,
-      }}
-    >
-      {children}
-    </span>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+      <span
+        style={{
+          padding: "8px 16px",
+          border: active ? "none" : "1.5px solid rgba(31,45,74,0.12)",
+          borderRadius: 12,
+          fontSize: 14,
+          fontFamily: "var(--font-fraunces), Georgia, serif",
+          color: active ? "#fff" : COLORS.ink,
+          background: active ? COLORS.coral : "#fff",
+          fontWeight: 700,
+          boxShadow: active ? "0 6px 14px -6px rgba(232,132,106,0.55)" : "none",
+        }}
+      >
+        {children}
+      </span>
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          color: COLORS.ink2,
+          letterSpacing: 0.4,
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </span>
+    </div>
   )
 }

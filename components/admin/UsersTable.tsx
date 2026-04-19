@@ -10,6 +10,10 @@ export type UserRow = {
   hasKid: boolean
   createdAt: string
   lastSignIn: string | null
+  /** Total AI-backed sessions for this parent's kids. */
+  sessions: number
+  /** Estimated cost-to-date in DKK based on session + turn counts. */
+  estCostDkk: number
 }
 
 export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
@@ -74,6 +78,8 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
               <th className="px-5 py-3 font-medium">Barn oprettet</th>
               <th className="px-5 py-3 font-medium">Tilmeldt</th>
               <th className="px-5 py-3 font-medium">Sidst aktiv</th>
+              <th className="px-5 py-3 font-medium text-right">Sessions</th>
+              <th className="px-5 py-3 font-medium text-right">AI-pris</th>
               <th className="px-5 py-3 font-medium"></th>
             </tr>
           </thead>
@@ -112,6 +118,12 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
                 <td className="px-5 py-3 text-muted">
                   {u.lastSignIn ? new Date(u.lastSignIn).toLocaleDateString("da-DK") : "—"}
                 </td>
+                <td className="px-5 py-3 text-right tabular-nums text-ink/80">
+                  {u.sessions > 0 ? u.sessions : <span className="text-muted">—</span>}
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  {u.sessions > 0 ? formatDkk(u.estCostDkk) : <span className="text-muted">—</span>}
+                </td>
                 <td className="px-5 py-3">
                   <button
                     type="button"
@@ -126,7 +138,7 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-muted">
+                <td colSpan={9} className="px-5 py-8 text-center text-muted">
                   Ingen brugere matcher.
                 </td>
               </tr>
@@ -136,4 +148,11 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
       </div>
     </div>
   )
+}
+
+function formatDkk(n: number): string {
+  if (n < 0.01) return "< 0,01 kr"
+  if (n < 1) return `${(n * 100).toFixed(1)} øre`
+  if (n < 100) return `${n.toFixed(2)} kr`
+  return `${Math.round(n).toLocaleString("da-DK")} kr`
 }

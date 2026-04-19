@@ -45,7 +45,9 @@ export async function POST(request: NextRequest) {
   const systemPrompt = buildChildSystemPrompt({
     mode,
     subject,
-    grade: child?.grade ?? 4,
+    // Grade comes strictly from the child profile — no photo-based fallback.
+    // If the kid hasn't set a grade, the prompt adapts to unknown level.
+    grade: child?.grade ?? null,
     taskText: body.taskText,
     child,
   })
@@ -66,10 +68,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const client = getAzure()
+    // reasoning_effort=minimal is CRITICAL for gpt-5-mini — default "medium"
+    // burns 30-60s on internal thinking before the first token, and these
+    // Socratic turns don't need deep reasoning. "minimal" keeps it snappy.
+    // The SDK's ChatCompletionCreateParams doesn't yet include GPT-5 fields,
+    // so we spread them in via a looser record (keeps the stream overload).
+    const gpt5Extras = {
+      reasoning_effort: "minimal",
+      max_completion_tokens: 400,
+    } as unknown as Record<string, never>
     const azureStream = await client.chat.completions.create({
       model: getDeployment(),
       messages,
       stream: true,
+      ...gpt5Extras,
     })
 
     const encoder = new TextEncoder()
