@@ -9,13 +9,32 @@ const patchSchema = z.object({
   mode: z.enum(["live", "test"]),
 })
 
-// GET — returns the current mode + whether live is actually reachable.
+// GET — returns the current mode + whether live is actually reachable +
+// per-var diagnostic so the dev panel can show which Vercel env is missing.
 export async function GET() {
   const mode = await getAIMode()
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT ?? ""
   return NextResponse.json({
     mode,
     liveAvailable: isAzureConfigured(),
+    checks: {
+      endpoint: !!endpoint,
+      key: !!process.env.AZURE_OPENAI_KEY,
+      deployment: !!process.env.AZURE_OPENAI_DEPLOYMENT,
+      aiModeEnv: process.env.AI_MODE ?? null,
+      // Show the endpoint host only (not the full URL) — helps verify shape
+      // without leaking anything sensitive.
+      endpointHost: endpoint ? safeHost(endpoint) : null,
+    },
   })
+}
+
+function safeHost(url: string): string | null {
+  try {
+    return new URL(url).host
+  } catch {
+    return "invalid_url"
+  }
 }
 
 // PATCH — admin-only, sets the cookie override. Effect scoped to this browser.

@@ -459,6 +459,14 @@ const STAGES: { label: string; stage: Stage; opts?: { mode?: HintMode } }[] = [
   { label: "🏁 Session done", stage: "sessionDone" },
 ]
 
+type AiModeChecks = {
+  endpoint: boolean
+  key: boolean
+  deployment: boolean
+  aiModeEnv: string | null
+  endpointHost: string | null
+}
+
 function DevPanel({ currentStage, onJump }: {
   currentStage: Stage
   onJump: (stage: Stage, opts?: { mode?: HintMode }) => void
@@ -466,9 +474,9 @@ function DevPanel({ currentStage, onJump }: {
   const [open, setOpen] = useState(false)
   const [aiMode, setAiMode] = useState<"live" | "test" | null>(null)
   const [liveAvailable, setLiveAvailable] = useState(false)
+  const [checks, setChecks] = useState<AiModeChecks | null>(null)
   const [flipping, setFlipping] = useState(false)
 
-  // Fetch current AI mode when the panel opens.
   useEffect(() => {
     if (!open || aiMode) return
     fetch("/api/ai-mode")
@@ -476,6 +484,7 @@ function DevPanel({ currentStage, onJump }: {
       .then(d => {
         setAiMode(d.mode ?? null)
         setLiveAvailable(Boolean(d.liveAvailable))
+        setChecks(d.checks ?? null)
       })
       .catch(() => {})
   }, [open, aiMode])
@@ -501,10 +510,33 @@ function DevPanel({ currentStage, onJump }: {
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
       {open && (
-        <div className="rounded-card border border-coral-deep/25 bg-white p-3 shadow-xl" style={{ minWidth: 210 }}>
+        <div className="rounded-card border border-coral-deep/25 bg-white p-3 shadow-xl" style={{ minWidth: 230 }}>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
             AI mode
           </p>
+          {checks && !liveAvailable && (
+            <div className="mb-2 rounded-md bg-coral-deep/10 p-2 text-[10px] text-coral-deep">
+              <p className="mb-1 font-bold">Live kan ikke nås — Vercel env mangler:</p>
+              <ul className="list-disc pl-4 leading-relaxed">
+                {!checks.endpoint && <li>AZURE_OPENAI_ENDPOINT</li>}
+                {!checks.key && <li>AZURE_OPENAI_KEY</li>}
+                {!checks.deployment && <li>AZURE_OPENAI_DEPLOYMENT</li>}
+              </ul>
+              <p className="mt-1 text-[9.5px] opacity-80">
+                Tilføj dem i Vercel → Settings → Env Variables, og kør en ny deploy.
+              </p>
+            </div>
+          )}
+          {checks && liveAvailable && (
+            <div className="mb-2 rounded-md bg-success/10 p-2 text-[10px] text-success">
+              <p className="font-bold">
+                Azure nået: {checks.endpointHost ?? "—"}
+              </p>
+              <p className="mt-0.5 text-[9.5px] text-ink/60">
+                AI_MODE env: <code>{checks.aiModeEnv ?? "(unset)"}</code>
+              </p>
+            </div>
+          )}
           <div className="mb-3 flex gap-1 rounded-lg bg-canvas p-1">
             {(["test", "live"] as const).map(m => {
               const active = aiMode === m
