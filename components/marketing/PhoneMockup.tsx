@@ -96,17 +96,22 @@ export function PhoneMockup() {
           >
             Regn ud: 8 + 5
             <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-              {/* The one warm accent on this screen — the "8" kid is focused on. */}
-              <NumChip bg="#F4DBD1" fg="#8F4A38">8</NumChip>
+              {/* Chip colours mirror the block colours below so the
+                  decomposition 8 + 2 + 3 reads visually:
+                  mint "8" → 8 mint cells, clay "2" → 2 clay cells in the
+                  ten-frame, clay "3" → 3 clay cells in the overflow row. */}
+              <NumChip bg="#E4F2EB" fg="#4F8E6B">8</NumChip>
               <Plus />
-              <NumChip bg="#E4F2EB" fg="#4F8E6B">2</NumChip>
+              <NumChip bg="#F4DBD1" fg="#8F4A38">2</NumChip>
               <Plus />
-              <NumChip bg="#E4F2EB" fg="#4F8E6B">3</NumChip>
+              <NumChip bg="#F4DBD1" fg="#8F4A38">3</NumChip>
             </div>
           </div>
 
-          {/* Ten-frame — 8 mint filled + 2 clay focus (the cells the kid is
-              about to complete to make ten). Single clay use per screen. */}
+          {/* Ten-frame — 8 mint filled + 2 clay focus (the cells needed to
+              complete ten). Clay is the single warm accent; the 2 here and
+              the 3 in the overflow row below share the same conceptual
+              "the +5 being decomposed" role. */}
           <div
             style={{
               display: "grid",
@@ -130,7 +135,8 @@ export function PhoneMockup() {
               />
             ))}
           </div>
-          {/* Overflow row: 3 more to place. Neutral cream-2 dashed hint. */}
+          {/* Overflow row — 3 clay cells (the "3" leftover after filling the
+              ten) + 2 empty slots. Colours match the clay "3" chip above. */}
           <div
             style={{
               display: "grid",
@@ -143,14 +149,14 @@ export function PhoneMockup() {
               marginTop: -4,
             }}
           >
-            {[..."oooxx"].map((t, i) => (
+            {[..."fffxx"].map((t, i) => (
               <div
                 key={i}
                 style={{
                   aspectRatio: "1",
                   borderRadius: 5,
-                  border: `1.5px solid ${t === "o" ? "rgba(31,45,26,0.25)" : "rgba(31,45,26,0.08)"}`,
-                  background: "transparent",
+                  border: `1.5px solid ${t === "f" ? "#A85E48" : "rgba(31,45,26,0.15)"}`,
+                  background: t === "f" ? "#C97962" : "transparent",
                 }}
               />
             ))}
