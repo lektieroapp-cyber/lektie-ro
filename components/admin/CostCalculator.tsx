@@ -6,7 +6,10 @@ import {
   MODELS,
   TOKEN_ASSUMPTIONS,
   USD_TO_DKK,
+  VOICE_ASSUMPTIONS,
+  VOICE_PROVIDERS,
   type ModelId,
+  type VoiceProviderId,
 } from "@/lib/ai-pricing"
 
 const SUBSCRIPTION_DKK = 229
@@ -16,10 +19,18 @@ export function CostCalculator() {
   const [turnsPerSession, setTurnsPerSession] = useState(4)
   const [visionModel, setVisionModel] = useState<ModelId>("gpt-5-mini")
   const [hintModel, setHintModel] = useState<ModelId>("gpt-5-mini")
+  const [voiceProvider, setVoiceProvider] = useState<VoiceProviderId>("off")
 
   const cost = useMemo(
-    () => computeCost({ sessionsPerWeek, turnsPerSession, visionModel, hintModel }),
-    [sessionsPerWeek, turnsPerSession, visionModel, hintModel]
+    () =>
+      computeCost({
+        sessionsPerWeek,
+        turnsPerSession,
+        visionModel,
+        hintModel,
+        voiceProvider,
+      }),
+    [sessionsPerWeek, turnsPerSession, visionModel, hintModel, voiceProvider]
   )
 
   const marginPct = Math.max(
@@ -70,6 +81,10 @@ export function CostCalculator() {
           />
         </div>
 
+        <div className="mt-6">
+          <VoicePicker value={voiceProvider} onChange={setVoiceProvider} />
+        </div>
+
         <details className="mt-6 text-xs text-muted">
           <summary className="cursor-pointer font-medium text-ink/70 hover:text-ink">
             Antagelser bag estimatet
@@ -83,9 +98,16 @@ export function CostCalculator() {
               Hint: {fmt(TOKEN_ASSUMPTIONS.hintInputTokensPerTurn)} in /{" "}
               {fmt(TOKEN_ASSUMPTIONS.hintOutputTokensPerTurn)} out per tur
             </li>
+            <li>
+              Voice: {VOICE_ASSUMPTIONS.sttSecondsPerTurn}s barn-tale /{" "}
+              {VOICE_ASSUMPTIONS.ttsCharsPerTurn} tegn AI-tale per tur
+            </li>
             <li>USD → DKK: {USD_TO_DKK}</li>
             <li>Måned = 4.33 uger (52/12)</li>
           </ul>
+          <p className="mt-2 pl-4">
+            Se <code>docs/voice-pricing-estimates.md</code> for vendor-sammenligning.
+          </p>
         </details>
       </div>
 
@@ -112,6 +134,13 @@ export function CostCalculator() {
             <Row label="Per år" value={fmtDkk(cost.perYearDkk)} sub={`$${cost.perYearUsd.toFixed(2)}`} />
             <Row label="Vision-del" value={fmtDkk(cost.visionUsd * USD_TO_DKK)} sub="per session" />
             <Row label="Hint-del" value={fmtDkk(cost.hintUsd * USD_TO_DKK)} sub="per session" />
+            {voiceProvider !== "off" && (
+              <Row
+                label="Voice-del"
+                value={fmtDkk(cost.voiceUsd * USD_TO_DKK)}
+                sub="per session"
+              />
+            )}
           </div>
         </div>
 
@@ -204,6 +233,35 @@ function ModelPicker({
         {options.map(m => (
           <option key={m.id} value={m.id}>
             {m.label} — ${m.inputPerMTok}/${m.outputPerMTok} per 1M
+          </option>
+        ))}
+      </select>
+      <p className="mt-1 text-xs text-muted">{spec.note}</p>
+    </div>
+  )
+}
+
+function VoicePicker({
+  value,
+  onChange,
+}: {
+  value: VoiceProviderId
+  onChange: (v: VoiceProviderId) => void
+}) {
+  const spec = VOICE_PROVIDERS[value]
+  return (
+    <div>
+      <label className="text-xs font-medium uppercase tracking-wider text-muted">
+        Voice (STT + TTS)
+      </label>
+      <select
+        className="lr-select mt-1 w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-mint-deep focus:outline-none"
+        value={value}
+        onChange={e => onChange(e.target.value as VoiceProviderId)}
+      >
+        {Object.values(VOICE_PROVIDERS).map(p => (
+          <option key={p.id} value={p.id}>
+            {p.label}
           </option>
         ))}
       </select>

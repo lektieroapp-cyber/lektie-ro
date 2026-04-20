@@ -106,16 +106,125 @@ export function estimateUserCostDkk(
   return { usd, dkk: usd * USD_TO_DKK }
 }
 
+// Voice (STT + TTS) rate cards.
+// See docs/voice-pricing-estimates.md for vendor comparison + session math.
+// Keep these in sync with that doc — admin Priser tab reads from here.
+
+export type VoiceProviderId =
+  | "off"
+  | "deepgram-elevenlabs-flash"
+  | "azure-speech"
+  | "google-cloud"
+  | "deepgram-azure-tts"
+  | "elevenlabs-conv-ai"
+
+export type VoiceProviderSpec = {
+  id: VoiceProviderId
+  label: string
+  note: string
+  // Per-unit rates. Bundled providers set bundledPerMinUsd and leave the others 0.
+  sttPerMinUsd: number
+  ttsPerKCharUsd: number
+  bundledPerMinUsd: number
+}
+
+export const VOICE_PROVIDERS: Record<VoiceProviderId, VoiceProviderSpec> = {
+  off: {
+    id: "off",
+    label: "Voice slået fra",
+    note: "Tekst-only. Ingen voice-omkostning.",
+    sttPerMinUsd: 0,
+    ttsPerKCharUsd: 0,
+    bundledPerMinUsd: 0,
+  },
+  "deepgram-elevenlabs-flash": {
+    id: "deepgram-elevenlabs-flash",
+    label: "Deepgram + ElevenLabs Flash v2.5",
+    note: "Anbefalet premium. Varm dansk stemme. Kræver EL Enterprise DPA.",
+    sttPerMinUsd: 0.0043,
+    ttsPerKCharUsd: 0.15,
+    bundledPerMinUsd: 0,
+  },
+  "azure-speech": {
+    id: "azure-speech",
+    label: "Azure Speech (STT + Neural TTS)",
+    note: "Billigst GDPR-løsning. Samme tenant som LLM. Stemme OK, ikke varm.",
+    sttPerMinUsd: 0.0167,
+    ttsPerKCharUsd: 0.016,
+    bundledPerMinUsd: 0,
+  },
+  "google-cloud": {
+    id: "google-cloud",
+    label: "Google Cloud (Chirp + WaveNet)",
+    note: "Pris svarende til Azure. europe-west region. Fallback hvis Azure driller.",
+    sttPerMinUsd: 0.016,
+    ttsPerKCharUsd: 0.016,
+    bundledPerMinUsd: 0,
+  },
+  "deepgram-azure-tts": {
+    id: "deepgram-azure-tts",
+    label: "Deepgram STT + Azure Neural TTS",
+    note: "Hybrid. Billigst af alle. Default-kandidat hvis stemmevarmen er OK.",
+    sttPerMinUsd: 0.0043,
+    ttsPerKCharUsd: 0.016,
+    bundledPerMinUsd: 0,
+  },
+  "elevenlabs-conv-ai": {
+    id: "elevenlabs-conv-ai",
+    label: "ElevenLabs Conversational AI (bundle)",
+    note: "Realtime-agtig UX. Dyrest. Kun værd til premium-tier.",
+    sttPerMinUsd: 0,
+    ttsPerKCharUsd: 0,
+    bundledPerMinUsd: 0.08,
+  },
+}
+
+// Per-turn voice assumptions. Revisit once real session data lands (post-prod).
+export const VOICE_ASSUMPTIONS = {
+  // Child speech per turn, in seconds. "Jeg tror det er 7" + filler + think-aloud.
+  sttSecondsPerTurn: 15,
+  // AI Socratic reply per turn, in characters. ~70-word cap × ~6 chars incl. spaces.
+  ttsCharsPerTurn: 420,
+} as const
+
+export function computeVoiceCost(
+  providerId: VoiceProviderId,
+  turnsPerSession: number,
+): { perSessionUsd: number } {
+  const p = VOICE_PROVIDERS[providerId]
+  if (providerId === "off") return { perSessionUsd: 0 }
+
+  const sttMinutes = (turnsPerSession * VOICE_ASSUMPTIONS.sttSecondsPerTurn) / 60
+  const ttsKChars = (turnsPerSession * VOICE_ASSUMPTIONS.ttsCharsPerTurn) / 1000
+
+  if (p.bundledPerMinUsd > 0) {
+    // Bundled provider — charge by total conversation minutes.
+    // Approximate conversation length = child speech + AI speech.
+    // AI speech ≈ chars / 15 chars per second of spoken audio.
+    const aiSpeechSeconds = (turnsPerSession * VOICE_ASSUMPTIONS.ttsCharsPerTurn) / 15
+    const conversationMinutes =
+      sttMinutes + aiSpeechSeconds / 60
+    return { perSessionUsd: conversationMinutes * p.bundledPerMinUsd }
+  }
+
+  return {
+    perSessionUsd:
+      sttMinutes * p.sttPerMinUsd + ttsKChars * p.ttsPerKCharUsd,
+  }
+}
+
 export type UsageInputs = {
   sessionsPerWeek: number
   turnsPerSession: number
   visionModel: ModelId
   hintModel: ModelId
+  voiceProvider?: VoiceProviderId
 }
 
 export type CostBreakdown = {
   visionUsd: number
   hintUsd: number
+  voiceUsd: number
   perSessionUsd: number
   perMonthUsd: number
   perYearUsd: number
@@ -138,7 +247,12 @@ export function computeCost(u: UsageInputs): CostBreakdown {
     ((a.hintInputTokensPerTurn * hint.inputPerMTok) / 1_000_000 +
       (a.hintOutputTokensPerTurn * hint.outputPerMTok) / 1_000_000)
 
-  const perSessionUsd = visionUsd + hintUsd
+  const voiceUsd = computeVoiceCost(
+    u.voiceProvider ?? "off",
+    u.turnsPerSession,
+  ).perSessionUsd
+
+  const perSessionUsd = visionUsd + hintUsd + voiceUsd
   // 4.33 weeks ≈ avg month length (52 / 12)
   const perMonthUsd = perSessionUsd * u.sessionsPerWeek * 4.33
   const perYearUsd = perSessionUsd * u.sessionsPerWeek * 52
@@ -146,6 +260,7 @@ export function computeCost(u: UsageInputs): CostBreakdown {
   return {
     visionUsd,
     hintUsd,
+    voiceUsd,
     perSessionUsd,
     perMonthUsd,
     perYearUsd,
