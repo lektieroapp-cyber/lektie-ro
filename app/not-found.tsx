@@ -20,7 +20,7 @@ export default function NotFound() {
           </p>
           <Link
             href={`/${defaultLocale}`}
-            className="mt-8 inline-flex rounded-btn bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
+            className="mt-8 inline-flex rounded-btn bg-primary px-6 py-3 text-sm font-bold text-ink hover:bg-primary-hover"
           >
             Tilbage til forsiden
           </Link>

@@ -99,7 +99,7 @@ function StatCard({
     >
       <p className="text-sm text-muted">{label}</p>
       <p
-        className={`mt-2 text-4xl font-bold ${accent ? "text-coral-deep" : "text-ink"}`}
+        className={`mt-2 text-4xl font-bold ${accent ? "text-mint-deep" : "text-ink"}`}
         style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
       >
         {value}

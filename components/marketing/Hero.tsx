@@ -5,19 +5,19 @@ import { localePath } from "@/lib/i18n/routes"
 import { PhoneMockup } from "./PhoneMockup"
 import { WaitlistForm } from "./WaitlistForm"
 
+// v3 palette — mint quiet brand, ink voice, no yellow/sky/coral chrome.
 const COLORS = {
-  cream: "#FBF3E8",
-  cream2: "#F5EADA",
-  ink: "#1F2D4A",
-  ink2: "#4A5A7A",
-  ink3: "#8A95AD",
-  coral: "#E8846A",
-  coral2: "#D96B4F",
-  coralSoft: "#FDE4D8",
-  butter: "#F2C75A",
-  butterSoft: "#FBEBC2",
-  sky: "#C9DDEE",
-  mint: "#B5DEC8",
+  cream: "#F5EDDE",
+  cream2: "#EDE2CD",
+  ink: "#1F2D1A",
+  ink2: "#556048",
+  ink3: "#8A9280",
+  mint: "#7ACBA2",
+  mintDeep: "#4F8E6B",
+  mintSoft: "#E4F2EB",
+  mintEdge: "#C5E3D1",
+  clay: "#C97962",
+  claySoft: "#F4DBD1",
 }
 
 export function Hero({ locale }: { locale: Locale }) {
@@ -47,16 +47,14 @@ export function Hero({ locale }: { locale: Locale }) {
             gap: 8,
             padding: "6px 14px",
             borderRadius: 999,
-            background: COLORS.butterSoft,
-            color: "#7A5A10",
+            background: COLORS.mintSoft,
+            color: COLORS.mintDeep,
             fontSize: 13,
             fontWeight: 700,
-            border: `1px solid ${COLORS.butter}66`,
+            border: `1px solid ${COLORS.mintEdge}`,
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill={COLORS.butter}>
-            <path d="M7 1l1.8 3.6L12.5 5l-2.7 2.7.6 3.8L7 9.8 3.6 11.5l.6-3.8L1.5 5l3.7-.4z" />
-          </svg>
+          <span aria-hidden style={{ fontSize: 13 }}>🌱</span>
           {m.hero.badge}
         </span>
 
@@ -80,7 +78,7 @@ export function Hero({ locale }: { locale: Locale }) {
             style={{
               fontStyle: "italic",
               fontWeight: 500,
-              color: COLORS.coral,
+              color: COLORS.mintDeep,
             }}
           >
             {m.hero.titleItalic ?? "familien."}
@@ -98,42 +96,24 @@ export function Hero({ locale }: { locale: Locale }) {
           {m.hero.subtitle}
         </p>
 
-        {/* Promise chips */}
+        {/* Promise chips — mint, mint-deep-on-mint-soft, ink-soft dots */}
         <div
           style={{
             display: "flex",
-            gap: 14,
+            gap: 10,
             marginTop: 28,
             flexWrap: "wrap",
           }}
         >
-          <Chip tint={COLORS.coralSoft} label={m.hero.values.one}>
-            <svg width="10" height="10" viewBox="0 0 10 10">
-              <path
-                d="M5 1v8M1 5h8"
-                stroke={COLORS.coral}
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Chip>
-          <Chip tint={COLORS.mint} label={m.hero.values.two}>
-            <svg width="10" height="10" viewBox="0 0 10 10">
-              <circle cx="5" cy="5" r="3" fill="#fff" />
-            </svg>
-          </Chip>
-          <Chip tint={COLORS.butter} label={m.hero.values.three}>
-            <svg width="10" height="10" viewBox="0 0 10 10">
-              <path
-                d="M2 6l2.5 2L8 3"
-                stroke="#fff"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
-          </Chip>
+          <Chip label={m.hero.values.one} dotColor={COLORS.mint} />
+          <Chip
+            label={m.hero.values.two}
+            dotColor={COLORS.mintDeep}
+            bg={COLORS.mintSoft}
+            border={COLORS.mintEdge}
+            textColor={COLORS.mintDeep}
+          />
+          <Chip label={m.hero.values.three} dotColor={COLORS.ink2} />
         </div>
 
         <a
@@ -175,7 +155,7 @@ export function Hero({ locale }: { locale: Locale }) {
             borderRadius: 24,
             padding: 28,
             boxShadow:
-              "0 30px 60px -20px rgba(31,45,74,0.18), 0 0 0 1px rgba(31,45,74,0.04)",
+              "0 30px 60px -20px rgba(31,45,26,0.18), 0 0 0 1px rgba(31,45,26,0.04)",
             position: "relative",
             marginLeft: 40,
           }}
@@ -205,7 +185,7 @@ export function Hero({ locale }: { locale: Locale }) {
 
           <WaitlistForm locale={locale} />
 
-          {/* Perks grid */}
+          {/* Perks grid — mint-deep checks */}
           {perks.length > 0 && (
             <div
               style={{
@@ -231,7 +211,7 @@ export function Hero({ locale }: { locale: Locale }) {
                     width="14"
                     height="14"
                     viewBox="0 0 14 14"
-                    style={{ color: COLORS.coral, flexShrink: 0 }}
+                    style={{ color: COLORS.mintDeep, flexShrink: 0 }}
                   >
                     <path
                       d="M2 7l3 3 7-7"
@@ -259,7 +239,7 @@ export function Hero({ locale }: { locale: Locale }) {
             {m.waitlist.existingHint}{" "}
             <Link
               href={localePath(locale, "login")}
-              style={{ color: COLORS.coral, fontWeight: 700 }}
+              style={{ color: COLORS.mintDeep, fontWeight: 700 }}
             >
               {m.waitlist.existingLink}
             </Link>
@@ -290,43 +270,43 @@ export function Hero({ locale }: { locale: Locale }) {
 }
 
 function Chip({
-  tint,
   label,
-  children,
+  dotColor,
+  bg = "#fff",
+  border = "rgba(31,45,26,0.08)",
+  textColor,
 }: {
-  tint: string
   label: string
-  children: React.ReactNode
+  dotColor: string
+  bg?: string
+  border?: string
+  textColor?: string
 }) {
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
+        gap: 8,
         padding: "8px 14px",
         borderRadius: 999,
-        background: "#fff",
-        border: "1px solid rgba(31,45,74,0.08)",
+        background: bg,
+        border: `1.5px solid ${border}`,
         fontWeight: 700,
-        fontSize: 14,
-        color: COLORS.ink,
-        boxShadow: "0 2px 6px rgba(31,45,74,0.04)",
+        fontSize: 13,
+        color: textColor ?? COLORS.ink2,
+        boxShadow: bg === "#fff" ? "0 2px 6px rgba(31,45,26,0.04)" : "none",
       }}
     >
       <span
+        aria-hidden
         style={{
-          width: 16,
-          height: 16,
+          width: 8,
+          height: 8,
           borderRadius: 999,
-          background: tint,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          background: dotColor,
         }}
-      >
-        {children}
-      </span>
+      />
       {label}
     </span>
   )

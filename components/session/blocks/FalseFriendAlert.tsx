@@ -39,7 +39,7 @@ export function FalseFriendAlert({ da, daMeaning, en, enMeaning, note }: Props) 
             fontFamily: K.serif,
             fontWeight: 800,
             fontSize: 16,
-            color: "#7A5A10",
+            color: "#556048",
           }}
         >
           !
@@ -49,7 +49,7 @@ export function FalseFriendAlert({ da, daMeaning, en, enMeaning, note }: Props) 
             fontFamily: K.sans,
             fontWeight: 800,
             fontSize: 12,
-            color: "#7A5A10",
+            color: "#556048",
             letterSpacing: 0.6,
             textTransform: "uppercase",
           }}
@@ -75,7 +75,7 @@ export function FalseFriendAlert({ da, daMeaning, en, enMeaning, note }: Props) 
               fontSize: 10,
               fontFamily: K.sans,
               fontWeight: 800,
-              color: "#3F6B55",
+              color: "#4F8E6B",
               letterSpacing: 0.5,
               textTransform: "uppercase",
             }}
@@ -95,7 +95,7 @@ export function FalseFriendAlert({ da, daMeaning, en, enMeaning, note }: Props) 
             alignItems: "center",
             fontFamily: K.serif,
             fontSize: 20,
-            color: K.coral,
+            color: K.action,
             fontWeight: 700,
           }}
         >
@@ -118,7 +118,7 @@ export function FalseFriendAlert({ da, daMeaning, en, enMeaning, note }: Props) 
               fontSize: 10,
               fontFamily: K.sans,
               fontWeight: 800,
-              color: "#3A5F7A",
+              color: "#4F8E6B",
               letterSpacing: 0.5,
               textTransform: "uppercase",
             }}
@@ -138,7 +138,7 @@ export function FalseFriendAlert({ da, daMeaning, en, enMeaning, note }: Props) 
           style={{
             fontFamily: K.sans,
             fontSize: 12,
-            color: "#7A5A10",
+            color: "#556048",
             lineHeight: 1.4,
           }}
         >

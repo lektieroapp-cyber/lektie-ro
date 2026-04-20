@@ -173,7 +173,7 @@ export function AuthCard({
           <button
             type="submit"
             disabled={!email.trim() || forgotLoading}
-            className="w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+            className="w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-bold text-ink transition hover:bg-primary-hover disabled:opacity-60"
           >
             {forgotLoading ? m.forgotSubmitting : m.forgotSubmit}
           </button>
@@ -285,7 +285,7 @@ export function AuthCard({
         <button
           type="submit"
           disabled={status === "submitting"}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-btn bg-primary px-6 py-3 text-[15px] font-bold text-ink transition hover:bg-primary-hover disabled:opacity-60"
         >
           {status === "submitting" && (
             <span className="block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -336,9 +336,9 @@ function PasswordStrength({ value, m }: { value: string; m: StrengthMessages }) 
 
   const label = score <= 1 ? m.strengthWeak : score === 2 ? m.strengthOk : m.strengthStrong
   const color =
-    score <= 1 ? "bg-coral-deep" : score === 2 ? "bg-amber-pill" : "bg-success"
+    score <= 1 ? "bg-clay" : score === 2 ? "bg-clay/60" : "bg-mint-deep"
   const labelColor =
-    score <= 1 ? "text-coral-deep" : score === 2 ? "text-ink/70" : "text-success"
+    score <= 1 ? "text-clay" : score === 2 ? "text-ink/70" : "text-mint-deep"
 
   return (
     <div className="flex items-center gap-2">

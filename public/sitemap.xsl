@@ -13,8 +13,8 @@
         <style>
           body {
             font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-            background: #FBF5EE;
-            color: #1E2A3A;
+            background: #F5EDDE;
+            color: #1F2D1A;
             margin: 0;
             padding: 48px 24px;
           }
@@ -28,7 +28,7 @@
             margin: 0 0 8px;
           }
           p.lead {
-            color: #7A8596;
+            color: #556048;
             margin: 0 0 28px;
           }
           table {
@@ -37,32 +37,32 @@
             background: white;
             border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 8px 24px rgba(30, 42, 58, 0.06);
+            box-shadow: 0 8px 24px rgba(31, 45, 26, 0.06);
           }
           th, td {
             text-align: left;
             padding: 14px 20px;
-            border-bottom: 1px solid rgba(30, 42, 58, 0.05);
+            border-bottom: 1px solid rgba(31, 45, 26, 0.05);
             font-size: 14px;
           }
           th {
-            background: #EAF1F8;
-            color: #4A6A8A;
+            background: #E4F2EB;
+            color: #556048;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             font-size: 12px;
           }
           tr:last-child td { border-bottom: none; }
-          a { color: #D85C48; text-decoration: none; word-break: break-all; }
+          a { color: #4F8E6B; text-decoration: none; word-break: break-all; }
           a:hover { text-decoration: underline; }
-          .muted { color: #7A8596; font-variant-numeric: tabular-nums; }
+          .muted { color: #8A9280; font-variant-numeric: tabular-nums; }
           .chip {
             display: inline-block;
             padding: 2px 8px;
             border-radius: 999px;
-            background: rgba(74, 106, 138, 0.1);
-            color: #4A6A8A;
+            background: rgba(85, 96, 72, 0.1);
+            color: #556048;
             font-size: 11px;
             font-weight: 600;
           }

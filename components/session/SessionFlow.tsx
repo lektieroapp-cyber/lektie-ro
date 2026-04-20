@@ -369,7 +369,7 @@ export function SessionFlow({
           style={{ boxShadow: "var(--shadow-card)" }}
         >
           <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <SparkleIcon size={32} color="#E8846A" />
+            <SparkleIcon size={32} color="#7ACBA2" />
           </span>
           <h2
             className="mt-3 text-2xl font-bold text-ink md:text-3xl"
@@ -522,8 +522,8 @@ function DevPanel({ currentStage, onJump }: {
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
       {open && (
-        <div className="rounded-card border border-coral-deep/25 bg-white p-3 shadow-xl" style={{ minWidth: 230 }}>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
+        <div className="rounded-card border border-ink/20 bg-white p-3 shadow-xl" style={{ minWidth: 230 }}>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-ink/60">
             AI mode
           </p>
           {checks && !liveAvailable && (
@@ -574,7 +574,7 @@ function DevPanel({ currentStage, onJump }: {
             })}
           </div>
 
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-ink/60">
             Jump to stage
           </p>
           <div className="flex flex-col gap-1">
@@ -586,7 +586,7 @@ function DevPanel({ currentStage, onJump }: {
                   type="button"
                   onClick={() => onJump(stage, opts)}
                   className={`rounded-lg px-3 py-1.5 text-left text-[13px] font-medium transition ${
-                    active ? "bg-coral-deep/10 text-coral-deep" : "text-ink hover:bg-canvas"
+                    active ? "bg-ink/10 text-ink" : "text-ink/70 hover:bg-canvas"
                   }`}
                 >
                   {label}
@@ -600,7 +600,7 @@ function DevPanel({ currentStage, onJump }: {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-coral-deep text-white shadow-lg transition hover:bg-coral-deep/80 focus:outline-none"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-canvas shadow-lg transition hover:bg-ink/80 focus:outline-none"
         title="Dev flow panel"
       >
         <span className="text-sm">{open ? "✕" : "⚙"}</span>

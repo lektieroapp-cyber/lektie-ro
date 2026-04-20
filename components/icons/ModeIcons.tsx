@@ -43,7 +43,7 @@ export function CompassIcon({ size = 24, color = "#3A5F7A" }: Props) {
 
 // "Jeg sidder fast" — a gentle helping-hand / compass point (not a trap;
 // "stuck" iconography should be kind, not alarming).
-export function StuckIcon({ size = 24, color = "#D85C48" }: Props) {
+export function StuckIcon({ size = 24, color = "#C97962" }: Props) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path

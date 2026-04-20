@@ -1,22 +1,55 @@
-// Design tokens for the kid homework flow. Matches the Claude Design prototype
-// exactly. Scoped to child surfaces — do not propagate to marketing/admin.
+// Design tokens for the kid homework flow. Aligned to Color System v3:
+// mint is a quiet brand, ink is voice, clay is the ONE warm accent per screen.
+// Subjects share the same palette — differentiate via icon + name, not colour.
+//
+// Historical names (`coral`, `butter`, `mint`, `dansk`, `engelsk`) are kept as
+// aliases so the wider codebase doesn't need a mass rename. Values now map to
+// the harmonised palette.
 
 export const K = {
-  bg: "#F5F1EA",
-  bg2: "#EFE8DC",
+  // Surfaces
+  bg: "#F5EDDE",          // cream — app background (warmer than v2)
+  bg2: "#EDE2CD",         // cream-deep — section shift, subtle divider
   card: "#FFFFFF",
-  ink: "#1F1B33",
-  ink2: "#6B6680",
-  ink3: "#A8A2B8",
 
-  coral: "#E8846A",
-  coralSoft: "#FDEAE2",
-  sky: "#B8D4E8",
-  skySoft: "#E6F0F7",
-  mint: "#A8D8C0",
+  // Text
+  ink: "#1F2D1A",
+  ink2: "#556048",
+  ink3: "#8A9280",
+
+  // Brand — mint. `coral` is a legacy alias; value is mint primary.
+  coral: "#7ACBA2",
+  coralSoft: "#E4F2EB",
+  mint: "#7ACBA2",
   mintSoft: "#E4F2EB",
-  butter: "#F4D77A",
-  butterSoft: "#FBF1CF",
+  mintDeep: "#4F8E6B",    // darker than v2 — passes AA on cream
+  mintEdge: "#C5E3D1",    // border on mint-soft
+
+  // Forest — dark reassurance band
+  forest: "#1E3526",
+
+  // One warm accent — clay (terracotta). Max 1 use per screen.
+  action: "#C97962",
+  actionSoft: "#F4DBD1",
+  clay: "#C97962",
+  claySoft: "#F4DBD1",
+
+  // Legacy "butter" / "sand" aliases — collapsed to warm-neutral cream-2.
+  butter: "#EDE2CD",
+  butterSoft: "#F5EDDE",
+  sand: "#EDE2CD",
+  sandSoft: "#F5EDDE",
+
+  // Legacy subject aliases — collapsed to mint-edge (same for every subject).
+  sky: "#C5E3D1",
+  skySoft: "#E4F2EB",
+  dansk: "#C5E3D1",
+  danskSoft: "#E4F2EB",
+  engelsk: "#C5E3D1",
+  engelskSoft: "#E4F2EB",
+
+  // Plum — retired as brand token, kept minimally for any decorative leftover
+  // (e.g. BreakTimer). Prefer clay for focus; plum should fade out over time.
   plum: "#B89FCF",
   plumSoft: "#EFE6F5",
 
@@ -24,14 +57,16 @@ export const K = {
   sans: "var(--font-nunito), var(--font-inter), ui-sans-serif, system-ui, sans-serif",
 
   shadowCard:
-    "0 1px 0 rgba(31,27,51,0.04), 0 12px 32px -12px rgba(31,27,51,0.12)",
-  shadowCardLg: "0 20px 48px -12px rgba(31,27,51,0.22)",
+    "0 1px 0 rgba(31,45,26,0.04), 0 12px 32px -12px rgba(31,45,26,0.12)",
+  shadowCardLg: "0 20px 48px -12px rgba(31,45,26,0.22)",
 } as const
 
 export type SubjectKey = "matematik" | "dansk" | "engelsk"
 
+// v3 rule: subjects share the same palette. The tint/dot are identical;
+// the subject picker distinguishes via icon + label, not colour.
 export const SUBJECT_PALETTE: Record<SubjectKey, { tint: string; dot: string; ink: string }> = {
-  matematik: { tint: K.skySoft, dot: K.sky, ink: "#3A5F7A" },
-  dansk: { tint: K.mintSoft, dot: K.mint, ink: "#3E8A6A" },
-  engelsk: { tint: K.butterSoft, dot: K.butter, ink: "#7A5A10" },
+  matematik: { tint: K.mintSoft, dot: K.mintEdge, ink: K.ink },
+  dansk: { tint: K.mintSoft, dot: K.mintEdge, ink: K.ink },
+  engelsk: { tint: K.mintSoft, dot: K.mintEdge, ink: K.ink },
 }

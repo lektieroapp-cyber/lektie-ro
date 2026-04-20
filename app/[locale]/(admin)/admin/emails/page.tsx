@@ -19,7 +19,7 @@ function StatusPill({ status }: { status: EmailTemplate["status"] }) {
 function OwnerPill({ owner }: { owner: EmailTemplate["owner"] }) {
   const map = {
     supabase: { label: "Supabase", classes: "bg-blue-soft/10 text-blue-soft" },
-    lektiero: { label: "LektieRo", classes: "bg-coral-deep/10 text-coral-deep" },
+    lektiero: { label: "LektieRo", classes: "bg-ink/10 text-ink" },
   } as const
   const { label, classes } = map[owner]
   return (
@@ -55,7 +55,7 @@ function TemplateCard({ t }: { t: EmailTemplate }) {
               href={t.editUrl}
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 rounded-btn border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-primary/40 hover:text-primary"
+              className="shrink-0 rounded-btn border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-primary/50 hover:text-mint-deep"
             >
               Åbn i Supabase →
             </a>
@@ -70,7 +70,7 @@ function TemplateCard({ t }: { t: EmailTemplate }) {
 
       {html && (
         <details className="mt-5 group">
-          <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-btn border border-ink/10 bg-canvas px-3 py-1.5 text-xs font-semibold text-ink hover:border-primary/40 hover:text-primary">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-btn border border-ink/10 bg-canvas px-3 py-1.5 text-xs font-semibold text-ink hover:border-primary/50 hover:text-mint-deep">
             <span>Se preview</span>
             <span className="transition-transform group-open:rotate-180" aria-hidden>▾</span>
           </summary>

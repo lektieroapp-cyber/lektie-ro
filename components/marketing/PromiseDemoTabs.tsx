@@ -4,14 +4,23 @@ import { useState } from "react"
 import { Companion } from "@/components/mascot/Companion"
 import type { CompanionType } from "@/components/mascot/types"
 
+// v3: live-chip in mint-deep, all chat bubbles in mint-soft, kid avatar in
+// clay-soft (the single warm accent on the dark-section demo).
 const COLORS = {
-  cream2: "#F5EADA",
-  ink: "#1F2D4A",
-  ink2: "#4A5A7A",
-  coral: "#E8846A",
-  coralSoft: "#FDE4D8",
-  butterSoft: "#FBEBC2",
-  skySoft: "#E6F0F7",
+  cream: "#F5EDDE",
+  cream2: "#EDE2CD",
+  ink: "#1F2D1A",
+  ink2: "#556048",
+  mint: "#7ACBA2",
+  mintDeep: "#4F8E6B",
+  mintSoft: "#E4F2EB",
+  mintEdge: "#C5E3D1",
+  claySoft: "#F4DBD1",
+  // Legacy aliases kept only to minimise diff.
+  coral: "#4F8E6B",
+  coralSoft: "#E4F2EB",
+  butterSoft: "#E4F2EB",
+  skySoft: "#E4F2EB",
 }
 
 type TabId = "math" | "dansk" | "eng"
@@ -86,15 +95,14 @@ export function PromiseDemoTabs({
             position: "absolute",
             top: -14,
             left: 32,
-            background: COLORS.coral,
+            background: COLORS.mintDeep,
             color: "#fff",
             padding: "6px 14px",
             borderRadius: 999,
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 800,
-            letterSpacing: 0.4,
+            letterSpacing: 0.6,
             textTransform: "uppercase",
-            boxShadow: "0 6px 14px -4px rgba(232,132,106,0.5)",
           }}
         >
           {demoBadge}
@@ -117,7 +125,7 @@ function MathDemo() {
         type="lion"
         text="Regn ud: <b>24 + 17</b>. Hvad tænker du, hvis vi deler tallene op?"
       />
-      <KidRow text="20 + 10 er 30. Så 4 + 7 er 11…" tint={COLORS.coralSoft} />
+      <KidRow text="20 + 10 er 30. Så 4 + 7 er 11…" tint={COLORS.cream} />
       <DemoRow
         type="lion"
         text="Godt set! Nu har du 30 og 11. Læg dem sammen, så er <b>du</b> næsten i mål."
@@ -168,9 +176,9 @@ function DanskDemo() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <SyllableChip bg={COLORS.coralSoft}>ka</SyllableChip>
-          <SyllableChip bg={COLORS.butterSoft}>ni</SyllableChip>
-          <SyllableChip bg={COLORS.skySoft}>ner</SyllableChip>
+          <SyllableChip bg={COLORS.mintSoft}>ka</SyllableChip>
+          <SyllableChip bg={COLORS.cream}>ni</SyllableChip>
+          <SyllableChip bg={COLORS.mintEdge}>ner</SyllableChip>
         </div>
       </div>
       <DemoRow
@@ -252,12 +260,12 @@ function DemoRow({ type, text }: { type: CompanionType; text: string }) {
           width: 48,
           height: 48,
           borderRadius: 999,
-          background: "#FBEBC2",
+          background: COLORS.mintSoft,
+          border: `1.5px solid ${COLORS.mintEdge}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
-          boxShadow: "0 4px 10px -4px rgba(232,160,74,0.5)",
           overflow: "hidden",
         }}
       >
@@ -265,7 +273,7 @@ function DemoRow({ type, text }: { type: CompanionType; text: string }) {
       </div>
       <div
         style={{
-          background: COLORS.skySoft,
+          background: COLORS.mintSoft,
           padding: "12px 14px",
           borderRadius: "4px 14px 14px 14px",
           fontSize: 14,
@@ -303,12 +311,13 @@ function KidRow({ text, tint }: { text: string; tint: string }) {
             width: 32,
             height: 32,
             borderRadius: 999,
-            background: COLORS.cream2,
+            background: COLORS.claySoft,
+            border: "1.5px solid #E4B5A4",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontWeight: 700,
-            color: COLORS.ink2,
+            color: "#8F4A38",
             fontSize: 13,
           }}
         >
@@ -368,14 +377,14 @@ function VerbPill({
       <span
         style={{
           padding: "8px 16px",
-          border: active ? "none" : "1.5px solid rgba(31,45,74,0.12)",
+          border: active ? "none" : "1.5px solid rgba(31,45,26,0.12)",
           borderRadius: 12,
           fontSize: 14,
           fontFamily: "var(--font-fraunces), Georgia, serif",
-          color: active ? "#fff" : COLORS.ink,
-          background: active ? COLORS.coral : "#fff",
+          color: active ? COLORS.ink : COLORS.ink,
+          background: active ? COLORS.mint : "#fff",
           fontWeight: 700,
-          boxShadow: active ? "0 6px 14px -6px rgba(232,132,106,0.55)" : "none",
+          boxShadow: active ? "0 6px 14px -6px rgba(79,142,107,0.45)" : "none",
         }}
       >
         {children}

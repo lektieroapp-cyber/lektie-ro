@@ -229,7 +229,7 @@ export function renderBlock(
         console.warn(`[blocks] Unknown block: ${name}`, attrs)
       }
       return (
-        <span key={key} style={{ color: "#A8A2B8", fontFamily: "monospace" }}>
+        <span key={key} style={{ color: "#8A9280", fontFamily: "monospace" }}>
           [{name}]
         </span>
       )

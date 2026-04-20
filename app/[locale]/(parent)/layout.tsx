@@ -43,8 +43,8 @@ function DevBanner() {
   const isBad = ensure.state === "failed"
   return (
     <div
-      className={`px-4 py-2 text-center text-xs font-medium ${
-        isBad ? "bg-coral-deep/20 text-coral-deep" : "bg-amber-pill text-ink"
+      className={`px-4 py-2 text-center text-xs font-semibold ${
+        isBad ? "bg-clay/20 text-clay" : "bg-clay-soft text-clay"
       }`}
     >
       DEV_BYPASS_AUTH er aktivt. Logget ind som{" "}

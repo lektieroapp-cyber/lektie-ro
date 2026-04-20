@@ -1,18 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #FBF5EE;
-  --color-canvas-warm: #FCE9DF;
-  --color-primary: #E98873;
-  --color-primary-hover: #D97460;
-  --color-coral-deep: #D85C48;
-  --color-ink: #1E2A3A;
-  --color-navy: #2E3E56;
-  --color-blue-soft: #4A6A8A;
-  --color-blue-tint: #EAF1F8;
-  --color-amber-pill: #F7E8A0;
-  --color-muted: #7A8596;
-  --color-success: #34C17A;
+  /* v3 — Harmonised palette. Mint = quiet brand, ink = voice,
+     clay = one warm accent per screen. No yellow/sand/sky in chrome.
+     Subjects share the same palette — differentiate via icon + name. */
+
+  /* Canvas — warmer cream. */
+  --color-canvas: #F5EDDE;
+  --color-canvas-warm: #EDE2CD;
+
+  /* Brand — mint. Primary is display-only; use mint-deep for text on cream. */
+  --color-primary: #7ACBA2;
+  --color-primary-hover: #4F8E6B;
+  --color-mint: #7ACBA2;
+  --color-mint-deep: #4F8E6B;
+  --color-mint-soft: #E4F2EB;
+  --color-mint-edge: #C5E3D1;
+
+  /* One warm accent — clay (terracotta). Max one use per screen, focus only. */
+  --color-clay: #C97962;
+  --color-clay-soft: #F4DBD1;
+  /* Legacy "coral" aliases now point to clay. */
+  --color-coral: #C97962;
+  --color-coral-soft: #F4DBD1;
+  --color-coral-deep: #C97962;
+
+  /* Forest — dark reassurance band bg. */
+  --color-forest: #1E3526;
+  --color-navy: #1E3526;
+
+  /* Neutrals — ink is deep forest green. */
+  --color-ink: #1F2D1A;
+  --color-ink-soft: #556048;
+  --color-ink-muted: #8A9280;
+  --color-muted: #8A9280;
+
+  /* Admin / utility chrome — mint-family so nothing fights brand. */
+  --color-blue-soft: #4F8E6B;
+  --color-blue-tint: #E4F2EB;
+
+  /* Warm-neutral chip for "pending / medium". No yellow. */
+  --color-amber-pill: #EDE2CD;
+
+  /* Success = mint-deep. */
+  --color-success: #4F8E6B;
 
   --font-display: "Fraunces", ui-serif, Georgia, serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -22,8 +53,8 @@
   --radius-btn: 999px;
   --radius-chip: 999px;
 
-  --shadow-card: 0 8px 24px rgba(30, 42, 58, 0.06);
-  --shadow-card-lg: 0 20px 48px rgba(30, 42, 58, 0.08);
+  --shadow-card: 0 8px 24px rgba(31, 45, 26, 0.06);
+  --shadow-card-lg: 0 20px 48px rgba(31, 45, 26, 0.08);
 }
 
 html {
@@ -53,7 +84,7 @@ button {
 select.lr-select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%234A6A8A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23556048' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
   background-repeat: no-repeat;
   background-position: right 0.875rem center;
   background-size: 14px;
@@ -171,8 +202,8 @@ select.lr-select::-ms-expand {
 
 /* Tier 1 chat-block animations */
 @keyframes tfPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 132, 106, 0.2); }
-  50% { box-shadow: 0 0 0 8px rgba(232, 132, 106, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(122, 203, 162, 0.2); }
+  50% { box-shadow: 0 0 0 8px rgba(122, 203, 162, 0); }
 }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

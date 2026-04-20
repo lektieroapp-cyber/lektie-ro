@@ -372,36 +372,45 @@ Child mid-session device switch: store `sessionId` in `sessionStorage`, resume f
 
 ---
 
-## Design — "Warm Studio" (coral + cream, sampled from launched mock)
+## Design — v3 harmonised palette (Color System v3 handoff)
 
-Aesthetic: Alice.tech warmth + HejAlbert trust, tuned to a Danish family audience. Calm cream background, coral CTAs, emotional display serif, generous whitespace. See `app/globals.css` for the canonical token values.
+Aesthetic: calm cream background, **mint = quiet brand**, **ink = voice**, **clay = ONE warm accent per screen** (focus pointer only — never chrome). Subjects share the same palette — differentiate via icon + name, never colour. No yellow, no sky-blue, no coral in chrome. See `app/globals.css` for canonical tokens.
+
+Rules:
+- **Mint-reglen** — mint for brand + CTA + solved-light only. Never icon bg, never headings on cream (fails AA). Text version is mint-deep `#4F8E6B`.
+- **Clay-reglen** — clay appears MAX once per screen as a focus pointer (the cell/word/number the child should work with). It is a tool, not a pattern.
+- **CTA-kontrast** — mint bg requires INK text (not white). Mint-deep bg or coral-deep bg can use white.
+- **No sub-colours** — matematik, dansk, engelsk all render with the same mint-family tints. Never colour-code a subject.
 
 ```
-Canvas:       #FBF5EE   warm cream (NEVER pure white)
-Canvas warm:  #FCE9DF   hero peach gradient wash
-Primary:      #E98873   coral — CTA button "Skriv mig op"
-Primary +:    #D97460   hover
-Coral deep:   #D85C48   checkmarks, "Til Forældrene" heading
-Ink:          #1E2A3A   near-black display text
-Navy:         #2E3E56   dark reassurance band bg
-Blue soft:    #4A6A8A   secondary headings ("Til Barnet", "Læs mere")
-Blue tint:    #EAF1F8   "Til Forældrene" card bg
-Amber pill:   #F7E8A0   "Vi åbner snart" badge
-Muted:        #7A8596   secondary text
-Success:      #34C17A
+Canvas:       #F5EDDE   cream — whole-app bg (warmer than v2)
+Canvas warm:  #EDE2CD   cream-deep — cards, nav bar, section divider
+Primary:      #7ACBA2   mint — CTA, brand detail, solved-light. INK text.
+Primary +:    #4F8E6B   mint-deep — italic heading, text-link, check, success
+Mint soft:    #E4F2EB   chat bubble, chip, parent-card bg
+Mint edge:    #C5E3D1   border on mint-soft surfaces
+Clay:         #C97962   focus pointer — the ONE warm accent, 1 use per screen
+Clay soft:    #F4DBD1   focus bg fill
+Forest:       #1E3526   dark reassurance band ("vi viser vejen")
+Ink:          #1F2D1A   body text, voice
+Ink soft:     #556048   secondary text, icons
+Ink muted:    #8A9280   disabled, fine print
 
 Font display: Fraunces          emotional headlines — warm humanist serif
 Font body:    Inter              UI + parent dashboard
-Font kid:     Nunito             reserved for child surfaces (Step 2+)
+Font kid:     Nunito             reserved for child surfaces
 Radius:       24px cards · 999px buttons (pill) · 50% avatars
-Shadow card:  0 8px 24px rgba(30,42,58,.06)
+Shadow card:  0 8px 24px rgba(31,45,26,.06)
+
+Logo:         public/logo_with_text.png   rendered via <Logo /> component.
+Favicon:      app/favicon.ico + icon.png  generated from public/logo.png.
 ```
 
 **Canonical landing layout** (mock-approved, do not redesign without user sign-off):
-1. Two-column hero — left: logo chip → amber pill badge → big Fraunces H1 → subtitle → coral ✓ values (Nærvær · Ro · Overskud) → "Læs mere ↓" anchor link. Right: elevated white waitlist card with email input + coral pill CTA "Skriv mig op" + "Har du allerede en kode? Fortsæt her" (only login entry).
-2. Dark navy reassurance band: 💡 "Vi giver aldrig facit – vi viser vejen".
-3. Two-card benefits row: "Til Barnet" (white, blue-soft heading) + "Til Forældrene" (blue-tint bg, coral-deep heading).
-4. "Kommende medlemskaber" pricing teaser: Standard 229 kr./md + Family Premium 299 kr./md (MEST POPULÆR). Visual-only — no payment plumbing until explicitly requested.
+1. Two-column hero — left: logo chip → mint-soft pill badge → big Fraunces H1 ("familien." italic in mint-deep) → subtitle → 3 white/mint chips with small colored dots (Nærvær · Ro · Overskud) → "Læs mere ↓" anchor link. Right: phone mockup (ten-frame with mint fills + ONE clay focus cluster) + elevated white waitlist card with email input, mint pill CTA "Skriv mig op" (ink text), mint-deep perk-checks, mint-deep login link.
+2. Dark forest reassurance band (`#1E3526`): 💡 dimmed sand-glow bulb + "Vi giver aldrig facit – vi viser vejen" (italic in soft leaf green `#C8D9A8`). Matematik/Dansk/Engelsk toggle with white-on-forest active pill.
+3. Two-card benefits row: "Til Barnet" (white, ink heading) + "Til Forældrene" (mint-soft bg, mint-deep heading). Icon bubbles: mint-soft / mint-edge border on both cards.
+4. "Kommende medlemskaber" pricing teaser: Standard 229 kr./md + Family Premium 289 kr./md (MEST POPULÆR). Visual-only — no payment plumbing until explicitly requested.
 5. Thin footer.
 
 Child screens (Step 2+): camera (full-screen viewfinder, big snap button) → thinking spinner → hint conversation (typewriter, follow-up input pinned bottom) → completion (XP tick-up, streak update) → dashboard (child cards, subject heatmap, live indicator).

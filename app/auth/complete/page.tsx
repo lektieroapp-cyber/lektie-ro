@@ -119,7 +119,7 @@ function CompleteInner() {
                 Skriv til{" "}
                 <a
                   href="mailto:marcuz@lektiero.dk"
-                  className="font-medium text-primary underline underline-offset-2 hover:text-primary-hover"
+                  className="font-medium text-mint-deep underline underline-offset-2 hover:text-ink"
                 >
                   marcuz@lektiero.dk
                 </a>{" "}
@@ -130,7 +130,7 @@ function CompleteInner() {
                 Vi kunne ikke fuldføre dit login. Prøv at klikke på linket i din invitations-email igen, eller skriv til{" "}
                 <a
                   href="mailto:marcuz@lektiero.dk"
-                  className="font-medium text-primary underline underline-offset-2 hover:text-primary-hover"
+                  className="font-medium text-mint-deep underline underline-offset-2 hover:text-ink"
                 >
                   marcuz@lektiero.dk
                 </a>
@@ -140,7 +140,7 @@ function CompleteInner() {
           </p>
           <a
             href="/da/login"
-            className="mt-8 inline-flex rounded-btn bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
+            className="mt-8 inline-flex rounded-btn bg-primary px-6 py-2.5 text-sm font-bold text-ink hover:bg-primary-hover"
           >
             Tilbage til login
           </a>

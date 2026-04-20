@@ -12,9 +12,9 @@ const TONE_STYLES: Record<Tone, { active: string; idle: string; iconIdle: string
     iconIdle: "text-ink/60 hover:bg-blue-tint/50",
   },
   admin: {
-    active: "bg-coral-deep/10 text-coral-deep",
-    idle: "text-coral-deep/80 hover:bg-coral-deep/10 hover:text-coral-deep",
-    iconIdle: "text-coral-deep hover:bg-coral-deep/10",
+    active: "bg-ink/10 text-ink",
+    idle: "text-ink/70 hover:bg-ink/5 hover:text-ink",
+    iconIdle: "text-ink/60 hover:bg-ink/5",
   },
 }
 
@@ -66,7 +66,7 @@ export function NavLink({
       </span>
       <span className="flex-1">{label}</span>
       {badge && (
-        <span className="rounded-chip bg-coral-deep/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-coral-deep">
+        <span className="rounded-chip bg-ink/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink">
           {badge}
         </span>
       )}

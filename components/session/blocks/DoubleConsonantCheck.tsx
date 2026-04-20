@@ -69,7 +69,7 @@ export function DoubleConsonantCheck({ right, wrong, hint }: Props) {
             borderRadius: 10,
             fontFamily: K.sans,
             fontSize: 12,
-            color: "#7A5A10",
+            color: K.ink2,
             fontWeight: 600,
             maxWidth: 300,
             textAlign: "center",

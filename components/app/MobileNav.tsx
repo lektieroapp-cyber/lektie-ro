@@ -95,7 +95,7 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
 
       {open && <div aria-hidden onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm md:hidden" />}
 
-      <aside className={`fixed right-0 top-0 z-50 flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-[0_0_40px_rgba(30,42,58,0.15)] transition-transform duration-200 md:hidden ${open ? "translate-x-0" : "translate-x-full"}`}
+      <aside className={`fixed right-0 top-0 z-50 flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-[0_0_40px_rgba(31,45,26,0.15)] transition-transform duration-200 md:hidden ${open ? "translate-x-0" : "translate-x-full"}`}
         aria-hidden={!open}>
 
         <div className="flex items-center justify-between border-b border-ink/10 px-4 py-3">
@@ -121,12 +121,12 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
         {adminItem && (
           <div className="mt-4 px-2">
             <div className="mb-2 flex items-center gap-2 px-3">
-              <span className="h-px flex-1 bg-coral-deep/15" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">{adminSectionLabel}</span>
-              <span className="h-px flex-1 bg-coral-deep/15" />
+              <span className="h-px flex-1 bg-ink/15" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-ink/60">{adminSectionLabel}</span>
+              <span className="h-px flex-1 bg-ink/15" />
             </div>
             <Link href={adminItem.href} prefetch
-              className={`flex items-center gap-3 rounded-card px-3 py-3 text-[15px] font-medium transition ${isActive(adminItem.href) ? "bg-coral-deep/10 text-coral-deep" : "text-coral-deep/80 hover:bg-coral-deep/10 hover:text-coral-deep"}`}>
+              className={`flex items-center gap-3 rounded-card px-3 py-3 text-[15px] font-medium transition ${isActive(adminItem.href) ? "bg-ink/10 text-ink" : "text-ink/70 hover:bg-ink/5 hover:text-ink"}`}>
               <span aria-hidden className="inline-flex h-5 w-5 items-center justify-center">{adminItem.icon}</span>
               <span>{adminItem.label}</span>
             </Link>
@@ -150,7 +150,7 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
               </>
             ) : (
               <>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[13px] font-bold text-primary">{initial}</span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mint-soft text-[13px] font-bold text-mint-deep">{initial}</span>
                 <span className="truncate text-[13px] text-muted">{email}</span>
               </>
             )}
@@ -176,7 +176,7 @@ export function MobileNav({ locale, items, adminItem, settingsHref, profilesHref
               </Link>
               <button type="button" disabled
                 className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-muted cursor-not-allowed">
-                Fakturering <span className="ml-1 rounded-full bg-amber-pill px-1.5 py-0.5 text-[10px] font-semibold text-ink/60">Snart</span>
+                Fakturering <span className="ml-1 rounded-full bg-mint-edge px-1.5 py-0.5 text-[10px] font-semibold text-mint-deep">Snart</span>
               </button>
               <button type="button" onClick={handleSwitchAccount}
                 className="flex items-center gap-3 rounded-card px-3 py-2.5 text-[14px] font-medium text-ink/80 hover:bg-blue-tint/50 hover:text-ink cursor-pointer">

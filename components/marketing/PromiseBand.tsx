@@ -2,9 +2,12 @@ import { type Locale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
 import { PromiseDemoTabs } from "./PromiseDemoTabs"
 
+// v3: forest bg (no gradient), italic highlight in soft leaf green, dimmed
+// sand-glow bulb instead of the loud yellow one.
 const COLORS = {
-  ink: "#1F2D4A",
-  butter: "#F2C75A",
+  forest: "#1E3526",
+  leaf: "#C8D9A8",       // italic highlight on dark section
+  textMuted: "#B8C4A8",
 }
 
 export function PromiseBand({ locale }: { locale: Locale }) {
@@ -20,8 +23,8 @@ export function PromiseBand({ locale }: { locale: Locale }) {
     <section
       id="how"
       style={{
-        background: "linear-gradient(180deg, #1F2D4A 0%, #2A3B5F 100%)",
-        color: "#fff",
+        background: COLORS.forest,
+        color: "#F4EADA",
         padding: "100px 32px",
         textAlign: "center",
         position: "relative",
@@ -34,7 +37,7 @@ export function PromiseBand({ locale }: { locale: Locale }) {
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(600px 300px at 20% 50%, rgba(232,132,106,0.15), transparent), radial-gradient(500px 300px at 80% 50%, rgba(242,199,90,0.1), transparent)",
+            "radial-gradient(600px 300px at 20% 50%, rgba(122,203,162,0.12), transparent), radial-gradient(500px 300px at 80% 50%, rgba(243,215,129,0.08), transparent)",
           pointerEvents: "none",
         }}
       />
@@ -47,34 +50,24 @@ export function PromiseBand({ locale }: { locale: Locale }) {
           zIndex: 1,
         }}
       >
-        {/* Glowing bulb */}
+        {/* Soft sand-glow bulb — dimmer than v2's yellow. */}
         <div
           aria-hidden
           style={{
-            width: 60,
-            height: 60,
-            margin: "0 auto 24px",
-            background: "radial-gradient(circle at 40% 40%, #FFDE8C, #F2C75A)",
-            borderRadius: "50% 50% 50% 50% / 45% 45% 55% 55%",
-            boxShadow:
-              "0 0 40px rgba(242,199,90,0.5), 0 0 80px rgba(242,199,90,0.3)",
-            position: "relative",
+            width: 70,
+            height: 70,
+            margin: "0 auto 20px",
+            background: "radial-gradient(circle at 50% 45%, #FFE8A8 0%, #F3D781 45%, #D4B55A 100%)",
+            borderRadius: 999,
+            boxShadow: "0 0 60px rgba(243,215,129,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 32,
             animation: "bulbGlow 3s ease-in-out infinite",
           }}
         >
-          <span
-            style={{
-              position: "absolute",
-              bottom: -8,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 24,
-              height: 8,
-              background: "#C9A350",
-              borderRadius: "2px 2px 4px 4px",
-              display: "block",
-            }}
-          />
+          💡
         </div>
 
         <h2
@@ -85,7 +78,7 @@ export function PromiseBand({ locale }: { locale: Locale }) {
             lineHeight: 1.1,
             letterSpacing: "-0.8px",
             marginBottom: 18,
-            color: "#fff",
+            color: "#F4EADA",
           }}
         >
           {m.promise.title}
@@ -93,8 +86,8 @@ export function PromiseBand({ locale }: { locale: Locale }) {
           <em
             style={{
               fontStyle: "italic",
-              color: COLORS.butter,
-              fontWeight: 600,
+              color: COLORS.leaf,
+              fontWeight: 500,
             }}
           >
             {m.promise.titleItalic ?? "vi viser vejen"}
@@ -104,14 +97,14 @@ export function PromiseBand({ locale }: { locale: Locale }) {
         <p
           style={{
             fontSize: 18,
-            color: "rgba(255,255,255,0.75)",
+            color: COLORS.textMuted,
             maxWidth: 580,
             margin: "0 auto",
             lineHeight: 1.55,
           }}
         >
           {bodyParts[0]}
-          <b style={{ color: "#fff", fontWeight: 700 }}>{m.promise.highlight}</b>
+          <b style={{ color: "#F4EADA", fontWeight: 700 }}>{m.promise.highlight}</b>
           {bodyParts[1]}
         </p>
 

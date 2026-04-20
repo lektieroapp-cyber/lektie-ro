@@ -27,18 +27,18 @@ function Plan({
   return (
     <div
       className={`relative flex flex-col rounded-card bg-white p-8 text-left ${
-        highlighted ? "border-2 border-coral-deep/60" : ""
+        highlighted ? "border-2 border-mint-deep" : ""
       }`}
       style={{ boxShadow: "var(--shadow-card)" }}
     >
       {badge && (
-        <span className="absolute left-1/2 -top-3 -translate-x-1/2 rounded-chip bg-primary px-3 py-1 text-xs font-semibold tracking-wide text-white">
+        <span className="absolute left-1/2 -top-3 -translate-x-1/2 rounded-chip bg-mint-deep px-3 py-1 text-xs font-bold tracking-wide text-white uppercase">
           {badge}
         </span>
       )}
       <h3
         className={`text-xl font-semibold ${
-          highlighted ? "text-coral-deep" : "text-ink"
+          highlighted ? "text-mint-deep" : "text-ink"
         }`}
       >
         {name}
@@ -58,11 +58,7 @@ function Plan({
           <li key={f} className="flex items-start gap-3 text-[15px] text-ink/85">
             <span
               aria-hidden
-              className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                highlighted
-                  ? "bg-coral-deep/10 text-coral-deep"
-                  : "bg-success/15 text-success"
-              }`}
+              className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-ink"
             >
               {CheckIcon}
             </span>

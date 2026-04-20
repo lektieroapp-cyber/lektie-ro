@@ -26,7 +26,7 @@ export function CopyHtmlButton({ html }: { html: string }) {
       className={`shrink-0 rounded-btn border px-3 py-1.5 text-xs font-semibold transition ${
         state === "copied"
           ? "border-success/40 bg-success/10 text-success"
-          : "border-ink/15 bg-white text-ink hover:border-primary/40 hover:text-primary"
+          : "border-ink/15 bg-white text-ink hover:border-primary/50 hover:text-mint-deep"
       }`}
     >
       {label}

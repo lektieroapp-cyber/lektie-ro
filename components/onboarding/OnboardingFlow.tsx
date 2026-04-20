@@ -50,9 +50,9 @@ function StepDot({ active, done, label }: { active: boolean; done: boolean; labe
     <div
       className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-semibold transition-colors ${
         done
-          ? "bg-primary text-white"
+          ? "bg-primary text-ink"
           : active
-          ? "bg-primary text-white"
+          ? "bg-primary text-ink"
           : "bg-ink/10 text-muted"
       }`}
     >
@@ -92,7 +92,7 @@ function WelcomeStep({ firstName, onNext }: { firstName: string; onNext: () => v
       <button
         type="button"
         onClick={onNext}
-        className="mt-8 w-full cursor-pointer rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover"
+        className="mt-8 w-full cursor-pointer rounded-btn bg-primary px-6 py-3 text-[15px] font-bold text-ink transition hover:bg-primary-hover"
       >
         Opret barnets profil →
       </button>
@@ -239,7 +239,7 @@ function ChildStep({ locale, onBack }: { locale: Locale; onBack: () => void }) {
           <button
             type="submit"
             disabled={status === "submitting" || !name.trim() || grade === ""}
-            className="flex-1 cursor-pointer rounded-btn bg-primary px-6 py-2.5 text-[14px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+            className="flex-1 cursor-pointer rounded-btn bg-primary px-6 py-2.5 text-[14px] font-bold text-ink transition hover:bg-primary-hover disabled:opacity-50"
           >
             {status === "submitting" ? "Opretter …" : "Kom i gang →"}
           </button>

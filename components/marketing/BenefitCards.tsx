@@ -54,12 +54,12 @@ function Card({
       className="rounded-card p-8 md:p-10"
       style={{
         boxShadow: "var(--shadow-card)",
-        backgroundColor: isChild ? "white" : "var(--color-blue-tint)",
+        backgroundColor: isChild ? "white" : "var(--color-mint-soft)",
       }}
     >
       <h3
         className={`text-2xl md:text-3xl font-bold ${
-          isChild ? "text-blue-soft" : "text-coral-deep"
+          isChild ? "text-ink" : "text-mint-deep"
         }`}
         style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
       >
@@ -70,11 +70,12 @@ function Card({
           <li key={it.title} className="flex items-start gap-4">
             <span
               aria-hidden
-              className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                isChild
-                  ? "bg-coral-deep/10 text-coral-deep"
-                  : "bg-blue-soft/12 text-blue-soft"
-              }`}
+              className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+              style={{
+                background: isChild ? "var(--color-mint-soft)" : "#ffffff",
+                border: "1.5px solid var(--color-mint-edge)",
+                color: "var(--color-mint-deep)",
+              }}
             >
               {it.icon}
             </span>

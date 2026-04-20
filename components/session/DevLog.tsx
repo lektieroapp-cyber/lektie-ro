@@ -11,13 +11,13 @@ const KIND_META: Record<DevEvent["kind"], { color: string; label: string }> = {
   upload:    { color: "#5C8BA8", label: "UPLOAD" },
   solve:     { color: "#3E8A6A", label: "SOLVE" },
   subject:   { color: "#3A5F7A", label: "SUBJECT" },
-  task:      { color: "#7A5A10", label: "TASK" },
+  task:      { color: "#556048", label: "TASK" },
   mode:      { color: "#8A4230", label: "MODE" },
-  "turn-user": { color: "#1F1B33", label: "→ USER" },
-  "turn-ai":   { color: "#E8846A", label: "← AI" },
-  "ai-error":  { color: "#D85C48", label: "ERROR" },
-  complete:  { color: "#34C17A", label: "DONE" },
-  info:      { color: "#6B6680", label: "INFO" },
+  "turn-user": { color: "#1F2D1A", label: "→ USER" },
+  "turn-ai":   { color: "#7ACBA2", label: "← AI" },
+  "ai-error":  { color: "#C97962", label: "ERROR" },
+  complete:  { color: "#4F8E6B", label: "DONE" },
+  info:      { color: "#556048", label: "INFO" },
 }
 
 export function DevLog({
@@ -108,17 +108,17 @@ export function DevLog({
           <div className="border-b border-ink/5 px-3 py-2 leading-[1.6]">
             <Row k="stage" v={stage} color="#8C7B9F" />
             <Row k="subject" v={solve?.subject ?? "—"} color="#3A5F7A" />
-            <Row k="grade" v={solve ? String(solve.grade) : "—"} color="#7A5A10" />
+            <Row k="grade" v={solve ? String(solve.grade) : "—"} color="#556048" />
             <Row
               k="task"
               v={task ? truncate(task.text, 42) : "—"}
               color="#3E8A6A"
             />
             <Row k="mode" v={mode ?? "—"} color="#8A4230" />
-            <Row k="turns" v={`${aiTurnCount} / ${turnCount}`} color="#1F1B33" />
-            <Row k="done" v={String(completedTasks)} color="#34C17A" />
+            <Row k="turns" v={`${aiTurnCount} / ${turnCount}`} color="#1F2D1A" />
+            <Row k="done" v={String(completedTasks)} color="#4F8E6B" />
             {solve?.mocked && (
-              <div className="mt-1 rounded bg-butter-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#7A5A10]">
+              <div className="mt-1 rounded bg-butter-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#556048]">
                 MOCKED SOLVE
               </div>
             )}

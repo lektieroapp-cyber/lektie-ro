@@ -55,7 +55,7 @@ export default async function SignupPage({
             <p className="mt-3 text-sm text-muted">{m.auth.signupGateBody}</p>
             <Link
               href={`/${locale}#venteliste`}
-              className="mt-6 inline-flex rounded-btn bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
+              className="mt-6 inline-flex rounded-btn bg-primary px-5 py-2.5 text-sm font-bold text-ink hover:bg-primary-hover"
             >
               {m.auth.signupGateCta}
             </Link>

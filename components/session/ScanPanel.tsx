@@ -158,7 +158,7 @@ export function ScanPanel({
               border: `2px dashed ${hover ? K.coral : "#E5DFD1"}`,
               transition: "all 0.2s ease",
               boxShadow: hover
-                ? "0 20px 36px -12px rgba(232,132,106,0.28)"
+                ? "0 20px 36px -12px rgba(122,203,162,0.28)"
                 : K.shadowCard,
               transform: hover ? "translateY(-2px)" : undefined,
             }}

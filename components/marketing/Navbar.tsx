@@ -23,7 +23,7 @@ export async function Navbar({ locale }: { locale: Locale }) {
   return (
     <header
       className="sticky top-0 z-50 w-full border-b border-ink/[0.06] backdrop-blur-[12px]"
-      style={{ background: "rgba(251,243,232,0.85)" }}
+      style={{ background: "rgba(245,237,222,0.85)" }}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-2 md:px-6 md:py-3">
         <LogoLink href={`/${locale}`} />
@@ -42,7 +42,7 @@ export async function Navbar({ locale }: { locale: Locale }) {
           </Link>
           <Link
             href={loggedIn ? localePath(locale, "parentDashboard") : localePath(locale, "login")}
-            className="rounded-btn border border-ink/10 bg-white px-4 py-2 text-sm font-semibold text-ink shadow-[0_2px_8px_rgba(30,42,58,0.04)] transition hover:border-primary/40 hover:text-primary sm:px-5"
+            className="rounded-btn border-[1.5px] border-ink bg-white px-4 py-2 text-sm font-bold text-ink transition hover:bg-ink hover:text-canvas sm:px-5"
           >
             {loggedIn ? m.nav.dashboard : m.nav.login}
           </Link>

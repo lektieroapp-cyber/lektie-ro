@@ -468,7 +468,7 @@ function UserMessage({ children }: { children: React.ReactNode }) {
           fontSize: 15,
           lineHeight: 1.5,
           maxWidth: "85%",
-          boxShadow: "0 4px 12px -6px rgba(232,132,106,0.6)",
+          boxShadow: "0 4px 12px -6px rgba(122,203,162,0.6)",
         }}
       >
         {typeof children === "string" ? <RichText text={children} /> : children}
@@ -554,7 +554,7 @@ function BigBtn({
         cursor: disabled ? "not-allowed" : "pointer",
         boxShadow:
           tone === "coral" && !disabled
-            ? "0 6px 16px -6px rgba(232,132,106,0.6), inset 0 -2px 0 rgba(0,0,0,0.08)"
+            ? "0 6px 16px -6px rgba(122,203,162,0.6), inset 0 -2px 0 rgba(0,0,0,0.08)"
             : "none",
         transition: "transform 0.12s ease",
         ...style,

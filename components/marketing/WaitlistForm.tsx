@@ -77,7 +77,7 @@ export function WaitlistForm({ locale }: { locale: Locale }) {
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+        className="w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-bold text-ink transition hover:bg-primary-hover disabled:opacity-60"
       >
         {status === "submitting" ? m.submitting : m.submit}
       </button>

@@ -149,7 +149,7 @@ export function OnboardingForm({ locale }: { locale: Locale }) {
         <button
           type="submit"
           disabled={status === "submitting" || !name.trim() || grade === ""}
-          className="w-full cursor-pointer rounded-btn bg-primary px-6 py-2.5 text-[14px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+          className="w-full cursor-pointer rounded-btn bg-primary px-6 py-2.5 text-[14px] font-bold text-ink transition hover:bg-primary-hover disabled:opacity-60"
         >
           {status === "submitting" ? m.submitting : m.submit}
         </button>

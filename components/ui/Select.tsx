@@ -135,7 +135,7 @@ export function Select<T extends string | number>({
           tabIndex={-1}
           onKeyDown={onListKey}
           autoFocus
-          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-ink/10 bg-white py-1 shadow-[0_12px_32px_rgba(30,42,58,0.12)] focus:outline-none"
+          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-ink/10 bg-white py-1 shadow-[0_12px_32px_rgba(31,45,26,0.12)] focus:outline-none"
         >
           {options.map((opt, i) => {
             const isSelected = opt.value === value

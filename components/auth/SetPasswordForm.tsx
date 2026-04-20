@@ -92,9 +92,9 @@ export function SetPasswordForm({
           ? authMsgs.strengthOk
           : authMsgs.strengthStrong
   const strengthColor =
-    score <= 1 ? "bg-coral-deep" : score === 2 ? "bg-amber-pill" : "bg-success"
+    score <= 1 ? "bg-clay" : score === 2 ? "bg-clay/60" : "bg-mint-deep"
   const strengthLabelColor =
-    score <= 1 ? "text-coral-deep" : score === 2 ? "text-ink/70" : "text-success"
+    score <= 1 ? "text-clay" : score === 2 ? "text-ink/70" : "text-mint-deep"
 
   return (
     <div
@@ -161,7 +161,7 @@ export function SetPasswordForm({
         <button
           type="submit"
           disabled={status === "submitting" || password.length < 8}
-          className="mt-2 w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+          className="mt-2 w-full rounded-btn bg-primary px-6 py-3 text-[15px] font-bold text-ink transition hover:bg-primary-hover disabled:opacity-60"
         >
           {status === "submitting" ? m.submitting : m.submit}
         </button>

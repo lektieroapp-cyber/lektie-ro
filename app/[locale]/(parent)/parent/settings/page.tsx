@@ -63,7 +63,7 @@ export default async function SettingsPage({
             <div className="flex flex-col gap-1 sm:text-right">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">Abonnement</p>
               <div className="flex items-center gap-2 sm:justify-end">
-                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[12px] font-semibold text-primary">
+                <span className="rounded-full bg-mint-soft px-2.5 py-0.5 text-[12px] font-semibold text-mint-deep">
                   {isAdmin ? "Admin" : TIER_LABELS[tier] ?? tier}
                 </span>
                 {!isAdmin && (
@@ -85,7 +85,7 @@ export default async function SettingsPage({
               <p className="text-[14px] font-semibold text-ink">Fakturering</p>
               <p className="mt-0.5 text-[13px] text-muted">Administrer dit abonnement og betalingsoplysninger.</p>
             </div>
-            <span className="rounded-full bg-amber-pill px-2.5 py-1 text-[11px] font-semibold text-ink/60">
+            <span className="rounded-full bg-canvas-warm px-2.5 py-1 text-[11px] font-semibold text-ink/60">
               Kommer snart
             </span>
           </div>
@@ -101,7 +101,7 @@ export default async function SettingsPage({
           {children.length > 0 && (
             <Link
               href={localePath(locale, "parentProfiles")}
-              className="text-[13px] font-medium text-primary hover:text-primary-hover"
+              className="text-[13px] font-medium text-mint-deep hover:text-ink"
             >
               Skift profil →
             </Link>

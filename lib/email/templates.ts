@@ -30,14 +30,14 @@ export type EmailTemplate = {
 }
 
 const BRAND = {
-  canvas: "#FBF5EE",
-  ink: "#1E2A3A",
-  muted: "#7A8596",
-  primary: "#E98873",
-  coralDeep: "#D85C48",
-  navy: "#2E3E56",
-  blueSoft: "#4A6A8A",
-  blueTint: "#EAF1F8",
+  canvas: "#F5EDDE",
+  ink: "#1F2D1A",
+  muted: "#8A9280",
+  primary: "#7ACBA2",
+  coralDeep: "#4F8E6B",
+  navy: "#1E3526",
+  blueSoft: "#4F8E6B",
+  blueTint: "#E4F2EB",
 }
 
 function shell(content: string, preheader?: string, recipient?: string): string {
@@ -52,12 +52,12 @@ function shell(content: string, preheader?: string, recipient?: string): string 
 ${preheader ? `<span style="display:none;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">${preheader}</span>` : ""}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.canvas};padding:40px 16px;">
   <tr><td align="center">
-    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;box-shadow:0 8px 24px rgba(30,42,58,0.06);overflow:hidden;">
-      <tr><td style="padding:28px 40px 16px;text-align:center;">
-        <img src="https://lektiero.dk/logo_with_text.png" alt="LektieRo" width="110" style="display:inline-block;height:auto;border:0;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:24px;box-shadow:0 8px 24px rgba(31,45,26,0.06);overflow:hidden;">
+      <tr><td style="padding:28px 40px 20px;text-align:center;">
+        <img src="https://lektiero.dk/logo_with_text.png" alt="LektieRo" width="140" style="display:inline-block;height:auto;border:0;max-width:60%;">
       </td></tr>
       <tr><td style="padding:16px 40px 32px;">${content}</td></tr>
-      <tr><td style="padding:20px 40px;border-top:1px solid rgba(30,42,58,0.06);font-size:12px;color:${BRAND.muted};line-height:1.6;">
+      <tr><td style="padding:20px 40px;border-top:1px solid rgba(31,45,26,0.06);font-size:12px;color:${BRAND.muted};line-height:1.6;">
         ${recipient ? `Sendt til <strong style="color:${BRAND.ink};">${recipient}</strong>.<br>` : ""}
         LektieRo ApS · <a href="https://lektiero.dk" style="color:${BRAND.blueSoft};text-decoration:none;">lektiero.dk</a> · <a href="https://lektiero.dk/da/privacy" style="color:${BRAND.blueSoft};text-decoration:none;">Privatlivspolitik</a><br>
         Har du spørgsmål? Skriv til <a href="mailto:marcuz@lektiero.dk" style="color:${BRAND.blueSoft};text-decoration:none;">marcuz@lektiero.dk</a>.
@@ -70,7 +70,7 @@ ${preheader ? `<span style="display:none;visibility:hidden;opacity:0;color:trans
 
 function ctaButton(url: string, label: string): string {
   return `<p style="margin:28px 0;">
-    <a href="${url}" style="display:inline-block;background:${BRAND.primary};color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:999px;font-weight:600;font-size:15px;">
+    <a href="${url}" style="display:inline-block;background:${BRAND.primary};color:${BRAND.ink};text-decoration:none;padding:14px 28px;border-radius:999px;font-weight:700;font-size:15px;">
       ${label}
     </a>
   </p>`

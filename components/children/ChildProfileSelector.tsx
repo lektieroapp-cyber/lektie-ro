@@ -113,7 +113,7 @@ function AddCard({ index, onClick }: { index: number; onClick: () => void }) {
       className="animate-fade-up group flex cursor-pointer flex-col items-center gap-3 focus:outline-none"
       style={{ animationDelay: `${index * 70}ms` }}
     >
-      <span className="flex h-28 w-28 items-center justify-center rounded-2xl border-2 border-dashed border-ink/20 bg-white/40 text-4xl text-ink/20 transition duration-200 group-hover:border-primary/50 group-hover:bg-white/60 group-hover:text-primary group-focus:ring-2 group-focus:ring-primary/50 sm:h-36 sm:w-36 sm:text-5xl">
+      <span className="flex h-28 w-28 items-center justify-center rounded-2xl border-2 border-dashed border-ink/20 bg-white/40 text-4xl text-ink/20 transition duration-200 group-hover:border-primary/50 group-hover:bg-white/60 group-hover:text-mint-deep group-focus:ring-2 group-focus:ring-primary/50 sm:h-36 sm:w-36 sm:text-5xl">
         +
       </span>
       <span className="text-[14px] font-medium text-muted transition group-hover:text-ink sm:text-[15px]">

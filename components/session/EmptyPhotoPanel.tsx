@@ -113,7 +113,7 @@ export function EmptyPhotoPanel({
           cursor: "pointer",
           fontFamily: "inherit",
           boxShadow:
-            "0 6px 16px -6px rgba(232,132,106,0.6), inset 0 -2px 0 rgba(0,0,0,0.08)",
+            "0 6px 16px -6px rgba(122,203,162,0.6), inset 0 -2px 0 rgba(0,0,0,0.08)",
         }}
       >
         Tag et nyt billede

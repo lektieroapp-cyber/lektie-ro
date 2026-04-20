@@ -58,7 +58,7 @@ export function InviteUserForm() {
         <button
           type="submit"
           disabled={status === "submitting" || !email.trim()}
-          className="rounded-btn bg-primary px-6 py-2.5 text-[15px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+          className="rounded-btn bg-primary px-6 py-2.5 text-[15px] font-bold text-ink transition hover:bg-primary-hover disabled:opacity-60"
         >
           {status === "submitting" ? "Sender …" : "Inviter"}
         </button>

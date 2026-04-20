@@ -8,7 +8,7 @@ export function fireConfetti() {
     gravity: 1.2,
     decay: 0.94,
     startVelocity: 30,
-    colors: ["#E98873", "#4A6A8A", "#F7E8A0", "#34C17A", "#D85C48"],
+    colors: ["#7ACBA2", "#4F8E6B", "#C5E3D1", "#C97962", "#EDE2CD"],
   }
 
   // Left corner

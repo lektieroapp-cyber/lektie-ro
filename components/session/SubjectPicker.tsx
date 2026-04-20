@@ -26,16 +26,16 @@ const SUBJECTS: Subject[] = [
   {
     key: "dansk",
     name: "Dansk",
-    tint: K.mintSoft,
-    dot: K.mint,
+    tint: K.danskSoft,
+    dot: K.dansk,
     hint: "Læsning, stavning og grammatik",
     glyph: <BookGlyph />,
   },
   {
     key: "engelsk",
     name: "Engelsk",
-    tint: K.butterSoft,
-    dot: K.butter,
+    tint: K.engelskSoft,
+    dot: K.engelsk,
     hint: "Ord og sætninger på engelsk",
     glyph: <GlobeGlyph />,
   },
@@ -168,8 +168,8 @@ function MathGlyph() {
 function BookGlyph() {
   return (
     <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-      <path d="M4 5 Q13 3 22 5 L22 21 Q13 19 4 21 Z" stroke={K.mint} strokeWidth="2" fill="#fff" />
-      <path d="M13 4 L13 20" stroke={K.mint} strokeWidth="1.5" />
+      <path d="M4 5 Q13 3 22 5 L22 21 Q13 19 4 21 Z" stroke="#4F8E6B" strokeWidth="2" fill="#fff" />
+      <path d="M13 4 L13 20" stroke="#4F8E6B" strokeWidth="1.5" />
     </svg>
   )
 }
@@ -179,7 +179,7 @@ function GlobeGlyph() {
       style={{
         fontSize: 11,
         fontWeight: 800,
-        color: "#9A7F1C",
+        color: "#4F8E6B",
         letterSpacing: 0.5,
         fontFamily: K.serif,
       }}

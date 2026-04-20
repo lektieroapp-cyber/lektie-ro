@@ -34,9 +34,9 @@ export function SilentLetterHighlight({ word, silent, say }: Props) {
                 width: 44,
                 height: 54,
                 borderRadius: 10,
-                background: isSilent ? K.coralSoft : K.card,
+                background: isSilent ? K.actionSoft : K.card,
                 border: isSilent
-                  ? `2px dashed ${K.coral}`
+                  ? `2px dashed ${K.action}`
                   : `1.5px solid ${K.ink}22`,
                 display: "flex",
                 alignItems: "center",
@@ -44,7 +44,7 @@ export function SilentLetterHighlight({ word, silent, say }: Props) {
                 fontFamily: K.serif,
                 fontWeight: 700,
                 fontSize: 28,
-                color: isSilent ? K.coral : K.ink,
+                color: isSilent ? K.action : K.ink,
               }}
             >
               {l}
@@ -56,7 +56,7 @@ export function SilentLetterHighlight({ word, silent, say }: Props) {
                     fontSize: 10,
                     fontFamily: K.sans,
                     fontWeight: 800,
-                    color: K.coral,
+                    color: K.action,
                     letterSpacing: 0.4,
                     textTransform: "uppercase",
                     whiteSpace: "nowrap",

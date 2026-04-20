@@ -42,10 +42,10 @@ type Session = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const DIFFICULTY_LABEL: Record<number, { label: string; color: string }> = {
-  1: { label: "Nemt",      color: "text-success" },
+  1: { label: "Nemt",      color: "text-mint-deep" },
   2: { label: "OK",        color: "text-ink/70" },
-  3: { label: "Lidt svært", color: "text-amber-pill" },
-  4: { label: "Svært",     color: "text-coral-deep" },
+  3: { label: "Lidt svært", color: "text-clay/80" },
+  4: { label: "Svært",     color: "text-clay" },
   5: { label: "Opgav",     color: "text-muted" },
 }
 
@@ -59,7 +59,7 @@ function StatCard({ label, value, accent }: { label: string; value: string | num
     <div className="rounded-card bg-white p-6" style={{ boxShadow: "var(--shadow-card)" }}>
       <p className="text-sm text-muted">{label}</p>
       <p
-        className={`mt-2 text-4xl font-bold ${accent ? "text-coral-deep" : "text-ink"}`}
+        className={`mt-2 text-4xl font-bold ${accent ? "text-mint-deep" : "text-ink"}`}
         style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
       >
         {value}
@@ -71,7 +71,7 @@ function StatCard({ label, value, accent }: { label: string; value: string | num
 /** Per-subject difficulty dots for a single child. */
 function SubjectRow({ subject, sessions }: { subject: string; sessions: Session[] }) {
   const avg = sessions.reduce((s, x) => s + (x.difficulty_score ?? 2), 0) / sessions.length
-  const color = avg <= 1.5 ? "bg-success" : avg <= 2.5 ? "bg-amber-pill" : "bg-coral-deep"
+  const color = avg <= 1.5 ? "bg-mint-deep" : avg <= 2.5 ? "bg-clay-soft" : "bg-clay"
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="capitalize text-ink">{subject}</span>

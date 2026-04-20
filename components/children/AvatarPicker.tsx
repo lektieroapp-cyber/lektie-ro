@@ -23,7 +23,7 @@ export function AvatarButton({
       <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-blue-tint">
         <Companion type={value} size={44} />
       </span>
-      <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white shadow-[0_2px_4px_rgba(30,42,58,0.2)]">
+      <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white shadow-[0_2px_4px_rgba(31,45,26,0.2)]">
         <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M11.5 1.5l3 3L5 14H2v-3z" />
         </svg>
@@ -61,7 +61,7 @@ export function AvatarPickerModal({
       <div
         ref={ref}
         className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card bg-white p-5 sm:max-w-2xl sm:p-7"
-        style={{ boxShadow: "0 16px 48px rgba(30,42,58,0.18)" }}
+        style={{ boxShadow: "0 16px 48px rgba(31,45,26,0.18)" }}
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-[16px] font-semibold text-ink sm:text-[18px]">Vælg makker</h3>

@@ -1,7 +1,8 @@
 import { Companion } from "@/components/mascot/Companion"
 
 // Floating phone shown in the hero right column. Static mockup of the guide
-// screen — Dani + speech bubble + a ten-frame glimpse + two CTAs.
+// screen — Dani + speech bubble + ten-frame with one clay focus cluster.
+// v3 palette: mint fill, clay focus (the single warm accent), mint-soft chips.
 export function PhoneMockup() {
   return (
     <div
@@ -17,7 +18,7 @@ export function PhoneMockup() {
           height: 520,
           background: "#fff",
           borderRadius: 42,
-          boxShadow: "0 40px 80px -20px rgba(31,45,74,0.35), 0 0 0 8px #1F2D4A",
+          boxShadow: "0 40px 80px -20px rgba(31,45,26,0.35), 0 0 0 8px #1F2D1A",
           padding: "20px 16px",
           position: "relative",
           overflow: "hidden",
@@ -33,7 +34,7 @@ export function PhoneMockup() {
             transform: "translateX(-50%)",
             width: 90,
             height: 22,
-            background: "#1F2D4A",
+            background: "#1F2D1A",
             borderRadius: 20,
           }}
         />
@@ -54,12 +55,12 @@ export function PhoneMockup() {
                 width: 42,
                 height: 42,
                 borderRadius: 999,
-                background: "#FBEBC2",
+                background: "#E4F2EB",
+                border: "1.5px solid #C5E3D1",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
-                boxShadow: "0 4px 10px -4px rgba(232,160,74,0.5)",
                 overflow: "hidden",
               }}
             >
@@ -67,11 +68,11 @@ export function PhoneMockup() {
             </div>
             <div
               style={{
-                background: "#E6F0F7",
+                background: "#E4F2EB",
                 padding: "10px 12px",
                 borderRadius: "4px 14px 14px 14px",
                 fontSize: 12,
-                color: "#1F2D4A",
+                color: "#1F2D1A",
                 lineHeight: 1.35,
                 flex: 1,
               }}
@@ -84,26 +85,28 @@ export function PhoneMockup() {
           <div
             style={{
               background: "#fff",
-              border: "1px solid rgba(31,45,74,0.08)",
+              border: "1px solid rgba(31,45,26,0.08)",
               borderRadius: 14,
               padding: "10px 12px",
               fontFamily: "var(--font-fraunces), Georgia, serif",
               fontSize: 15,
               fontWeight: 600,
-              color: "#1F2D4A",
+              color: "#1F2D1A",
             }}
           >
             Regn ud: 8 + 5
             <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-              <NumChip bg="#FDE4D8" fg="#B9452D">8</NumChip>
+              {/* The one warm accent on this screen — the "8" kid is focused on. */}
+              <NumChip bg="#F4DBD1" fg="#8F4A38">8</NumChip>
               <Plus />
-              <NumChip bg="#FBEBC2" fg="#7A5A10">2</NumChip>
+              <NumChip bg="#E4F2EB" fg="#4F8E6B">2</NumChip>
               <Plus />
-              <NumChip bg="#FBEBC2" fg="#7A5A10">3</NumChip>
+              <NumChip bg="#E4F2EB" fg="#4F8E6B">3</NumChip>
             </div>
           </div>
 
-          {/* Ten-frame: 8 coral + 2 butter fills the ten. */}
+          {/* Ten-frame — 8 mint filled + 2 clay focus (the cells the kid is
+              about to complete to make ten). Single clay use per screen. */}
           <div
             style={{
               display: "grid",
@@ -111,23 +114,23 @@ export function PhoneMockup() {
               gap: 4,
               padding: 10,
               background: "#fff",
-              border: "1px solid rgba(31,45,74,0.06)",
+              border: "1px solid rgba(31,45,26,0.06)",
               borderRadius: 12,
             }}
           >
-            {[..."aaaaaaaabb"].map((t, i) => (
+            {[..."aaaaaaaaff"].map((t, i) => (
               <div
                 key={i}
                 style={{
                   aspectRatio: "1",
                   borderRadius: 6,
-                  border: `1.5px solid ${t === "a" ? "#E8846A" : "#F2C75A"}`,
-                  background: t === "a" ? "#E8846A" : "#F2C75A",
+                  border: `1.5px solid ${t === "a" ? "#4F8E6B" : "#A85E48"}`,
+                  background: t === "a" ? "#7ACBA2" : "#C97962",
                 }}
               />
             ))}
           </div>
-          {/* Overflow row: 3 butter cells spill past the ten. */}
+          {/* Overflow row: 3 more to place. Neutral cream-2 dashed hint. */}
           <div
             style={{
               display: "grid",
@@ -135,19 +138,19 @@ export function PhoneMockup() {
               gap: 4,
               padding: 6,
               borderRadius: 10,
-              border: "1.5px dashed #F2C75A",
-              background: "rgba(251,235,194,0.35)",
+              border: "1.5px dashed rgba(31,45,26,0.2)",
+              background: "#EDE2CD",
               marginTop: -4,
             }}
           >
-            {[..."bbbxx"].map((t, i) => (
+            {[..."oooxx"].map((t, i) => (
               <div
                 key={i}
                 style={{
                   aspectRatio: "1",
                   borderRadius: 5,
-                  border: `1.5px solid ${t === "b" ? "#F2C75A" : "rgba(31,45,74,0.13)"}`,
-                  background: t === "b" ? "#F2C75A" : "transparent",
+                  border: `1.5px solid ${t === "o" ? "rgba(31,45,26,0.25)" : "rgba(31,45,26,0.08)"}`,
+                  background: "transparent",
                 }}
               />
             ))}
@@ -155,7 +158,7 @@ export function PhoneMockup() {
           <div
             style={{
               fontSize: 11,
-              color: "#4A5A7A",
+              color: "#556048",
               padding: "0 4px",
               lineHeight: 1.4,
             }}
@@ -163,7 +166,7 @@ export function PhoneMockup() {
             Ti-rammen er fuld, og der er <b>3 tilbage</b>. Hvad bliver det i alt?
           </div>
 
-          {/* Buttons pinned to bottom */}
+          {/* Buttons pinned to bottom — mint CTA with ink text (v3 contrast rule). */}
           <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
             <div
               style={{
@@ -176,8 +179,8 @@ export function PhoneMockup() {
                 fontSize: 12,
                 fontWeight: 700,
                 background: "#fff",
-                color: "#1F2D4A",
-                border: "1.5px solid rgba(31,45,74,0.12)",
+                color: "#1F2D1A",
+                border: "1.5px solid rgba(31,45,26,0.12)",
               }}
             >
               Prøv selv
@@ -191,13 +194,13 @@ export function PhoneMockup() {
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: 12,
-                fontWeight: 700,
-                background: "#E8846A",
-                color: "#fff",
-                boxShadow: "0 4px 12px -4px rgba(232,132,106,0.5)",
+                fontWeight: 800,
+                background: "#7ACBA2",
+                color: "#1F2D1A",
+                boxShadow: "0 4px 12px -4px rgba(79,142,107,0.35)",
               }}
             >
-              Opgave løst ✓
+              Tjek svar
             </div>
           </div>
         </div>
@@ -237,5 +240,5 @@ function NumChip({
 }
 
 function Plus() {
-  return <span style={{ color: "#8A95AD", fontWeight: 700 }}>+</span>
+  return <span style={{ color: "#8A9280", fontWeight: 700 }}>+</span>
 }

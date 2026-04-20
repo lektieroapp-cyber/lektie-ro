@@ -99,11 +99,11 @@ export function Sidebar({
         {isAdmin && (
           <div className="mt-6">
             <div className="mb-2 flex items-center gap-2 px-3">
-              <span className="h-px flex-1 bg-coral-deep/15" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-coral-deep/70">
+              <span className="h-px flex-1 bg-ink/15" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-ink/60">
                 {m.app.adminSection}
               </span>
-              <span className="h-px flex-1 bg-coral-deep/15" />
+              <span className="h-px flex-1 bg-ink/15" />
             </div>
             <NavLink
               href={adminItem.href}

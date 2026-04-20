@@ -26,7 +26,7 @@ export default async function AdminLayout({
       <Sidebar locale={locale} isAdmin email={user.email ?? ""} activeChild={null} />
       <main className="flex-1 overflow-x-hidden md:overflow-y-auto">
         {DEV_BYPASS_AUTH && (
-          <div className="bg-amber-pill px-4 py-2 text-center text-xs font-medium text-ink">
+          <div className="bg-clay-soft px-4 py-2 text-center text-xs font-semibold text-clay">
             DEV_BYPASS_AUTH er aktivt. Du er logget ind som <code>{DEV_PROFILE.display_name}</code> ({DEV_PROFILE.role}).
           </div>
         )}

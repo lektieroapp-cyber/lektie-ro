@@ -98,7 +98,7 @@ export function CostCalculator() {
             AI-omkostning per måned
           </div>
           <div
-            className="mt-1 text-4xl font-bold text-coral-deep"
+            className="mt-1 text-4xl font-bold text-mint-deep"
             style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
           >
             {fmtDkk(cost.perMonthDkk)}
@@ -171,7 +171,7 @@ function Slider({
         max={max}
         value={value}
         onChange={e => onChange(Number(e.target.value))}
-        className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-ink/10 accent-coral-deep"
+        className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-ink/10 accent-mint-deep"
       />
       {help && <p className="mt-1 text-xs text-muted">{help}</p>}
     </div>
@@ -197,7 +197,7 @@ function ModelPicker({
         {label}
       </label>
       <select
-        className="lr-select mt-1 w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-coral-deep focus:outline-none"
+        className="lr-select mt-1 w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-mint-deep focus:outline-none"
         value={value}
         onChange={e => onChange(e.target.value as ModelId)}
       >

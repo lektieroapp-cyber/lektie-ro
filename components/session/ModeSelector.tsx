@@ -40,12 +40,12 @@ const MODES: ModeChoice[] = [
   },
   {
     mode: "hint",
-    icon: <StuckIcon size={26} color="#D85C48" />,
-    iconColor: "#D85C48",
+    icon: <StuckIcon size={26} color={K.action} />,
+    iconColor: K.action,
     title: "Jeg sidder fast",
     sub: "Jeg har prøvet, men jeg forstår det ikke. Kan du forklare det stille og roligt?",
-    tint: K.coralSoft,
-    ring: K.coral,
+    tint: K.actionSoft,
+    ring: K.action,
   },
 ]
 

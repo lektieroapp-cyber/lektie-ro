@@ -87,7 +87,7 @@ export function CoachPanel({
           <button
             type="submit"
             disabled={!question.trim()}
-            className="self-start rounded-btn bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+            className="self-start rounded-btn bg-primary px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-primary-hover disabled:opacity-50"
           >
             Spørg
           </button>

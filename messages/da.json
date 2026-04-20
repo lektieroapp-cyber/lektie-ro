@@ -36,7 +36,7 @@
       },
       {
         "q": "Hvor meget koster det?",
-        "a": "Ved lancering tilbyder vi to medlemskaber: Enkelt til 229 kr./md for ét barn, og Familie til 299 kr./md for op til 4 børn. De første på ventelisten får 7 dages gratis prøveperiode."
+        "a": "Ved lancering tilbyder vi to medlemskaber: Enkelt til 229 kr./md for ét barn, og Familie til 289 kr./md for op til 4 børn. De første på ventelisten får 7 dages gratis prøveperiode."
       },
       {
         "q": "Hvornår åbner I?",
@@ -150,7 +150,7 @@
     },
     "family": {
       "name": "Familie",
-      "price": "299 kr.",
+      "price": "289 kr.",
       "interval": "/md",
       "badge": "MEST POPULÆR",
       "body": "Op til 4 børn. Den ultimative løsning til den store familie.",
