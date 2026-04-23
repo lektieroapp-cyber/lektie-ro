@@ -687,6 +687,20 @@ export function HintChat({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [turns, partial])
 
+  // Auto-complete when Dani signals the task is done by emitting
+  // [progress done="all"]. Without this, template/composition tasks ran
+  // forever — the kid got all four "My home is a..." sentences out but
+  // the flow kept asking for more because there was no explicit exit. The
+  // prompt now instructs Dani to emit done="all" on completion; we trip
+  // onComplete and let SessionFlow flip to the celebration panel.
+  useEffect(() => {
+    if (completed || streaming) return
+    if (stepProgress.done.has("all")) {
+      onComplete(turns)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepProgress.done, streaming, completed])
+
   // Re-focus the input as soon as streaming finishes so the kid can type the
   // next answer without clicking. `disabled` strips focus on submit, so we
   // restore it here. Skipped when atLimit (the input is gone).

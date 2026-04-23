@@ -622,6 +622,10 @@ export function SessionFlow({
         onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }}
       />
 
+      {/* Cost panel is admin-only but visible everywhere (prod too) — admins
+          want to see live spend during real testing, not just on localhost. */}
+      {isAdmin && <SessionCostPanel />}
+
       {showDevTools && (
         <>
           <DevLog
@@ -632,7 +636,6 @@ export function SessionFlow({
             turns={turns}
             completedTasks={completedTasks}
           />
-          <SessionCostPanel />
           {/* Floating preview of the homework photo. Shown during task
               picker, mode, hint and done stages so we can glance at the
               original while chatting with the AI. Minimizes to a small

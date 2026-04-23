@@ -70,12 +70,13 @@ Returnér KUN valid JSON: { "taskId": "<id>" } hvor id er det præcise id fra li
 
   try {
     const client = getAzure()
+    const deployment = getDeployment()
     const extras = {
       reasoning_effort: "minimal",
       max_completion_tokens: 100,
     } as unknown as Record<string, never>
     const completion = await client.chat.completions.create({
-      model: getDeployment(),
+      model: deployment,
       response_format: { type: "json_object" },
       messages: [{ role: "user", content: prompt }],
       ...extras,
@@ -86,6 +87,13 @@ Returnér KUN valid JSON: { "taskId": "<id>" } hvor id er det præcise id fra li
     return NextResponse.json({
       taskId: valid?.id ?? null,
       source: "ai",
+      usage: completion.usage
+        ? {
+            promptTokens: completion.usage.prompt_tokens ?? 0,
+            completionTokens: completion.usage.completion_tokens ?? 0,
+            model: deployment,
+          }
+        : null,
     })
   } catch (err) {
     console.error("[match-task] azure failed:", (err as Error).message)

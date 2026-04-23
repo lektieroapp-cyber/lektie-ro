@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { startPcmRecorder, type PcmRecorderHandle } from "@/lib/voice/pcm-recorder"
 import { startSilenceDetector } from "@/lib/voice/silence-detector"
+import { modelIdFromDeployment } from "@/lib/ai-pricing"
 import { pushCostEvent } from "@/lib/dev-cost"
 import { K } from "./design-tokens"
 import type { Task } from "./types"
@@ -324,7 +325,22 @@ async function matchTask(
       signal,
     })
     if (!res.ok) return null
-    const j = (await res.json()) as { taskId?: string | null }
+    const j = (await res.json()) as {
+      taskId?: string | null
+      usage?: {
+        promptTokens: number
+        completionTokens: number
+        model: string
+      } | null
+    }
+    if (j.usage) {
+      pushCostEvent({
+        kind: "hint",
+        promptTokens: j.usage.promptTokens,
+        completionTokens: j.usage.completionTokens,
+        model: modelIdFromDeployment(j.usage.model),
+      })
+    }
     return j.taskId ?? null
   } catch {
     return null
