@@ -548,20 +548,40 @@ function HeroCaption({
   )
 }
 
+// Reveal one character every ~75 ms so the caption matches the actual
+// spoken pace of Danish neural TTS (~13 chars/sec). The previous 22 ms
+// rate (~45 chars/sec) raced 3× ahead of the audio. Punctuation pauses
+// add a small extra delay at sentence/comma boundaries to mirror the
+// natural breath the TTS engine takes there.
+const BASE_REVEAL_MS = 75
+const COMMA_PAUSE_MS = 180
+const SENTENCE_PAUSE_MS = 320
+
 function TypingCaption({ text }: { text: string }) {
   const [shown, setShown] = useState(0)
   useEffect(() => {
     setShown(0)
-    const id = window.setInterval(() => {
-      setShown(s => {
-        if (s >= text.length) {
-          window.clearInterval(id)
-          return s
-        }
-        return s + 1
-      })
-    }, 22)
-    return () => window.clearInterval(id)
+    let cancelled = false
+    let timer: number | null = null
+    let i = 0
+    const tick = () => {
+      if (cancelled || i >= text.length) return
+      i += 1
+      setShown(i)
+      const prev = text[i - 1]
+      const delay =
+        prev === "." || prev === "!" || prev === "?"
+          ? SENTENCE_PAUSE_MS
+          : prev === "," || prev === ":" || prev === ";"
+            ? COMMA_PAUSE_MS
+            : BASE_REVEAL_MS
+      timer = window.setTimeout(tick, delay)
+    }
+    timer = window.setTimeout(tick, BASE_REVEAL_MS)
+    return () => {
+      cancelled = true
+      if (timer !== null) window.clearTimeout(timer)
+    }
   }, [text])
   return (
     <span>
