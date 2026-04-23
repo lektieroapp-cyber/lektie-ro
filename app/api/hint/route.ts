@@ -100,20 +100,39 @@ export async function POST(request: NextRequest) {
       reasoning_effort: "minimal",
       max_completion_tokens: maxTokens,
     } as unknown as Record<string, never>
+    const deployment = getDeployment()
     const azureStream = await client.chat.completions.create({
-      model: getDeployment(),
+      model: deployment,
       messages,
       stream: true,
+      // Ask Azure to include token usage in the FINAL chunk of the stream.
+      // Without this, we'd have to estimate — with it, we can append a
+      // [[LR_USAGE:{...}]] sentinel for the dev cost panel.
+      stream_options: { include_usage: true },
       ...gpt5Extras,
     })
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
       async start(controller) {
+        let usage: { prompt_tokens?: number; completion_tokens?: number } | null =
+          null
         try {
           for await (const chunk of azureStream) {
             const token = chunk.choices[0]?.delta?.content
             if (token) controller.enqueue(encoder.encode(token))
+            // Final chunk with stream_options:include_usage carries
+            // chunk.usage; capture it for the dev sentinel below.
+            if (chunk.usage) usage = chunk.usage
+          }
+          if (usage) {
+            const payload = JSON.stringify({
+              kind: "hint",
+              promptTokens: usage.prompt_tokens ?? 0,
+              completionTokens: usage.completion_tokens ?? 0,
+              model: deployment,
+            })
+            controller.enqueue(encoder.encode(`\n[[LR_USAGE:${payload}]]`))
           }
           controller.close()
         } catch (err) {

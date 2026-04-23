@@ -27,6 +27,12 @@ export type VisionResult = {
   tasks: VisionTask[]
   reason: VisionReason
   detectionNotes: string | null
+  /** Real Azure usage for the dev cost panel. Null if not returned. */
+  usage?: {
+    promptTokens: number
+    completionTokens: number
+    model: string
+  } | null
 }
 
 const SUBJECT_ALIASES: Record<string, string> = {
@@ -190,8 +196,9 @@ export async function extractTasksFromImage(
     reasoning_effort: "minimal",
     max_completion_tokens: 3500,
   } as unknown as Record<string, never>
+  const deployment = getDeployment()
   const completion = await client.chat.completions.create({
-    model: getDeployment(),
+    model: deployment,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: VISION_SYSTEM_PROMPT },
@@ -213,6 +220,13 @@ export async function extractTasksFromImage(
   })
 
   const raw = completion.choices[0]?.message?.content ?? "{}"
+  const usage = completion.usage
+    ? {
+        promptTokens: completion.usage.prompt_tokens ?? 0,
+        completionTokens: completion.usage.completion_tokens ?? 0,
+        model: deployment,
+      }
+    : null
   const parsed = JSON.parse(raw) as {
     subject?: string | null
     subjectConfidence?: string
@@ -282,5 +296,6 @@ export async function extractTasksFromImage(
     tasks,
     reason: tasks.length === 0 ? (reason ?? "no_tasks") : null,
     detectionNotes,
+    usage,
   }
 }

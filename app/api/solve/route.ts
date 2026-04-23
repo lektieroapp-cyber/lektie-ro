@@ -21,6 +21,12 @@ type SolveResult = {
   reason?: "not_homework" | "unreadable" | "no_tasks" | null
   detectionNotes?: string | null
   mocked?: boolean
+  /** Real Azure usage for the dev cost panel. */
+  usage?: {
+    promptTokens: number
+    completionTokens: number
+    model: string
+  } | null
 }
 
 export async function POST(request: NextRequest) {
@@ -45,6 +51,7 @@ export async function POST(request: NextRequest) {
       tasks: extracted.tasks,
       reason: extracted.reason,
       detectionNotes: extracted.detectionNotes,
+      usage: extracted.usage ?? null,
     } satisfies SolveResult)
   } catch (err) {
     console.error("[solve] vision failed:", (err as Error).message)

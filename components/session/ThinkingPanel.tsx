@@ -87,31 +87,23 @@ export function ThinkingPanel({
               }}
             />
           ) : (
-            <>
-              <div
-                style={{
-                  height: 8,
-                  background: "#F0EBE0",
-                  borderRadius: 999,
-                  marginBottom: 14,
-                  width: "60%",
-                }}
-              />
-              {["24 + 17 =", "36 – 19 =", "13 × 4 =", "5 æbler…"].map((t, i) => (
+            // Subject-agnostic skeleton: pencil-stroke lines of varying widths
+            // suggest "writing on paper" without committing to math/dansk/etc.
+            // The scan line sweeping across them does the storytelling.
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[60, 85, 72, 90, 55, 78].map((width, i) => (
                 <div
                   key={i}
                   style={{
-                    fontFamily: K.serif,
-                    fontSize: 16,
-                    color: "#33304a",
-                    marginBottom: 10,
-                    opacity: 0.85,
+                    height: 10,
+                    background: "#EDE6D6",
+                    borderRadius: 999,
+                    width: `${width}%`,
+                    animation: `skeleton-pulse 1.6s ease-in-out ${i * 0.12}s infinite`,
                   }}
-                >
-                  {i + 1}. {t}
-                </div>
+                />
               ))}
-            </>
+            </div>
           )}
         </div>
 

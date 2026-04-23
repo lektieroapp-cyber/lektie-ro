@@ -127,6 +127,16 @@ export function HintChat({
   // loop to abort remaining TTS + by callHint's finally to skip the normal
   // post-TTS delay before startRecording.
   const bargeInFiredRef = useRef(false)
+  // Mirrors `turns` so callbacks fired from async pipelines (STT → submitAnswer,
+  // setTimeout-driven mic reopens, barge-in handlers) read the CURRENT history
+  // instead of the stale closure value from the render that scheduled them.
+  // Without this, the kid's reply is appended to an old array, setTurns()
+  // replaces state, and Dani's previous response vanishes — re-triggering the
+  // opening "Målet er…" on every turn on multi-step tasks.
+  const turnsRef = useRef<Turn[]>(turns)
+  useEffect(() => {
+    turnsRef.current = turns
+  }, [turns])
 
   // Restore the kid's last voice preference from localStorage. Voice-agent
   // mode overrides this and is always on regardless of the stored value.
@@ -1009,7 +1019,8 @@ export function HintChat({
   async function submitAnswer(text: string) {
     const trimmed = text.trim()
     if (!trimmed || streaming || atLimit) return
-    const next: Turn[] = [...turns, { role: "user", content: trimmed }]
+    const current = turnsRef.current
+    const next: Turn[] = [...current, { role: "user", content: trimmed }]
     setTurns(() => next)
     logDevEvent("turn-user", `[tryit] ${trimmed.slice(0, 60)}`)
     await callHint(next)
@@ -1020,7 +1031,8 @@ export function HintChat({
     const text = input.trim()
     if (!text || streaming || atLimit) return
     setInput("")
-    const next: Turn[] = [...turns, { role: "user", content: text }]
+    const current = turnsRef.current
+    const next: Turn[] = [...current, { role: "user", content: text }]
     setTurns(() => next)
     logDevEvent("turn-user", text.slice(0, 80))
     await callHint(next)
@@ -1029,12 +1041,13 @@ export function HintChat({
   async function askHint() {
     if (streaming || atLimit) return
     const hintText = "Jeg er stadig lidt i tvivl. Kan jeg få et lille hint?"
+    const current = turnsRef.current
     const next: Turn[] = [
-      ...turns,
+      ...current,
       { role: "user", content: hintText },
     ]
     setTurns(() => next)
-    logDevEvent("turn-user", "Hint bedt om", { level: aiTurnsBefore(turns) + 1 })
+    logDevEvent("turn-user", "Hint bedt om", { level: aiTurnsBefore(current) + 1 })
     await callHint(next)
   }
 

@@ -196,6 +196,31 @@ export function computeVoiceCost(
   return { usd: sttMinutes * p.sttPerMinUsd + ttsKChars * p.ttsPerKCharUsd }
 }
 
+// Cost helpers for live (measured) usage — used by the dev cost panel.
+// Each helper takes raw counters (tokens / seconds / chars) and returns USD.
+
+export function llmUsdFromTokens(
+  modelId: ModelId,
+  promptTokens: number,
+  completionTokens: number,
+): number {
+  const m = MODELS[modelId]
+  return (
+    (promptTokens * m.inputPerMTok + completionTokens * m.outputPerMTok) /
+    1_000_000
+  )
+}
+
+export function sttUsd(provider: VoiceProviderId, audioSec: number): number {
+  if (provider === "off") return 0
+  return (audioSec / 60) * VOICE_PROVIDERS[provider].sttPerMinUsd
+}
+
+export function ttsUsd(provider: VoiceProviderId, chars: number): number {
+  if (provider === "off") return 0
+  return (chars / 1000) * VOICE_PROVIDERS[provider].ttsPerKCharUsd
+}
+
 export type HourlyUsageInputs = {
   tasksPerHour: number
   turnsPerTask: number
