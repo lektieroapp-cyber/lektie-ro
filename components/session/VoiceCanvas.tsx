@@ -927,19 +927,23 @@ function Dock({
           aria-label="Færdig med opgaven"
           title="Færdig med opgaven"
           style={{
-            width: 40,
             height: 40,
             borderRadius: 999,
             flexShrink: 0,
             border: "none",
-            // Mint (brand success). Previous red-X read as "cancel/close" —
-            // but this button fires task-complete, not cancel, so the colour
-            // and icon now match the action.
+            // Mint pill with icon + text label. Earlier "red X" looked like
+            // a cancel/close button; a lone ✓ icon was still ambiguous.
+            // Explicit text + mint colour + check icon = unmistakable "done".
             background: K.mint,
+            color: K.ink,
             cursor: "pointer",
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
-            justifyContent: "center",
+            gap: 6,
+            padding: "0 14px 0 10px",
+            fontSize: 13,
+            fontWeight: 700,
+            fontFamily: "inherit",
             boxShadow: `0 4px 12px -4px ${K.mintDeep}80`,
           }}
         >
@@ -953,6 +957,7 @@ function Dock({
               fill="none"
             />
           </svg>
+          <span>Færdig</span>
         </button>
       </div>
 

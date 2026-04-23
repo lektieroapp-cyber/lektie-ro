@@ -1337,6 +1337,7 @@ export function HintChat({
           Opgave
         </div>
         <TaskHeadline task={task} />
+        <GoalBanner task={task} />
         {displayedSteps && displayedSteps.length > 0 && (
           <div style={{ marginTop: 10 }}>
             <StepChecklist
@@ -1633,6 +1634,97 @@ function TaskHeadline({ task }: { task: Task }) {
       )}
     </div>
   )
+}
+
+// Surface the pedagogical goal + the modality up front. Addresses the De
+// 10 H'er principles "Hvad skal jeg lave" + "Hvordan skal jeg lave det":
+// the kid should see the goal AND how they're supposed to engage (talk,
+// write, draw, interview) before Dani even opens their mouth. Without
+// this the goal was buried in Dani's first narration and easy to miss.
+function GoalBanner({ task }: { task: Task }) {
+  const modality = modalityFor(task)
+  if (!task.goal && !modality) return null
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: "10px 12px",
+        background: "rgba(196,227,209,0.35)",
+        border: "1px solid rgba(79,142,107,0.18)",
+        borderRadius: 12,
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+      }}
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden style={{ flexShrink: 0, marginTop: 2 }}>
+        <circle cx="8" cy="8" r="6.5" fill="none" stroke={K.mintDeep} strokeWidth="1.5" />
+        <circle cx="8" cy="8" r="2" fill={K.mintDeep} />
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: K.mintDeep,
+            letterSpacing: 0.4,
+            textTransform: "uppercase",
+          }}
+        >
+          Mål
+        </div>
+        {task.goal && (
+          <div
+            style={{
+              fontSize: 13,
+              lineHeight: 1.4,
+              color: K.ink,
+              marginTop: 2,
+            }}
+          >
+            {task.goal}
+          </div>
+        )}
+        {modality && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: task.goal ? 6 : 2,
+              fontSize: 12,
+              fontWeight: 600,
+              color: K.ink2,
+              background: "#fff",
+              padding: "3px 10px 3px 8px",
+              borderRadius: 999,
+              border: "1px solid rgba(31,27,51,0.06)",
+            }}
+          >
+            <span aria-hidden>{modality.icon}</span>
+            <span>{modality.label}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Derive how the kid should engage with the task. Order matters: needsPaper
+// overrides type (a "reading" task that also requires marking still needs
+// paper). Keeps labels short + action-oriented.
+function modalityFor(task: Task): { icon: string; label: string } | null {
+  if (task.needsPaper) return { icon: "✏️", label: "Skriv eller tegn det" }
+  const t = (task.type ?? "").toLowerCase()
+  if (t === "interview") return { icon: "🎤", label: "Interview nogen" }
+  if (t === "dictation") return { icon: "✏️", label: "Skriv det du hører" }
+  if (t === "reading") return { icon: "📖", label: "Læs teksten" }
+  if (t === "composition" || t === "creative")
+    return { icon: "✍️", label: "Skriv en kort tekst" }
+  if (t === "translation") return { icon: "🔤", label: "Oversæt" }
+  if (t === "vocabulary") return { icon: "📚", label: "Find ord" }
+  if (t === "puzzle") return { icon: "🧩", label: "Løs gåden" }
+  return { icon: "💬", label: "Tal med Dani" }
 }
 
 // ─── Dev audio debug panel (localhost only) ──────────────────────────────
