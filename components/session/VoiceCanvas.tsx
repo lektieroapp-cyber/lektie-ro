@@ -37,6 +37,7 @@ export function VoiceCanvas({
   onDismissError,
   onRequestNewPhoto,
   micLevel = 0,
+  steps,
   stepsDone,
   stepsCurrent,
 }: {
@@ -59,6 +60,11 @@ export function VoiceCanvas({
   /** Live RMS from the VAD during recording — drives the dock level meter.
    *  0..~0.1 typical range. 0 when idle. */
   micLevel?: number
+  /** Steps to render in the checklist. May be the extractor-provided list
+   *  OR synthesized numeric pseudo-steps for template/composition tasks
+   *  (HintChat derives this from the [progress] markers). Falls back to
+   *  task.steps if not passed — preserves prior behaviour. */
+  steps?: { label: string; prompt: string }[] | null
   /** Step labels the AI has marked as solved via [progress done="..."].
    *  Drives the StepChecklist at the top — the kid sees checkmarks land. */
   stepsDone?: Set<string>
@@ -118,15 +124,19 @@ export function VoiceCanvas({
     >
       <AmbientGlow />
       <TopBar phase={phase} task={task} onClose={onComplete} />
-      {task.steps && task.steps.length > 0 && (
-        <div style={{ position: "relative", zIndex: 2, padding: "0 16px" }}>
-          <StepChecklist
-            steps={task.steps}
-            done={stepsDone ?? new Set()}
-            current={stepsCurrent ?? null}
-          />
-        </div>
-      )}
+      {(() => {
+        const list = steps && steps.length > 0 ? steps : task.steps
+        if (!list || list.length === 0) return null
+        return (
+          <div style={{ position: "relative", zIndex: 2, padding: "0 16px" }}>
+            <StepChecklist
+              steps={list}
+              done={stepsDone ?? new Set()}
+              current={stepsCurrent ?? null}
+            />
+          </div>
+        )
+      })()}
       {voiceError && (
         <ErrorBanner message={voiceError} onDismiss={onDismissError} onRetry={onMicPress} />
       )}
@@ -914,27 +924,33 @@ function Dock({
         <button
           type="button"
           onClick={onEnd}
-          aria-label="Afslut samtale"
+          aria-label="Færdig med opgaven"
+          title="Færdig med opgaven"
           style={{
             width: 40,
             height: 40,
             borderRadius: 999,
             flexShrink: 0,
             border: "none",
-            background: "#D14848",
+            // Mint (brand success). Previous red-X read as "cancel/close" —
+            // but this button fires task-complete, not cancel, so the colour
+            // and icon now match the action.
+            background: K.mint,
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 4px 12px -4px rgba(209,72,72,0.6)",
+            boxShadow: `0 4px 12px -4px ${K.mintDeep}80`,
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
             <path
-              d="M3 3l8 8M11 3l-8 8"
-              stroke="#fff"
+              d="M3.5 8.2L6.5 11.2L12.5 4.6"
+              stroke={K.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
             />
           </svg>
         </button>

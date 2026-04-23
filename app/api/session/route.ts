@@ -63,10 +63,22 @@ export async function PATCH(request: NextRequest) {
     sessionId: string
     turnCount: number
     completed: boolean
+    /** How much of the task finished when the kid ended the session.
+     *  Optional — older clients may omit. Used to soften the difficulty
+     *  score: "abandoned with 0 progress" is harder than "partial 3/4". */
+    stepsDone?: number
+    stepsTotal?: number
+    completionKind?: "completed" | "partial" | "abandoned"
     turns?: Array<{ role: "user" | "assistant"; content: string }>
   }
 
-  const difficultyScore = deriveDifficulty(body.turnCount, body.completed)
+  const difficultyScore = deriveDifficulty({
+    turnCount: body.turnCount,
+    completed: body.completed,
+    stepsDone: body.stepsDone,
+    stepsTotal: body.stepsTotal,
+    kind: body.completionKind,
+  })
 
   const admin = createAdminClient()
 
@@ -102,15 +114,36 @@ export async function PATCH(request: NextRequest) {
 }
 
 /**
- * Derive a 1–5 difficulty score from turn count + completion.
- *   1 = understood quickly
+ * Derive a 1–5 difficulty score from turn count + completion shape.
+ *   1 = understood quickly (few turns, fully done)
  *   2 = a little help
  *   3 = quite hard
  *   4 = very hard but finished
- *   5 = gave up
+ *   5 = gave up (abandoned OR many turns and not completed)
+ *
+ * When the client sends partial-completion data, we soften the "gave up"
+ * verdict for kids who made meaningful progress but stopped. "3/4 trin"
+ * on a template task shouldn't register the same as "0/4 trin abandoned".
  */
-function deriveDifficulty(turnCount: number, completed: boolean): number {
+function deriveDifficulty(input: {
+  turnCount: number
+  completed: boolean
+  stepsDone?: number
+  stepsTotal?: number
+  kind?: "completed" | "partial" | "abandoned"
+}): number {
+  const { turnCount, completed, kind, stepsDone, stepsTotal } = input
   const assistantTurns = Math.ceil(turnCount / 2)
+  if (kind === "abandoned") return 5
+  if (kind === "partial" && stepsTotal && stepsTotal > 0) {
+    // Made some progress but stopped. Score by progress ratio — 75% done is
+    // a "4 but didn't quite finish" (hard), 25% done trends toward "5".
+    const ratio = (stepsDone ?? 0) / stepsTotal
+    if (ratio >= 0.75) return 4
+    if (ratio >= 0.5) return 4
+    if (ratio >= 0.25) return 5
+    return 5
+  }
   if (!completed && assistantTurns >= 4) return 5
   if (assistantTurns <= 2) return 1
   if (assistantTurns <= 4) return 2

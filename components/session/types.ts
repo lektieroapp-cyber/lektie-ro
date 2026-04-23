@@ -78,3 +78,19 @@ export type HintMode = "explain" | "hint"
  * localStorage under lr_convo_mode.
  */
 export type ConversationMode = "text" | "voice"
+
+/**
+ * How much of a task the kid actually finished when the session ended.
+ *   completed — all steps marked done (or [progress done="all"] emitted)
+ *   partial   — some steps done, kid stopped mid-way
+ *   abandoned — zero steps done; kid bailed
+ *
+ * Feeds the difficulty scoring in /api/session PATCH and — once we add the
+ * column — becomes a dedicated field in the sessions row. For now it's
+ * logged in the dev log and passed as metadata so we don't lose the signal.
+ */
+export type CompletionStatus = {
+  kind: "completed" | "partial" | "abandoned"
+  stepsDone: number
+  stepsTotal: number
+}

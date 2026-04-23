@@ -17,7 +17,14 @@ import { shortFallback } from "./TaskPicker"
 import { logDevEvent } from "./dev-log"
 import { K } from "./design-tokens"
 import { VoiceCanvas } from "./VoiceCanvas"
-import type { ConversationMode, HintMode, SolveResponse, Task, Turn } from "./types"
+import type {
+  CompletionStatus,
+  ConversationMode,
+  HintMode,
+  SolveResponse,
+  Task,
+  Turn,
+} from "./types"
 
 // /api/hint appends "\n[[LR_USAGE:{...}]]" to the end of the streamed text.
 // We strip it before display and parse it for the dev cost panel.
@@ -94,7 +101,7 @@ export function HintChat({
   turns: Turn[]
   setTurns: (fn: (prev: Turn[]) => Turn[]) => void
   childId?: string
-  onComplete: (turns: Turn[]) => void
+  onComplete: (turns: Turn[], status?: CompletionStatus) => void
   onMoreHomework: () => void
   onFinishSession: () => void
   /** Triggered when the AI emits [needphoto] and the kid taps "Tag nyt billede".
@@ -229,6 +236,27 @@ export function HintChat({
     }
     return { done, current }
   }, [turns, streaming, partial])
+
+  // Effective step list for the checklist. The extractor sometimes gives
+  // us only a single step for composition/template tasks — Dani then
+  // invents numbered pseudo-steps in the conversation ("1. hjem-type,
+  // 2. etager, 3. rum, 4. møbel") and emits [progress done="1,2"]. When
+  // that happens, synthesize a step list from the numeric labels we see
+  // in the progress markers so the kid actually sees their 1/4, 2/4, 3/4
+  // ticks land at the top of the screen.
+  const displayedSteps = useMemo(() => {
+    if (task.steps && task.steps.length > 1) return task.steps
+    const numeric = [...stepProgress.done, stepProgress.current]
+      .filter((v): v is string => !!v && /^\d+$/.test(v))
+      .map(v => parseInt(v, 10))
+    if (numeric.length === 0) return task.steps ?? null
+    const max = Math.max(...numeric, 4)
+    const count = Math.max(max, 4)
+    return Array.from({ length: count }, (_, i) => ({
+      label: String(i + 1),
+      prompt: `Trin ${i + 1}`,
+    }))
+  }, [task.steps, stepProgress.done, stepProgress.current])
 
   // Open the mic stream once, keep it for the whole voice-agent session.
   // Browsers cache the permission so the prompt only appears on first call.
@@ -697,10 +725,45 @@ export function HintChat({
   useEffect(() => {
     if (completed || streaming) return
     if (stepProgress.done.has("all")) {
-      onComplete(turns)
+      onComplete(turns, buildCompletionStatus({
+        displayedSteps,
+        doneSet: stepProgress.done,
+        userSignaledDone: true,
+      }))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepProgress.done, streaming, completed])
+
+  // Computes how much of the task was actually solved. "all" in the done-set
+  // (Dani explicitly marked the whole task done) is always "completed"
+  // regardless of step count. Otherwise count matching labels — if every
+  // step got ticked, it's "completed"; some but not all → "partial"; none →
+  // "abandoned" (kid hit done without making progress).
+  function buildCompletionStatus(input: {
+    displayedSteps: { label: string; prompt: string }[] | null | undefined
+    doneSet: Set<string>
+    userSignaledDone: boolean
+  }): CompletionStatus {
+    const steps = input.displayedSteps ?? []
+    const stepsTotal = steps.length
+    if (input.doneSet.has("all") || (stepsTotal === 0 && input.userSignaledDone)) {
+      return { kind: "completed", stepsDone: stepsTotal, stepsTotal }
+    }
+    const stepsDone = steps.filter(s => input.doneSet.has(s.label)).length
+    if (stepsTotal > 0 && stepsDone === stepsTotal) {
+      return { kind: "completed", stepsDone, stepsTotal }
+    }
+    if (stepsDone > 0) return { kind: "partial", stepsDone, stepsTotal }
+    return { kind: "abandoned", stepsDone, stepsTotal }
+  }
+
+  function completeWithStatus() {
+    onComplete(turns, buildCompletionStatus({
+      displayedSteps,
+      doneSet: stepProgress.done,
+      userSignaledDone: true,
+    }))
+  }
 
   // Re-focus the input as soon as streaming finishes so the kid can type the
   // next answer without clicking. `disabled` strips focus on submit, so we
@@ -1203,11 +1266,12 @@ export function HintChat({
           completed={completed}
           voiceError={voiceError}
           onMicPress={onMicPress}
-          onComplete={() => onComplete(turns)}
+          onComplete={completeWithStatus}
           onSubmitAnswer={submitAnswer}
           onDismissError={() => setVoiceError(null)}
           onRequestNewPhoto={onRequestNewPhoto}
           micLevel={micLevel}
+          steps={displayedSteps}
           stepsDone={stepProgress.done}
           stepsCurrent={stepProgress.current}
         />
@@ -1273,10 +1337,10 @@ export function HintChat({
           Opgave
         </div>
         <TaskHeadline task={task} />
-        {task.steps && task.steps.length > 0 && (
+        {displayedSteps && displayedSteps.length > 0 && (
           <div style={{ marginTop: 10 }}>
             <StepChecklist
-              steps={task.steps}
+              steps={displayedSteps}
               done={stepProgress.done}
               current={stepProgress.current}
             />
@@ -1302,7 +1366,7 @@ export function HintChat({
               content={t.content}
               onAnswer={submitAnswer}
               onRequestNewPhoto={onRequestNewPhoto}
-              onEndTask={() => onComplete(turns)}
+              onEndTask={completeWithStatus}
             />
           ) : (
             <UserMessage key={i}>{t.content}</UserMessage>
@@ -1339,7 +1403,7 @@ export function HintChat({
             <span>Du har gjort det flot. Klar til at afslutte?</span>
             <button
               type="button"
-              onClick={() => onComplete(turns)}
+              onClick={completeWithStatus}
               style={{
                 border: "none",
                 background: K.coral,
@@ -1485,7 +1549,7 @@ export function HintChat({
                 {assistantTurns <= 1 ? "Giv mig et hint" : "Endnu et hint"}
               </BigBtn>
               {assistantTurns >= 1 && (
-                <BigBtn tone="coral" onClick={() => onComplete(turns)} style={{ flex: 1 }}>
+                <BigBtn tone="coral" onClick={completeWithStatus} style={{ flex: 1 }}>
                   Opgave løst ✓
                 </BigBtn>
               )}

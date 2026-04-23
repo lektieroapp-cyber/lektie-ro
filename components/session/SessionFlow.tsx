@@ -18,7 +18,14 @@ import { ModeSelector } from "./ModeSelector"
 import { HintChat } from "./HintChat"
 import { VoiceSubjectChoice } from "./VoiceSubjectChoice"
 import { VoiceTaskChoice } from "./VoiceTaskChoice"
-import type { ConversationMode, HintMode, SolveResponse, Task, Turn } from "./types"
+import type {
+  CompletionStatus,
+  ConversationMode,
+  HintMode,
+  SolveResponse,
+  Task,
+  Turn,
+} from "./types"
 
 const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
 const CONVO_MODE_STORAGE_KEY = "lr_convo_mode"
@@ -409,9 +416,15 @@ export function SessionFlow({
     }
   }
 
-  async function completeSession(completedTurns: Turn[]) {
+  async function completeSession(
+    completedTurns: Turn[],
+    status?: CompletionStatus,
+  ) {
     setStage("done")
-    logDevEvent("complete", `Opgave klaret på ${completedTurns.length} ture`)
+    const label = status
+      ? `${status.kind} — ${status.stepsDone}/${status.stepsTotal} trin, ${completedTurns.length} ture`
+      : `Opgave klaret på ${completedTurns.length} ture`
+    logDevEvent("complete", label)
     setCompletedTasks(n => n + 1)
     if (task) {
       setCompletedTaskIds(prev => (prev.includes(task.id) ? prev : [...prev, task.id]))
@@ -424,7 +437,14 @@ export function SessionFlow({
         body: JSON.stringify({
           sessionId: dbSessionId,
           turnCount: completedTurns.length,
-          completed: true,
+          // Only count as "truly completed" when every tracked step finished.
+          // Partial + abandoned signals feed difficulty scoring without
+          // claiming success. (Schema today is a bool; once migration 007
+          // lands we'll persist stepsDone/stepsTotal directly.)
+          completed: status ? status.kind === "completed" : true,
+          stepsDone: status?.stepsDone,
+          stepsTotal: status?.stepsTotal,
+          completionKind: status?.kind,
           turns: completedTurns,
         }),
       })
