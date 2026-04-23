@@ -95,7 +95,10 @@ export function startSilenceDetector(
     try {
       source?.disconnect()
       analyser?.disconnect()
-      void ctx?.close()
+      // close() returns a Promise; chain .catch so a late "already closed"
+      // rejection doesn't bubble as unhandledRejection. The outer try/catch
+      // only handles synchronous throws.
+      ctx?.close().catch(() => {})
     } catch {
       // Cleanup errors are non-fatal — stream is closed separately by the caller.
     }

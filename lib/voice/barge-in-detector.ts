@@ -49,7 +49,9 @@ export function startBargeInDetector(
     try {
       source?.disconnect()
       analyser?.disconnect()
-      void ctx?.close()
+      // close() is async; chain .catch so a late "already closed" rejection
+      // doesn't bubble as unhandledRejection past the outer (sync-only) catch.
+      ctx?.close().catch(() => {})
     } catch {
       // Non-fatal — stream lifecycle is managed by caller.
     }

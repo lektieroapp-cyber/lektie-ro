@@ -187,13 +187,19 @@ function wrapLetterLabelsInSayAs(escaped: string): string {
   )
 }
 
-// Wrap quoted content in <lang xml:lang="en-US"> so the Danish Christel/
-// Jeppe voice attempts English pronunciation for English words.
+// Switch to a native English neural voice for quoted English content,
+// nested inside the outer Danish voice. Per SSML 1.1 the <voice> element
+// is a valid child of <prosody> and can recursively nest, and Azure TTS
+// supports multi-voice SSML. The result: "I like to walk" is rendered by
+// Jenny (en-US) instead of Christel faking English phonemes, which is
+// the core cause of the "bad at Danish↔English switch" complaint. There
+// is a small seam at each handoff (two different speakers) but that is
+// far preferable to the mispronunciation.
 //
-// Danish content in quotes (e.g., "æble", "ørred") must NOT be wrapped —
-// under an en-US lang tag the Danish voice butchers æ/ø/å (they get read
-// with English vowel phonemes which sounds wrong and is confusing to kids).
-// We detect Danish-specific chars and skip the wrap when any appear.
+// Danish content in quotes (e.g., "æble", "ørred") must NOT be switched
+// to an English voice — those words contain æ/ø/å which an English voice
+// will butcher (or fall back to Latin transliteration). We detect
+// Danish-specific chars and leave such quotes under the outer da-DK voice.
 //
 // Handles:
 //   - Straight ASCII quotes: "word"   (&quot; after xml-escape)
@@ -201,16 +207,17 @@ function wrapLetterLabelsInSayAs(escaped: string): string {
 // Caps content length at 60 chars so a rogue unclosed quote can't swallow
 // a whole paragraph into the wrap.
 //
-// Known limitation: quality of Danish→English→Danish mid-sentence switch
-// is still "Danish voice faking English" — if we want proper English
-// pronunciation we'd need to nest <voice name="en-US-JennyNeural"> which
-// requires restructuring the outer <voice>/<prosody> wrapping. Follow-up.
+// Bold-markdown English (e.g., **house** in "Sig **house** eller **flat**")
+// is NOT caught here — by the time TTS runs, the markdown has been stripped
+// to plain text. Follow-up: pre-transform **X** → "X" before stripping so
+// the wrap below catches it, scoped to engelsk/tysk tasks.
+const ENGLISH_VOICE = "en-US-JennyNeural"
 const DANISH_CHARS = /[æøåÆØÅ]/
 
 function wrapQuotedAsEnglish(escaped: string): string {
   const wrap = (content: string): string => {
     if (DANISH_CHARS.test(content)) return content
-    return `<lang xml:lang="en-US">${content}</lang>`
+    return `<voice name="${ENGLISH_VOICE}">${content}</voice>`
   }
   return escaped
     .replace(
