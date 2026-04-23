@@ -797,11 +797,23 @@ export function HintChat({
   }
 
   function completeWithStatus() {
-    onComplete(turns, buildCompletionStatus({
+    const status = buildCompletionStatus({
       displayedSteps,
       doneSet: stepProgress.done,
       userSignaledDone: true,
-    }))
+    })
+    // Partial completion needs an explicit "yes, stop here" confirmation —
+    // it's easy to hit Færdig by accident, and kids shouldn't feel they
+    // have to finish 100% to not lose progress. "Completed" goes through
+    // unchallenged (they finished; celebrate). "Abandoned" also goes
+    // through — the flow already handled their explicit intent to quit.
+    if (status.kind === "partial" && status.stepsTotal > 0) {
+      const msg =
+        `Du har lavet ${status.stepsDone} ud af ${status.stepsTotal} trin.\n\n` +
+        `Skal vi stoppe her og gemme det du har gjort? (Det er helt OK — du behøver ikke at lave alt.)`
+      if (!window.confirm(msg)) return
+    }
+    onComplete(turns, status)
   }
 
   // Re-focus the input as soon as streaming finishes so the kid can type the
