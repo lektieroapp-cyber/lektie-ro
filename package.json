@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:extraction": "tsx scripts/test-extraction.ts",
+    "test:sessions": "tsx scripts/simulate-session.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
@@ -16,6 +18,7 @@
     "bcryptjs": "^2.4.3",
     "canvas-confetti": "^1.9.4",
     "jsonwebtoken": "^9.0.2",
+    "microsoft-cognitiveservices-speech-sdk": "^1.49.0",
     "next": "^16.2.1",
     "openai": "^6.34.0",
     "react": "^19.0.0",
@@ -31,9 +34,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "^16.2.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

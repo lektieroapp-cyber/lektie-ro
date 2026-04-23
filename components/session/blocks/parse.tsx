@@ -5,6 +5,8 @@
 //   [numbersplit whole="24" tens="20" ones="4"]
 //   [syllables word="kaniner" breaks="ka|ni|ner"]
 //   [tryit placeholder="Skriv dit bud"]
+//   [needphoto reason="Billedet er for mørkt"]   — flow escape: take a new photo
+//   [offscope note="Vi kan vende tilbage"]        — kid drifted off-task
 //
 // Attribute values must be quoted. Breaks are pipe-separated. Unknown tags
 // render as literal text + warn in dev — never crash the stream.
@@ -16,8 +18,10 @@ import { ContractionReveal } from "./ContractionReveal"
 import { DoubleConsonantCheck } from "./DoubleConsonantCheck"
 import { FalseFriendAlert } from "./FalseFriendAlert"
 import { FractionBar } from "./FractionBar"
+import { NeedPhoto } from "./NeedPhoto"
 import { NumberLine } from "./NumberLine"
 import { NumberSplit } from "./NumberSplit"
+import { OffScope } from "./OffScope"
 import { SentenceBuilder } from "./SentenceBuilder"
 import { SideBySideTranslation } from "./SideBySideTranslation"
 import { SilentLetterHighlight } from "./SilentLetterHighlight"
@@ -26,6 +30,14 @@ import { TenFrame } from "./TenFrame"
 import { TryItInput } from "./TryItInput"
 import { VerbTimeline } from "./VerbTimeline"
 import { WordClassSort } from "./WordClassSort"
+
+/** Callbacks that flow-escape blocks can invoke. Optional — when omitted the
+ *  block still renders but the button is hidden (read-only view). */
+export type BlockActions = {
+  onAnswer?: (value: string) => void
+  onRequestNewPhoto?: () => void
+  onEndTask?: () => void
+}
 
 const BLOCK_RE = /\[(\w+)((?:\s+[a-zA-Z_]+="[^"]*")*)\s*\]/g
 const ATTR_RE = /([a-zA-Z_]+)="([^"]*)"/g
@@ -65,8 +77,9 @@ export function renderBlock(
   name: string,
   attrs: Record<string, string>,
   key: string | number,
-  onAnswer?: (value: string) => void,
+  actions?: BlockActions,
 ): React.ReactNode {
+  const onAnswer = actions?.onAnswer
   const int = (v: string | undefined, fallback = 0) => {
     const n = parseInt(v ?? "", 10)
     return Number.isFinite(n) ? n : fallback
@@ -117,6 +130,31 @@ export function renderBlock(
           onSubmit={onAnswer}
         />
       )
+
+    case "needphoto":
+      return (
+        <NeedPhoto
+          key={key}
+          reason={attrs.reason}
+          onTakePhoto={actions?.onRequestNewPhoto}
+        />
+      )
+
+    case "offscope":
+      return (
+        <OffScope
+          key={key}
+          note={attrs.note}
+          onEndTask={actions?.onEndTask}
+        />
+      )
+
+    case "progress":
+      // Silent metadata marker: step-completion state is rendered by the
+      // StepChecklist at the top of the chat, not inside Dani's bubble.
+      // Parent component parses [progress done="A,B" current="C"] from the
+      // turn stream and updates the checklist. Don't render anything here.
+      return null
 
     case "numberline":
       return (
@@ -242,7 +280,7 @@ export function renderBlock(
  */
 export function renderWithBlocks(
   source: string,
-  onAnswer?: (value: string) => void,
+  actions?: BlockActions,
 ): React.ReactNode[] {
   const tokens = tokenise(source)
   const out: React.ReactNode[] = []
@@ -250,7 +288,7 @@ export function renderWithBlocks(
     if (tok.kind === "text") {
       out.push(<MarkdownText key={`t${i}`} text={tok.text} />)
     } else {
-      out.push(renderBlock(tok.name, tok.attrs, `b${i}`, onAnswer))
+      out.push(renderBlock(tok.name, tok.attrs, `b${i}`, actions))
     }
   })
   return out

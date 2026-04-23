@@ -53,6 +53,9 @@ Structured by subject × grade (matematik, dansk, engelsk, grades 1–7).
 Each entry: concepts taught, common mistakes, key terms, pedagogical approach tips.
 Injected into every AI prompt via `formatCurriculumForPrompt()`. This is what makes responses curriculum-appropriate rather than generic. **Needs expansion with real teacher input — see teacher interview questions below.**
 
+### Pedagogy foundation
+`docs/pedagogy.md` is the source of truth for pedagogical decisions. Covers: De 10 H'er, ros-ris-ros, active breaks, "brobygge" via prior learning, parent-dashboard guidelines, voice-input use cases (Voice-to-Method + Læse-Makker), **SMART-modellen fra Lene Skovbo Heckmanns *De gode læringsmål***, and concrete task-format notes (split description/answer, tick completed steps, route language tasks via ordlister). SMART is the framework for "help the kid set + reach their own learning goals", not just solve today's problem. Read before suggesting prompt or flow changes.
+
 ### Teacher input needed
 When talking to a teacher, ask:
 1. What concepts do students most commonly struggle with at each grade level?

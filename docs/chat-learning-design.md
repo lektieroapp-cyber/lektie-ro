@@ -1,7 +1,7 @@
 # Chat-learning design — making every turn a learning moment
 
 This is the definitive design spec for the kid-facing homework chat. It
-stitches together the pedagogical guidance (`louise-learning-perspective.md`),
+stitches together the pedagogical guidance (`pedagogy.md`),
 the grade-by-grade curriculum (`lib/curriculum/`), the visual-design system
 (`DESIGN.md`), and the structured-content ambition (`interactive-content-plan.md`)
 into one concrete plan for **how a chat turn should look, feel, and teach**.

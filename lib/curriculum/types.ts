@@ -9,4 +9,4 @@ export type GradeCurriculum = {
   approachHints: string[]
 }
 
-export type Subject = "matematik" | "dansk" | "engelsk"
+export type Subject = "matematik" | "dansk" | "engelsk" | "tysk"

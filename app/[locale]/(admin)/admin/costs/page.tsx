@@ -13,11 +13,12 @@ export default async function AdminCostsPage({
   return (
     <>
       <section className="mt-10">
-        <h2 className="text-xl font-semibold text-ink">AI-omkostninger per barn</h2>
+        <h2 className="text-xl font-semibold text-ink">Time-pris per barn</h2>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Estimér hvad AI-inference koster os per barn baseret på forbrug og
-          valgte Azure-modeller. Tallene er rå Azure pay-as-you-go pris — ingen
-          margen, ingen fast infrastruktur.
+          Estimér hvad én times lektier koster os i rå Azure-inference, baseret
+          på hvor meget arbejde barnet får fra hånden og hvilken voice-løsning
+          der er valgt. Tallene er pay-as-you-go pris — ingen margen, ingen
+          fast infrastruktur.
         </p>
       </section>
 

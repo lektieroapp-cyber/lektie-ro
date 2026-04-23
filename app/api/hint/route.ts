@@ -12,6 +12,16 @@ type Body = {
   mode?: string
   childId?: string
   subject?: string
+  /** ONE-sentence pedagogical goal for the task (from vision extraction). */
+  taskGoal?: string | null
+  /** Ordered sub-steps for multi-step exercise groups. */
+  taskSteps?: { label: string; prompt: string }[] | null
+  /** Task-type hint from extractor (word-problem, reading, creative, …). */
+  taskType?: string | null
+  /** True when the task requires paper; flips prompt to coach mode. */
+  needsPaper?: boolean | null
+  /** "voice" = reply will be spoken via TTS, tunes output for spoken delivery. */
+  conversationMode?: "text" | "voice"
 }
 
 export async function POST(request: NextRequest) {
@@ -42,6 +52,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const deliveryMode: "text" | "voice" =
+    body.conversationMode === "voice" ? "voice" : "text"
+
   const systemPrompt = buildChildSystemPrompt({
     mode,
     subject,
@@ -49,7 +62,12 @@ export async function POST(request: NextRequest) {
     // If the kid hasn't set a grade, the prompt adapts to unknown level.
     grade: child?.grade ?? null,
     taskText: body.taskText,
+    taskGoal: body.taskGoal ?? null,
+    taskSteps: body.taskSteps ?? null,
+    taskType: body.taskType ?? null,
+    needsPaper: body.needsPaper ?? null,
     child,
+    deliveryMode,
   })
 
   // First turn: we seed a user message with the task so the assistant has
@@ -71,11 +89,16 @@ export async function POST(request: NextRequest) {
     // reasoning_effort=minimal is CRITICAL for gpt-5-mini — default "medium"
     // burns 30-60s on internal thinking before the first token, and these
     // Socratic turns don't need deep reasoning. "minimal" keeps it snappy.
-    // The SDK's ChatCompletionCreateParams doesn't yet include GPT-5 fields,
-    // so we spread them in via a looser record (keeps the stream overload).
+    //
+    // Voice mode gets a MUCH tighter token cap. Text replies can tolerate
+    // 400 tokens (~300 words); spoken replies have 25-word rules in the
+    // prompt and kids get tired listening past ~10 seconds. 160 tokens is
+    // a hard ceiling — the prompt pushes for 1-2 sentences, the cap enforces
+    // it even when the model's chatty.
+    const maxTokens = deliveryMode === "voice" ? 160 : 400
     const gpt5Extras = {
       reasoning_effort: "minimal",
-      max_completion_tokens: 400,
+      max_completion_tokens: maxTokens,
     } as unknown as Record<string, never>
     const azureStream = await client.chat.completions.create({
       model: getDeployment(),

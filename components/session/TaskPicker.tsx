@@ -84,7 +84,12 @@ function TaskRow({
   palette: { tint: string; dot: string; ink: string }
   onPick: () => void
 }) {
-  const isWord = task.text.length > 36
+  // Prefer the extractor's short title. Fall back to a truncated version
+  // of text when title is missing (legacy sessions or extraction glitch).
+  const displayTitle = task.title || shortFallback(task.text)
+  const stepCount = task.steps?.length ?? 0
+  const stepLabel =
+    stepCount > 1 ? `${stepCount} trin` : stepCount === 1 ? "1 trin" : null
   return (
     <button
       type="button"
@@ -97,7 +102,7 @@ function TaskRow({
         cursor: "pointer",
         textAlign: "left",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         gap: 14,
         boxShadow: K.shadowCard,
         animation: `slideIn 0.4s ${index * 0.08}s backwards`,
@@ -127,6 +132,7 @@ function TaskRow({
           fontWeight: 700,
           color: palette.ink,
           flexShrink: 0,
+          marginTop: 2,
         }}
       >
         {index + 1}
@@ -134,6 +140,9 @@ function TaskRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
             fontSize: 11,
             color: K.ink2,
             fontWeight: 600,
@@ -141,22 +150,76 @@ function TaskRow({
             textTransform: "uppercase",
           }}
         >
-          {isWord ? "Tekststykke" : "Regn ud"}
+          <span>Opgave {index + 1}</span>
+          {stepLabel && (
+            <span
+              style={{
+                background: palette.tint,
+                color: palette.ink,
+                borderRadius: 999,
+                padding: "2px 8px",
+                fontSize: 10,
+                letterSpacing: 0.3,
+              }}
+            >
+              {stepLabel}
+            </span>
+          )}
+          {task.needsPaper && (
+            <span
+              title="Denne opgave kræver papir — lineal, tegning eller skriftligt svar"
+              style={{
+                background: "rgba(201,121,98,0.12)",
+                color: K.clay,
+                borderRadius: 999,
+                padding: "2px 8px",
+                fontSize: 10,
+                letterSpacing: 0.3,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <span aria-hidden>✏</span>
+              PAPIR
+            </span>
+          )}
         </div>
         <div
           style={{
             fontFamily: K.serif,
-            fontSize: isWord ? 14 : 18,
+            fontSize: 18,
             fontWeight: 600,
             color: K.ink,
             marginTop: 2,
             lineHeight: 1.25,
           }}
         >
-          {task.text}
+          {displayTitle}
         </div>
+        {task.goal && (
+          <div
+            style={{
+              fontSize: 12,
+              color: K.ink2,
+              marginTop: 6,
+              lineHeight: 1.35,
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 6,
+            }}
+          >
+            <span aria-hidden style={{ opacity: 0.8 }}>🎯</span>
+            <span>{task.goal}</span>
+          </div>
+        )}
       </div>
-      <svg width="14" height="14" viewBox="0 0 14 14" style={{ flexShrink: 0 }}>
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 14 14"
+        style={{ flexShrink: 0, marginTop: 16 }}
+      >
         <path
           d="M3 7h8m-3-3l3 3-3 3"
           stroke={K.coral}
@@ -168,4 +231,18 @@ function TaskRow({
       </svg>
     </button>
   )
+}
+
+// Server-side extractor is asked for a short `title`, but legacy sessions +
+// the mock-data fallback path don't have one. Derive a kid-friendly headline
+// from the full instruction: strip leading enumeration prefixes ("1 ",
+// "WARM-UP 1"), take the first clause or 5 words.
+function shortFallback(text: string): string {
+  let t = text.trim()
+  t = t.replace(/^\s*(?:warm[-\s]?up\s+)?\d+\s*[.:]?\s*/i, "")
+  t = t.replace(/^["'`]/, "")
+  const clauseEnd = t.search(/[.!?:]/)
+  if (clauseEnd > 0 && clauseEnd <= 50) return t.slice(0, clauseEnd).trim()
+  const words = t.split(/\s+/).slice(0, 5).join(" ")
+  return words.slice(0, 50)
 }

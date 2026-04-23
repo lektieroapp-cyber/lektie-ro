@@ -168,7 +168,19 @@ export async function proxy(request: NextRequest) {
   // Authenticated user heading to the dashboard without having picked a child
   // profile? Short-circuit to the profile selector here — avoids a full server
   // component render + DB call just to arrive at the same redirect.
-  if (user && subPath === "/parent/dashboard" && !request.cookies.get("lr_active_child")?.value) {
+  //
+  // BUT: don't redirect when `?testImage=<path>` is present. That's the admin
+  // test-image reuse shortcut from /admin/test-images — it must keep the
+  // query string through to SessionFlow (which gates on isAdmin itself) so
+  // the flow doesn't lose its state on mobile where the kid-profile cookie
+  // isn't set. Previously this silently bounced admins from the task flow
+  // out to /parent/profiles with the query stripped.
+  if (
+    user &&
+    subPath === "/parent/dashboard" &&
+    !request.cookies.get("lr_active_child")?.value &&
+    !request.nextUrl.searchParams.has("testImage")
+  ) {
     return withRefreshedCookies(
       NextResponse.redirect(new URL(`/${locale}/parent/profiles`, request.url)),
       response

@@ -33,6 +33,8 @@ export default async function AdminLayout({
           { href: `/${locale}/admin/users`, label: "Brugere" },
           { href: `/${locale}/admin/emails`, label: "Emails" },
           { href: `/${locale}/admin/costs`, label: "Priser" },
+          { href: `/${locale}/admin/voice`, label: "Stemme" },
+          { href: `/${locale}/admin/test-images`, label: "Test-billeder" },
         ]}
       />
 

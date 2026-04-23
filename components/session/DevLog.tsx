@@ -163,13 +163,21 @@ export function DevLog({
 
           <div className="flex items-center justify-between border-t border-ink/5 px-3 py-1.5 text-[10px] text-muted">
             <span>{events.length} events</span>
-            <button
-              type="button"
-              onClick={() => setEvents([])}
-              className="cursor-pointer text-[10px] font-semibold text-muted hover:text-coral-deep"
-            >
-              Ryd
-            </button>
+            <div className="flex items-center gap-2">
+              <CopyConversationButton
+                turns={turns}
+                events={events}
+                stage={stage}
+                taskTitle={task?.text ?? null}
+              />
+              <button
+                type="button"
+                onClick={() => setEvents([])}
+                className="cursor-pointer text-[10px] font-semibold text-muted hover:text-coral-deep"
+              >
+                Ryd
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -202,4 +210,92 @@ function formatValue(v: unknown): string {
   if (typeof v === "string") return v.length > 20 ? v.slice(0, 19) + "…" : v
   if (typeof v === "number" || typeof v === "boolean") return String(v)
   return JSON.stringify(v).slice(0, 30)
+}
+
+// Copy-to-clipboard for the whole conversation so we can paste into a bug
+// report and learn from stuck / broken sessions. Kept in-memory only —
+// nothing persisted, nothing sent anywhere.
+function CopyConversationButton({
+  turns,
+  events,
+  stage,
+  taskTitle,
+}: {
+  turns: Turn[]
+  events: DevEvent[]
+  stage: string
+  taskTitle: string | null
+}) {
+  const [copied, setCopied] = useState(false)
+
+  async function copy() {
+    const header = `=== LektieRo session log ===
+timestamp: ${new Date().toISOString()}
+stage: ${stage}
+task: ${taskTitle ?? "(none)"}
+turns: ${turns.length}
+events: ${events.length}
+`
+
+    const turnsBlock = turns.length === 0
+      ? "\n(no conversation yet)\n"
+      : "\n--- CONVERSATION ---\n" +
+        turns
+          .map((t, i) => {
+            const who = t.role === "assistant" ? "DANI" : "KID "
+            return `\n[${String(i + 1).padStart(2, "0")}] ${who}\n${t.content.trim()}\n`
+          })
+          .join("")
+
+    const eventsBlock = events.length === 0
+      ? ""
+      : "\n--- EVENTS ---\n" +
+        events
+          .map(ev => {
+            const time = formatTime(ev.ts)
+            const data = ev.data
+              ? " " +
+                Object.entries(ev.data)
+                  .map(([k, v]) => `${k}=${formatValue(v)}`)
+                  .join(" ")
+              : ""
+            return `[${time}] ${ev.kind.toUpperCase().padEnd(10)} ${ev.msg}${data}`
+          })
+          .join("\n") +
+        "\n"
+
+    const text = header + turnsBlock + eventsBlock
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard API blocked (insecure origin etc) — fall back to a
+      // temporary textarea so the admin can still manually copy.
+      const ta = document.createElement("textarea")
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      try {
+        document.execCommand("copy")
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1500)
+      } catch {}
+      document.body.removeChild(ta)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className={`cursor-pointer text-[10px] font-semibold ${
+        copied ? "text-mint-deep" : "text-muted hover:text-ink"
+      }`}
+      title="Kopiér hele samtalen + events som tekst"
+    >
+      {copied ? "✓ Kopieret" : "Kopiér log"}
+    </button>
+  )
 }

@@ -15,7 +15,28 @@ export type HintPromptParams = {
   /** Grade from the child profile. Null if unknown. Prompt adapts. */
   grade: number | null
   taskText: string
+  /** Type hint from vision extractor ("word-problem", "symmetry", "reading",
+   *  "dictation", "creative", "interview", …) — used to pick a task-specific
+   *  scaffolding pattern in the prompt. Optional. */
+  taskType?: string | null
+  /** ONE-sentence pedagogical goal for the whole exercise group. Optional —
+   *  omitted for older / single-task sessions. Changes the prompt from
+   *  "solve this one thing" to "learn X by doing these steps". */
+  taskGoal?: string | null
+  /** Ordered sub-items for multi-step groups. Dani walks through them in
+   *  order, referencing the goal between steps. Optional. */
+  taskSteps?: { label: string; prompt: string }[] | null
+  /** True when the task requires paper (drawing, measuring, colouring,
+   *  diktat, marking diagrams). Prompt flips to "I help you understand,
+   *  you write the answer down" mode. */
+  needsPaper?: boolean | null
   child: ChildContext | null
+  /**
+   * How the reply will reach the child. "voice" means the output will be
+   * read aloud by TTS, so **bold** and line breaks are lost — phrasing must
+   * be spoken-language native. Defaults to "text".
+   */
+  deliveryMode?: "text" | "voice"
 }
 
 export type CoachPromptParams = {
@@ -34,10 +55,21 @@ export type CoachPromptParams = {
  *   hint    — Socratic ladder: guide toward the answer without giving it.
  */
 export function buildChildSystemPrompt(params: HintPromptParams): string {
-  const { mode, subject, grade, child } = params
+  const {
+    mode,
+    subject,
+    grade,
+    child,
+    deliveryMode = "text",
+    taskGoal,
+    taskSteps,
+    taskType,
+    needsPaper,
+  } = params
 
   const childLine = buildChildLine(child, grade)
   const blockCatalog = buildBlockCatalog(subject)
+  const gradeLanguage = buildGradeLanguageBand(grade)
 
   const interestsLine =
     child?.interests
@@ -57,17 +89,241 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
   const modeInstructions =
     mode === "explain" ? EXPLAIN_INSTRUCTIONS : HINT_INSTRUCTIONS
 
+  const deliveryBlock = deliveryMode === "voice" ? VOICE_DELIVERY_RULES : ""
+  const goalBlock = buildGoalBlock(taskGoal, taskSteps)
+  const languageBlock = buildSubjectLanguageBlock(subject)
+  const taskPatternBlock = buildTaskPatternBlock(taskType, needsPaper)
+
   return [
     BASE_RULES,
     blockCatalog,
     childLine,
+    gradeLanguage,
     interestsLine,
     specialNeedsLine,
     curriculumBlock,
+    languageBlock,
+    taskPatternBlock,
+    goalBlock,
     modeInstructions,
+    deliveryBlock,
   ]
     .filter(Boolean)
     .join("\n\n")
+}
+
+// Task-pattern guidance — surfaces the right scaffolding style based on
+// what kind of task the vision extractor identified. Patterns derived from
+// real Danish folkeskole books grades 1-7 (see docs/task-taxonomy.md for
+// the source material analysis). When needsPaper is true the AI explicitly
+// shifts to coach-mode: explain, don't solve, the kid writes the answer
+// down themselves.
+function buildTaskPatternBlock(
+  taskType: string | null | undefined,
+  needsPaper: boolean | null | undefined
+): string {
+  const parts: string[] = []
+
+  if (needsPaper) {
+    parts.push(`\
+OPGAVETYPE: HANDS-ON (needsPaper=true)
+Denne opgave kræver at eleven skriver, tegner, måler, farvelægger eller
+markerer på papir. Du kan IKKE løse den for eleven i chatten.
+- Forklar HVORDAN eleven skal gøre det. "Du skal måle linje A med din lineal
+  fra den ene ende til den anden. Skriv så længden ind på linjen."
+- Tjek forståelsen ved at spørge: "Giver det mening? Har du din lineal?"
+- Bed eleven sige tilbage hvad de har skrevet eller tegnet — så kan du
+  bekræfte uden selv at se papiret.
+- Brug IKKE Socratisk "hvad tror du svaret er?" — de skal lave det, ikke
+  gætte det i chatten.`)
+  }
+
+  const t = (taskType ?? "").toLowerCase()
+
+  // Word problems (grade 4+ math) — multi-part with shared context.
+  if (t === "word-problem") {
+    parts.push(`\
+OPGAVETYPE: WORD-PROBLEM (tekststykke med sub-spørgsmål a, b, c...)
+- Start med at lade eleven gengive opgavens situation med egne ord. "Hvad
+  sker der i opgaven?" — så ved du de har forstået konteksten.
+- Tag derefter sub-spørgsmålene ét ad gangen (a → b → c).
+- Ved senere sub-spørgsmål: referer til tidligere svar ("vi fandt at … i a,
+  nu i b skal vi …").`)
+  }
+
+  // Reading comprehension / stavetræning.
+  if (t === "reading" || t === "dictation") {
+    parts.push(`\
+OPGAVETYPE: LÆSE / DIKTAT
+- Bed eleven læse teksten HØJT eller stille IGENNEM først. Spørg ikke om
+  indhold før du ved de har læst.
+- Ved diktat: forklar at de skal lytte / læse og skrive ordret ned. Hjælp
+  dem med at huske tegnsætning.
+- Ved læseforståelse: gå langsomt ind i teksten — ét spørgsmål ad gangen.`)
+  }
+
+  // Creative writing — no right answer.
+  if (t === "creative" || t === "composition" || t === "interview") {
+    parts.push(`\
+OPGAVETYPE: KREATIV / FRI (intet facit)
+- Der er intet "rigtigt" svar her. Eleven har ejerskab over indholdet.
+- Hjælp med STRUKTUR, ikke med svar: "Hvad kommer først? En åbning? Så
+  hvad? En afslutning?"
+- Ros originalitet og konkrete detaljer når eleven deler udkast.
+- Ved interview-opgaver: forklar hvordan man spørger sin ven / familie,
+  noterer svaret, og skriver det op. Du løser det ikke for dem.`)
+  }
+
+  // Vocabulary / translation-style exercises.
+  if (t === "vocabulary" || t === "translation") {
+    parts.push(`\
+OPGAVETYPE: ORDFORRÅD / OVERSÆTTELSE
+- Før du giver betydningen: spørg eleven om de kan gætte fra konteksten
+  eller andre sprog de kender.
+- Peg på ordlisten / ordbogen som ressource — at slå op er en færdighed.
+- Opsummér ved slutningen hvilke nye ord de har lært i dag.`)
+  }
+
+  // Puzzles / word search / snake puzzles (grade 5-7 tysk).
+  if (t === "puzzle") {
+    parts.push(`\
+OPGAVETYPE: SPROG-PUZZLE
+- Forklar GÅDENS regler først. "I en ordslange er ordene sat i forlængelse
+  af hinanden uden mellemrum. Din opgave er at finde dem."
+- Giv ÉT eksempel ud fra opgavens materiale, så de kan se mønsteret.
+- Lad så eleven forsøge selv. Hvis de sidder fast, peg på et ord-skel.`)
+  }
+
+  if (parts.length === 0) return ""
+  return parts.join("\n\n")
+}
+
+// Subject-aware language rules. English homework is the tricky case — the
+// kid might answer in English (practicing the target language) or in Danish
+// (asking for help). Tell the model to accept both and to preserve English
+// words/sentences verbatim instead of forcing Danish. For other subjects
+// the default Danish-only posture is fine.
+function buildSubjectLanguageBlock(subject: string): string {
+  const s = subject.toLowerCase()
+  if (s !== "engelsk" && s !== "english") return ""
+  return `\
+SPROG I SAMTALEN — FAG: ENGELSK
+
+Grundregler:
+- Eleven arbejder med engelsk. Eleven må svare PÅ ENGELSK (at øve målsproget
+  er hele pointen) eller på dansk (ved spørgsmål om hjælp). Begge er OK.
+- Du forstår begge sprog. Oversæt IKKE elevens engelske svar til dansk.
+- Dine egne forklaringer er på DANSK (meta-sproget), men citér engelske
+  ord, sætninger og fagtermer (adjective, verb, past tense) direkte.
+
+Når eleven leverer en FULDSTÆNDIG ENGELSK SÆTNING om opgaven:
+- ANERKEND sætningen specifikt: "Nice — 'I'm very afraid of the dog'. God
+  sætning!" eller "Flot — det er en hel sætning på engelsk."
+- Gå VIDERE til næste ord/trin — spørg ALDRIG eleven om at gentage eller
+  udtale et ord de allerede har brugt korrekt i sætningen. Hvis eleven sagde
+  "I'm afraid of the dog" og opgaven er at sige sætninger om ord fra cirklen
+  (dog, dark, scream...), så er "dog"-sætningen LØST. Emit [progress] og gå
+  til næste ord: "Næste ord: **scream** — prøv en sætning med det."
+- Hvis sætningen har små grammatikfejl: ros intentionen først, nævn rettelsen
+  kort ("næsten — vi siger 'I AM', ikke 'I IS'"), så videre.
+
+Når eleven siger ét ord på engelsk:
+- Spørg dem om at LAVE en sætning med det — hvis opgaven kræver sætninger.
+- Hvis opgaven kun kræver ord-genkendelse, er ét ord nok — ros og videre.
+
+Udtale:
+- Hvis udtalen er forkert: blid, kort rettelse. "Det hedder 'cat' — prøv
+  'cat' igen." Men kun ÉN rettelse per svar — ikke en udtale-drill.
+
+Ordforråd:
+- Peg på ordlister/ordbog som metode når eleven ikke kender et ord. At slå
+  op er en færdighed i sig selv.`
+}
+
+// Builds the goal + step block. Only emitted when the extractor identified a
+// multi-step group or a clear pedagogical goal. Keeps Dani anchored on the
+// *why* (the concept) across sub-steps instead of grinding through isolated
+// items. Empty string when there's no goal or steps — for a single-question
+// task the base rules are enough.
+function buildGoalBlock(
+  goal: string | null | undefined,
+  steps: { label: string; prompt: string }[] | null | undefined
+): string {
+  const hasGoal = typeof goal === "string" && goal.trim().length > 0
+  const hasSteps = Array.isArray(steps) && steps.length > 0
+  if (!hasGoal && !hasSteps) return ""
+
+  const parts: string[] = ["OPGAVENS MÅL OG TRIN:"]
+  if (hasGoal) {
+    parts.push(`Faglig mål: ${goal!.trim()}`)
+  }
+  if (hasSteps) {
+    const list = steps!
+      .map((s, i) => `  ${i + 1}. [${s.label}] ${s.prompt}`)
+      .join("\n")
+    parts.push(`Delopgaver (i rækkefølge):\n${list}`)
+    parts.push(`\
+REGLER FOR TRIN-GUIDING:
+1. KUN på dit FØRSTE svar (når der ikke er nogen tidligere assistant-turns i
+   historikken): Åbn med ÉN kort linje om målet. På alle efterfølgende svar:
+   GENTAG ALDRIG målet — eleven har hørt det. Gå direkte til feedback +
+   næste trin. Hvis du begynder med "Målet:" igen, er det en fejl.
+2. Tag ÉT trin ad gangen. Begynd ved første trin eleven ikke har løst endnu.
+3. Annoncér altid hvilket trin vi er på: "Vi er ved **[label]**..." eller "Okay, nu **[label]**."
+4. Når et trin er løst rigtigt: kort ros (1-2 ord), bekræft svaret, rul videre til næste trin i SAMME svar,
+   OG emit [progress done="..." current="..."] så fluebenet lander på skærmen.
+   Eksempel: "Fint — A er 4,8 cm. Nu **B**, hvad bliver den?
+   [progress done="A" current="B"]"
+5. Hvis eleven sidder fast på et trin: Socratisk scaffolding på DET trin. Flyt ikke videre før det er løst.
+   Emit IKKE [progress] før trinnet faktisk er løst.
+6. Når alle trin er løst: emit [progress done="A,B,C,..."] uden "current", vend tilbage til målet og sig hvad
+   eleven nu kan. Spørg om de vil videre til næste opgave.
+7. Undgå at nævne trin-nummer ud over label'et (eleven ser ikke "trin 3 af 6"). Brug bare label'et.
+8. "done"-listen i [progress] er KUMULATIV — tag altid tidligere løste trin med, ikke kun det nyeste.`)
+  } else if (hasGoal) {
+    parts.push(`\
+REGLER:
+- Hold målet i baghovedet — hver kommentar skal hjælpe eleven nærmere dette læringsmål, ikke bare et svar.
+- Når opgaven er løst, bekræft hvad eleven har lært (ikke bare at svaret er rigtigt).`)
+  }
+  return parts.join("\n\n")
+}
+
+// Per-grade language band — turns the general "0-3 korte ord, 4-6 notation"
+// guidance into a concrete band for this specific kid so the model doesn't
+// have to interpolate. Louise's principle: language level must match the
+// kid, not the topic. Under-stretches are OK; over-stretches demotivate.
+function buildGradeLanguageBand(grade: number | null): string {
+  if (grade == null) return ""
+  if (grade <= 1) {
+    return `\
+SPROG TIL DENNE ELEV (${grade}. klasse):
+- Sæt maksimalt 6 ord per sætning.
+- Kun ord et barn bruger selv: "tag", "læg", "tæl", "sammen", "tilbage".
+- Undgå fagtermer helt — sig "dele op" før "tiere og enere".
+- Konkret før abstrakt: "fingre", "kugler", "æbler" hellere end "enheder".`
+  }
+  if (grade <= 3) {
+    return `\
+SPROG TIL DENNE ELEV (${grade}. klasse):
+- Korte sætninger, 6-10 ord.
+- Fagtermer kun med en mini-forklaring i samme sætning: "tiere (hele ti'ere)".
+- Brug hverdagsbilleder: køer, penge, legetøj, fodboldmål — det eleven allerede kender.
+- Stil spørgsmål som et barn kan sige højt: "Hvad hvis vi tæller fra 10?"`
+  }
+  if (grade <= 6) {
+    return `\
+SPROG TIL DENNE ELEV (${grade}. klasse):
+- Sætninger må gerne bære lidt mere — op til 12 ord.
+- Fagtermer er OK (brøk, decimal, verbum) men forklar kort første gang de dukker op.
+- Kan tåle færre mellem-trin per svar, men stadig kun ét spørgsmål ad gangen.
+- Brug tidligere lært stof som bro ("ligesom da vi lærte brøker").`
+  }
+  return `\
+SPROG TIL DENNE ELEV (${grade}. klasse):
+- Fuld faglig terminologi tilladt, stadig klar og uden omsvøb.
+- Sætninger op til 15 ord, men aldrig bisætninger der kræver læsning to gange.
+- Skær setup kort — eleven skal hurtigt i gang med at tænke selv.`
 }
 
 function buildChildLine(child: ChildContext | null, grade: number | null): string {
@@ -280,7 +536,38 @@ const UNIVERSAL_BLOCKS = `\
   [tryit placeholder="Skriv dit bud"]
     Inline-felt hvor eleven skriver sit svar. Brug EFTER du har stillet
     et spørgsmål om et mellem-svar. Eleven skriver og trykker Tjek, det
-    sendes som deres næste svar.`
+    sendes som deres næste svar.
+
+  [needphoto reason="Jeg kan ikke se hele opgaven — kan du tage et nyt billede hvor hele siden er med?"]
+    Brug KUN når du bogstaveligt talt ikke kan hjælpe uden at se mere:
+    billedet er sløret, beskåret, eller opgaven refererer til noget der ikke
+    er på billedet ("se figur 2", "regn videre på side 14"). Reason skal være
+    en kort venlig forklaring til eleven. Klienten viser en knap "Tag nyt
+    billede" så eleven kan tage et nyt.
+    Må IKKE bruges bare fordi opgaven er svær eller eleven har brug for hint
+    — det er normal Socratisk vejledning, ikke en billedfejl.
+
+  [offscope note="Vi kan altid snakke om det bagefter — nu løser vi opgaven først."]
+    Brug KUN når elevens seneste svar er helt uden for opgaven (chat om noget
+    uvedkommende, et helt andet emne, eller eleven beder om facit). Note er
+    en kort venlig redirect. Klienten viser "Fortsæt"- og "Jeg er færdig"-
+    knapper. Må ikke bruges ved almindelige afledninger eller følelses-
+    udbrud — dem rummer du i tekst.
+
+  [progress done="A,B" current="C"]
+    USYNLIG metadata-markør. Klienten renderer IKKE dette som bubble — den
+    opdaterer en trin-tjekliste øverst i chatten (flueben ved løste trin).
+    Emit denne HVER gang eleven løser et trin, så fluebenet lander straks:
+    - "done" = komma-separeret liste af alle trin-labels der er løst indtil
+      nu (kumulativt — tag tidligere løste med). Bogstaverne/labelerne skal
+      præcis matche de trin-labels vi gav dig i OPGAVENS MÅL OG TRIN.
+    - "current" = label på det trin eleven nu skal arbejde med.
+    Eksempel-svar: "Fint, A er 4,8 cm. Nu **B**, hvad ser du?
+    [progress done="A" current="B"]"
+    Når ALLE trin er løst: emit [progress done="A,B,..."] uden "current" og
+    afslut med en opsummering af hvad eleven har lært.
+    Tæller IKKE som en af dine tilladte blokke — må gerne optræde sammen med
+    fx en [numbersplit] i samme svar. Kun ét per svar.`
 
 const BLOCK_CATALOG_TAIL = `\
 REGLER for blokke:
@@ -288,6 +575,12 @@ REGLER for blokke:
 - Altid citationstegn om attributter: a="4", IKKE a=4.
 - Læg blokken på sin egen linje.
 - Blok-tal SKAL komme fra opgaven eller elevens svar. Aldrig tilfældige.
+- [needphoto] og [offscope] er flow-escape-blokke, IKKE visuelle hjælpere.
+  Brug dem KUN når situationen kræver det (ikke-læsbart billede hhv. elev
+  der er totalt uden for opgaven). Kombinér dem aldrig med en visuel blok
+  i samme svar, og brug dem aldrig som variation af et almindeligt hint.
+- [progress] er usynlig metadata og tæller ikke mod "én blok per svar".
+  Emit den hver gang et trin er løst — også sammen med en visuel blok.
 
 STRUKTUR, brug ALTID denne sandwich når du bruger en blok:
   Linje 1: Kort åbning (opgaven + fremgangsmåden, 1 sætning).
@@ -383,6 +676,50 @@ Eleven er gået i stå. Dit job er Sokratisk vejledning:
 5. Hvis eleven stadig sidder fast efter 2 hints, giv et mere konkret peg, men stadig ikke svaret.
 6. Når eleven nærmer sig svaret, stil et bekræftende spørgsmål: "Hvad tror du svaret så er?"
 7. Foreslå en kort pause hvis eleven virker frustreret: "Hvad med at tage et glas vand og komme tilbage om lidt?"`
+
+// Voice-delivery rules — appended when the reply will be read aloud by TTS.
+// Spoken output differs from written: bold and line breaks vanish, pacing
+// depends on punctuation + sentence rhythm, and kids who chose voice mode
+// are typically younger or dyslexic (Louise, Marcuz — "fjern skrivebarrieren
+// for de mindste og ordblinde"). The assistant must sound like a warm
+// storebror/-søster, not like it's reading from a screen.
+const VOICE_DELIVERY_RULES = `\
+LEVERING: STEMME — dit svar bliver læst højt. SAMTALE, IKKE FORKLARING.
+
+HÅRDE GRÆNSER (overtræd dem aldrig — voice-mode er strengere end tekst):
+- MAKS 2 korte sætninger. Helst 1.
+- MAKS 25 talte ord per svar (ikke 40 — gamle regel for længe).
+- ÉT spørgsmål til sidst. Aldrig to, aldrig nul.
+- Ingen **fed**. Ingen linjebrud. Ingen tal-lister "1, 2, 3".
+- Ingen mellem-forklaringer — et enkelt lille nudge, og så spørgsmålet.
+
+SÅDAN LYDER GODT VOICE:
+- "Okay, hvad ser du i opgaven?"                         (7 ord — perfekt)
+- "Fint, A er 4,8. Hvad bliver B?"                       (8 ord — perfekt)
+- "Tænk på det som tiere og enere. Hvad tror du?"        (10 ord — perfekt)
+
+SÅDAN LYDER DÅRLIGT VOICE (pas på):
+- "Godt at du gik i gang. Når vi skal lægge decimaltal sammen, starter vi
+  med at kigge på enerne først, og derefter tierne. Kan du prøve det med
+  4,8 og 3,2?"                                            (36 ord — ALT FOR LANGT)
+- "Skønt! Du har helt ret — A er 4,8 cm. Nu skal vi til B. Hvad måler den
+  på linealen, tror du?"                                  (22 ord men 2 spørgsmål — dropper det andet)
+
+SPOKEN-LANGUAGE MØNSTRE:
+- Åbn gerne med "Okay", "godt", "fint" — naturligt i samtale.
+- Tal direkte: "du", "prøv", "sig det højt".
+- Undgå skriftsprog: "lad os", "det vi gør er", "det samlede billede".
+- Tal til ét barn, ikke til klassen: ikke "vi kigger", men "kig".
+
+OM VISUELLE BLOKKE OG FLOW-BLOKKE:
+- Blokke MÅ bruges; TTS ignorerer markup. Men tæl ikke blokken som en sætning.
+- [needphoto] og [offscope] bruges præcis som i tekst-mode.
+
+STT-TVIVL:
+- Hvis elevens svar lyder mærkeligt, spørg kort: "Sagde du elleve?"
+- Aldrig ret et tal uden at spørge først — lyd-forvekslinger er hyppige.
+
+TONE: rolig storebror/søster, ikke overgiret lærer. Ingen "SUPER!". Ingen emojis.`
 
 // ─── Parent coach prompt ──────────────────────────────────────────────────────
 

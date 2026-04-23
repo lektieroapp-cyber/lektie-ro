@@ -61,19 +61,28 @@ export const USD_TO_DKK = 7.0
 // Updated as we observe real session data. Sources: dev log `firstTokenMs`,
 // `totalMs`, `chars`, `words` + Azure billing dashboard.
 export const TOKEN_ASSUMPTIONS = {
-  // Stage 1: photo → JSON extraction. Runs ONCE per session.
-  // ~1500 image tokens (high detail) + ~400 vision prompt + ~30 user msg.
-  visionInputTokens: 2500,
-  // JSON with 3-8 tasks + confidence + detection notes. Plus ~100 reasoning.
-  visionOutputTokens: 400,
+  // Stage 1: photo → JSON extraction with groups/goal/steps. Runs ONCE per
+  // session (or per task group with the new multi-group extraction).
+  // ~3500 image tokens (high detail, typical 1024px homework photo — base
+  // 170 + 765 × ~4 tiles) + ~600 vision prompt + ~30 user msg.
+  visionInputTokens: 4000,
+  // JSON with 3-6 task groups × {text, goal, steps[…]} + confidence +
+  // detection notes. Structured output is meatier than flat tasks list.
+  visionOutputTokens: 600,
 
   // Stage 2: Socratic hint, per turn.
-  // ~1600 system (BASE + filtered blocks + curriculum + child) + ~30 task
-  // prefix + growing turn history (~50 tok/prior pair).
-  // Averaged across a 4-turn session.
-  hintInputTokensPerTurn: 2000,
-  // ~70-word cap = ~100 tokens output + ~50 minimal reasoning tokens.
-  hintOutputTokensPerTurn: 150,
+  // System (BASE + filtered blocks + curriculum + child profile + goal
+  // block + voice rules) is ~2000 tokens alone. Add the task prefix (~30)
+  // and rolling turn history that grows ~80 tok/turn.
+  //
+  // For a 1-turn session this is ~2100. For a 40-turn session the final
+  // turn sees ~5200 tokens. Average across a realistic multi-session hour:
+  // ~3500.
+  hintInputTokensPerTurn: 3500,
+  // Voice cap (25 words) = ~40 tokens. Text cap (70 words) = ~100 tokens.
+  // Plus ~40 reasoning tokens. Weighted toward voice since that's the
+  // target rollout; underestimates text slightly but matches real billing.
+  hintOutputTokensPerTurn: 100,
 } as const
 
 /** Single-session cost given assumptions above and the chosen model. */
@@ -107,25 +116,16 @@ export function estimateUserCostDkk(
 }
 
 // Voice (STT + TTS) rate cards.
-// See docs/voice-pricing-estimates.md for vendor comparison + session math.
-// Keep these in sync with that doc — admin Priser tab reads from here.
+// IDs match lib/voice/types.ts — only providers we actually ship.
 
-export type VoiceProviderId =
-  | "off"
-  | "deepgram-elevenlabs-flash"
-  | "azure-speech"
-  | "google-cloud"
-  | "deepgram-azure-tts"
-  | "elevenlabs-conv-ai"
+export type VoiceProviderId = "off" | "azure" | "elevenlabs"
 
 export type VoiceProviderSpec = {
   id: VoiceProviderId
   label: string
   note: string
-  // Per-unit rates. Bundled providers set bundledPerMinUsd and leave the others 0.
   sttPerMinUsd: number
   ttsPerKCharUsd: number
-  bundledPerMinUsd: number
 }
 
 export const VOICE_PROVIDERS: Record<VoiceProviderId, VoiceProviderSpec> = {
@@ -135,137 +135,116 @@ export const VOICE_PROVIDERS: Record<VoiceProviderId, VoiceProviderSpec> = {
     note: "Tekst-only. Ingen voice-omkostning.",
     sttPerMinUsd: 0,
     ttsPerKCharUsd: 0,
-    bundledPerMinUsd: 0,
   },
-  "deepgram-elevenlabs-flash": {
-    id: "deepgram-elevenlabs-flash",
-    label: "Deepgram + ElevenLabs Flash v2.5",
-    note: "Anbefalet premium. Varm dansk stemme. Kræver EL Enterprise DPA.",
-    sttPerMinUsd: 0.0043,
-    ttsPerKCharUsd: 0.15,
-    bundledPerMinUsd: 0,
-  },
-  "azure-speech": {
-    id: "azure-speech",
+  azure: {
+    id: "azure",
     label: "Azure Speech (STT + Neural TTS)",
-    note: "Billigst GDPR-løsning. Samme tenant som LLM. Stemme OK, ikke varm.",
+    note: "Default. GDPR. Samme tenant som LLM. Stemme OK, ikke varm.",
     sttPerMinUsd: 0.0167,
     ttsPerKCharUsd: 0.016,
-    bundledPerMinUsd: 0,
   },
-  "google-cloud": {
-    id: "google-cloud",
-    label: "Google Cloud (Chirp + WaveNet)",
-    note: "Pris svarende til Azure. europe-west region. Fallback hvis Azure driller.",
-    sttPerMinUsd: 0.016,
-    ttsPerKCharUsd: 0.016,
-    bundledPerMinUsd: 0,
-  },
-  "deepgram-azure-tts": {
-    id: "deepgram-azure-tts",
-    label: "Deepgram STT + Azure Neural TTS",
-    note: "Hybrid. Billigst af alle. Default-kandidat hvis stemmevarmen er OK.",
-    sttPerMinUsd: 0.0043,
-    ttsPerKCharUsd: 0.016,
-    bundledPerMinUsd: 0,
-  },
-  "elevenlabs-conv-ai": {
-    id: "elevenlabs-conv-ai",
-    label: "ElevenLabs Conversational AI (bundle)",
-    note: "Realtime-agtig UX. Dyrest. Kun værd til premium-tier.",
-    sttPerMinUsd: 0,
-    ttsPerKCharUsd: 0,
-    bundledPerMinUsd: 0.08,
+  elevenlabs: {
+    id: "elevenlabs",
+    label: "ElevenLabs (Scribe STT + Flash v2.5 TTS)",
+    note: "Premium varm dansk stemme. Kræver Enterprise DPA til børnelyd.",
+    sttPerMinUsd: 0.00667,
+    ttsPerKCharUsd: 0.15,
   },
 }
+
+// Per-vendor unit rates for the admin Stemme page A/B matrix.
+// The bundled + recommended scenarios above are composites of these; the
+// Stemme page wants the raw vendor math so admins can see what switching
+// just the STT or just the TTS half costs.
+// Source: docs/voice-pricing-estimates.md § vendor rate cards.
+export const VOICE_UNIT_RATES = {
+  azure: {
+    label: "Azure AI Speech",
+    sttPerMinUsd: 0.0167,
+    ttsPerKCharUsd: 0.016,
+    note: "Sweden Central. Samme tenant som OpenAI.",
+  },
+  elevenlabs: {
+    label: "ElevenLabs",
+    // Scribe v2: ~$0.40/hr ≈ $0.00667/min.
+    sttPerMinUsd: 0.00667,
+    // Flash v2.5: ~$0.15 / 1k chars mid-tier.
+    ttsPerKCharUsd: 0.15,
+    note: "Scribe STT + Flash v2.5 TTS. Kræver Enterprise DPA til børnelyd.",
+  },
+} as const
+
+export type VoiceVendorId = keyof typeof VOICE_UNIT_RATES
 
 // Per-turn voice assumptions. Revisit once real session data lands (post-prod).
 export const VOICE_ASSUMPTIONS = {
   // Child speech per turn, in seconds. "Jeg tror det er 7" + filler + think-aloud.
-  sttSecondsPerTurn: 15,
-  // AI Socratic reply per turn, in characters. ~70-word cap × ~6 chars incl. spaces.
-  ttsCharsPerTurn: 420,
+  sttSecondsPerTurn: 25,
+  // AI Socratic reply per turn, in characters. Voice-mode prompt caps at 25
+  // talte ord (lib/prompts.ts) ≈ 180 chars including spaces.
+  ttsCharsPerTurn: 180,
 } as const
 
 export function computeVoiceCost(
   providerId: VoiceProviderId,
-  turnsPerSession: number,
-): { perSessionUsd: number } {
+  turns: number,
+): { usd: number } {
+  if (providerId === "off") return { usd: 0 }
   const p = VOICE_PROVIDERS[providerId]
-  if (providerId === "off") return { perSessionUsd: 0 }
-
-  const sttMinutes = (turnsPerSession * VOICE_ASSUMPTIONS.sttSecondsPerTurn) / 60
-  const ttsKChars = (turnsPerSession * VOICE_ASSUMPTIONS.ttsCharsPerTurn) / 1000
-
-  if (p.bundledPerMinUsd > 0) {
-    // Bundled provider — charge by total conversation minutes.
-    // Approximate conversation length = child speech + AI speech.
-    // AI speech ≈ chars / 15 chars per second of spoken audio.
-    const aiSpeechSeconds = (turnsPerSession * VOICE_ASSUMPTIONS.ttsCharsPerTurn) / 15
-    const conversationMinutes =
-      sttMinutes + aiSpeechSeconds / 60
-    return { perSessionUsd: conversationMinutes * p.bundledPerMinUsd }
-  }
-
-  return {
-    perSessionUsd:
-      sttMinutes * p.sttPerMinUsd + ttsKChars * p.ttsPerKCharUsd,
-  }
+  const sttMinutes = (turns * VOICE_ASSUMPTIONS.sttSecondsPerTurn) / 60
+  const ttsKChars = (turns * VOICE_ASSUMPTIONS.ttsCharsPerTurn) / 1000
+  return { usd: sttMinutes * p.sttPerMinUsd + ttsKChars * p.ttsPerKCharUsd }
 }
 
-export type UsageInputs = {
-  sessionsPerWeek: number
-  turnsPerSession: number
+export type HourlyUsageInputs = {
+  tasksPerHour: number
+  turnsPerTask: number
   visionModel: ModelId
   hintModel: ModelId
-  voiceProvider?: VoiceProviderId
+  voiceProvider: VoiceProviderId
 }
 
-export type CostBreakdown = {
+export type HourlyCost = {
   visionUsd: number
   hintUsd: number
   voiceUsd: number
-  perSessionUsd: number
-  perMonthUsd: number
-  perYearUsd: number
-  perSessionDkk: number
-  perMonthDkk: number
-  perYearDkk: number
+  perHourUsd: number
+  perHourDkk: number
+  perTaskUsd: number
+  perTaskDkk: number
 }
 
-export function computeCost(u: UsageInputs): CostBreakdown {
+export function computeHourlyCost(u: HourlyUsageInputs): HourlyCost {
   const vision = MODELS[u.visionModel]
   const hint = MODELS[u.hintModel]
   const a = TOKEN_ASSUMPTIONS
 
+  const totalTurns = u.tasksPerHour * u.turnsPerTask
+
   const visionUsd =
-    (a.visionInputTokens * vision.inputPerMTok) / 1_000_000 +
-    (a.visionOutputTokens * vision.outputPerMTok) / 1_000_000
+    u.tasksPerHour *
+    ((a.visionInputTokens * vision.inputPerMTok +
+      a.visionOutputTokens * vision.outputPerMTok) /
+      1_000_000)
 
   const hintUsd =
-    u.turnsPerSession *
-    ((a.hintInputTokensPerTurn * hint.inputPerMTok) / 1_000_000 +
-      (a.hintOutputTokensPerTurn * hint.outputPerMTok) / 1_000_000)
+    totalTurns *
+    ((a.hintInputTokensPerTurn * hint.inputPerMTok +
+      a.hintOutputTokensPerTurn * hint.outputPerMTok) /
+      1_000_000)
 
-  const voiceUsd = computeVoiceCost(
-    u.voiceProvider ?? "off",
-    u.turnsPerSession,
-  ).perSessionUsd
+  const voiceUsd = computeVoiceCost(u.voiceProvider, totalTurns).usd
 
-  const perSessionUsd = visionUsd + hintUsd + voiceUsd
-  // 4.33 weeks ≈ avg month length (52 / 12)
-  const perMonthUsd = perSessionUsd * u.sessionsPerWeek * 4.33
-  const perYearUsd = perSessionUsd * u.sessionsPerWeek * 52
+  const perHourUsd = visionUsd + hintUsd + voiceUsd
+  const perTaskUsd = u.tasksPerHour > 0 ? perHourUsd / u.tasksPerHour : 0
 
   return {
     visionUsd,
     hintUsd,
     voiceUsd,
-    perSessionUsd,
-    perMonthUsd,
-    perYearUsd,
-    perSessionDkk: perSessionUsd * USD_TO_DKK,
-    perMonthDkk: perMonthUsd * USD_TO_DKK,
-    perYearDkk: perYearUsd * USD_TO_DKK,
+    perHourUsd,
+    perHourDkk: perHourUsd * USD_TO_DKK,
+    perTaskUsd,
+    perTaskDkk: perTaskUsd * USD_TO_DKK,
   }
 }

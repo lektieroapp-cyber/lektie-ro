@@ -1,17 +1,24 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { SparkleIcon } from "@/components/icons/RewardIcons"
 import { logDevEvent } from "./dev-log"
 import { DevLog } from "./DevLog"
 import { EmptyPhotoPanel } from "./EmptyPhotoPanel"
+import { ImagePreviewPanel } from "./ImagePreviewPanel"
 import { ScanPanel } from "./ScanPanel"
 import { ThinkingPanel } from "./ThinkingPanel"
 import { SubjectPicker } from "./SubjectPicker"
 import { TaskPicker } from "./TaskPicker"
 import { ModeSelector } from "./ModeSelector"
 import { HintChat } from "./HintChat"
-import type { HintMode, SolveResponse, Task, Turn } from "./types"
+import { VoiceSubjectChoice } from "./VoiceSubjectChoice"
+import { VoiceTaskChoice } from "./VoiceTaskChoice"
+import type { ConversationMode, HintMode, SolveResponse, Task, Turn } from "./types"
+
+const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
+const CONVO_MODE_STORAGE_KEY = "lr_convo_mode"
 
 type Stage =
   | "idle"
@@ -90,6 +97,35 @@ export function SessionFlow({
   const showDevTools = isAdmin && isLocalhost
 
   const [stage, setStage] = useState<Stage>("idle")
+  // Below grade 5 the kid can't reliably type (still building writing fluency),
+  // so voice is the right default AND there's no "ægte" choice for them to
+  // make — we lock the toggle out and let the parent-implied default stand.
+  // Grade 5+ can read/write, so they get to flip it and we remember their
+  // preference per browser.
+  const canKidToggleConversation =
+    VOICE_ENABLED && childGrade != null && childGrade >= 5
+  // Default: voice for 0.-4. klasse (Louise + Marcuz: fjerner skrivebarrieren
+  // for de mindste og ordblinde). Older kids default to text.
+  const [conversationMode, setConversationMode] = useState<ConversationMode>(() => {
+    if (!VOICE_ENABLED) return "text"
+    return childGrade != null && childGrade <= 4 ? "voice" : "text"
+  })
+  useEffect(() => {
+    // Stored kid-preference only applies when the kid is old enough to set
+    // it. Below grade 5 the grade-based default wins.
+    if (!canKidToggleConversation) return
+    try {
+      const stored = window.localStorage.getItem(CONVO_MODE_STORAGE_KEY)
+      if (stored === "voice" || stored === "text") setConversationMode(stored)
+    } catch {}
+  }, [canKidToggleConversation])
+  function changeConversationMode(next: ConversationMode) {
+    setConversationMode(next)
+    try {
+      window.localStorage.setItem(CONVO_MODE_STORAGE_KEY, next)
+    } catch {}
+    logDevEvent("info", `Snak-tilstand: ${next}`)
+  }
   const [solve, setSolve] = useState<SolveResponse | null>(null)
   const [task, setTask] = useState<Task | null>(null)
   const [mode, setMode] = useState<HintMode | null>(null)
@@ -194,6 +230,70 @@ export function SessionFlow({
     }
   }
 
+  // Admin-only test shortcut: skip the upload step and run /api/solve on an
+  // image that's already in the bucket. Triggered by `?testImage=<path>` on
+  // the dashboard URL (only honoured for admins — parents hit the normal
+  // upload flow). Lets us iterate on AI behaviour without re-taking photos.
+  async function startWithExistingImage(path: string) {
+    setError(null)
+    setImagePath(path)
+    setPreviewUrl(null)
+    setStage("thinking")
+    logDevEvent("upload", "Test-billede: bruger eksisterende path", { path })
+    // Fire a signed-URL fetch in parallel with /api/solve so the dev preview
+    // panel has something to render as soon as we land in task-pick. No-op
+    // for non-admins (endpoint will 403 and we just swallow it).
+    void fetch(`/api/admin/image-url?path=${encodeURIComponent(path)}`)
+      .then(async r => {
+        if (!r.ok) return
+        const j = (await r.json()) as { url?: string }
+        if (j.url) setPreviewUrl(j.url)
+      })
+      .catch(() => {})
+    const start = performance.now()
+    try {
+      const res = await fetch("/api/solve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imagePath: path }),
+      })
+      if (!res.ok) throw new Error("solve failed")
+      const data = (await res.json()) as SolveResponse
+      const resolvedSubject = data.subject || sessionSubject
+      if (resolvedSubject) setSessionSubject(resolvedSubject)
+      const solveWithSubject = resolvedSubject ? { ...data, subject: resolvedSubject } : data
+      setSolve(solveWithSubject)
+      logDevEvent("solve", `${data.tasks.length} opgaver fundet (test-billede)`, {
+        subject: solveWithSubject.subject,
+        confidence: solveWithSubject.subjectConfidence ?? "—",
+        mocked: !!solveWithSubject.mocked,
+        ms: Math.round(performance.now() - start),
+      })
+      if (solveWithSubject.tasks.length === 0) {
+        setStage("emptyPhoto")
+      } else if (!solveWithSubject.subject || solveWithSubject.subjectConfidence === "low") {
+        setStage("subject")
+      } else {
+        setStage("pick")
+      }
+    } catch (err) {
+      logDevEvent("ai-error", `Solve fejlede (test): ${(err as Error).message}`)
+      setError("Kunne ikke læse det genbrugte billede. Det kan være udløbet.")
+      setImagePath(null)
+      setStage("idle")
+    }
+  }
+
+  const searchParams = useSearchParams()
+  const testImagePath = searchParams?.get("testImage") ?? null
+  useEffect(() => {
+    if (!testImagePath) return
+    if (!isAdmin) return
+    if (stage !== "idle") return
+    void startWithExistingImage(testImagePath)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testImagePath, isAdmin])
+
   function pickSubject(subject: string) {
     if (!solve) return
     setSessionSubject(subject)
@@ -205,17 +305,17 @@ export function SessionFlow({
     logDevEvent("subject", `Valgt: ${subject}`)
   }
 
-  function pickTask(t: Task) {
+  // Kid goes straight from task → hint. The ModeSelector "hvor vil du starte?"
+  // screen was removed (2026-04-23): with the new goal+steps extraction, Dani's
+  // first turn already orients around the task and asks the kid to engage, so
+  // the three-way picker was extra clicks without extra value. Dev panel can
+  // still jump to the "mode" stage if we need the legacy picker for testing.
+  async function pickTask(t: Task) {
     setTask(t)
     setTurns([])
-    setStage("mode")
-    logDevEvent("task", t.text.slice(0, 60), { type: t.type })
-  }
-
-  async function pickMode(m: HintMode) {
-    setMode(m)
+    setMode("hint")
     setStage("hint")
-    logDevEvent("mode", m)
+    logDevEvent("task", t.text.slice(0, 60), { type: t.type })
 
     // Create a session row if we have a real child (not dev/parent mode).
     if (activeChildId && activeChildId !== "parent" && solve) {
@@ -227,6 +327,40 @@ export function SessionFlow({
             childId: activeChildId,
             subject: solve.subject,
             // Grade comes from the child's profile, not the photo.
+            grade: childGrade ?? null,
+            mode: "hint",
+            // Use `t` directly — setTask(t) is async, so this closure's `task`
+            // state is still the previous value at this point.
+            problemText: t.text,
+            problemType: t.type,
+            imagePath: imagePath ?? undefined,
+          }),
+        })
+        if (res.ok) {
+          const json = await res.json() as { sessionId: string }
+          setDbSessionId(json.sessionId)
+        }
+      } catch {
+        // Non-fatal: session won't be recorded but flow continues.
+      }
+    }
+  }
+
+  // Retained for the dev panel's mode-stage jump. Normal kid flow no longer
+  // hits this path — pickTask transitions straight to "hint".
+  async function pickMode(m: HintMode) {
+    setMode(m)
+    setStage("hint")
+    logDevEvent("mode", m)
+
+    if (activeChildId && activeChildId !== "parent" && solve) {
+      try {
+        const res = await fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            childId: activeChildId,
+            subject: solve.subject,
             grade: childGrade ?? null,
             mode: m,
             problemText: task?.text,
@@ -292,6 +426,16 @@ export function SessionFlow({
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
     if (fileRef.current) fileRef.current.value = ""
+  }
+
+  // AI-initiated retake — fired when Dani emits [needphoto]. Resets to idle
+  // and auto-pops the file picker so the kid doesn't have to hunt for the
+  // camera button. setTimeout gives React a tick to render the idle state
+  // before we kick off the native file dialog.
+  function requestNewPhoto() {
+    newPhoto()
+    window.setTimeout(() => fileRef.current?.click(), 50)
+    logDevEvent("info", "AI bad om nyt billede ([needphoto])")
   }
 
   // Full reset — also forgets subject (new homework session)
@@ -361,6 +505,8 @@ export function SessionFlow({
           childName={childName ?? undefined}
           completedCount={completedTasks}
           onFinish={completedTasks > 0 ? finishSession : undefined}
+          conversationMode={conversationMode}
+          onConversationModeChange={canKidToggleConversation ? changeConversationMode : undefined}
         />
       )}
       {stage === "sessionDone" && (
@@ -401,15 +547,29 @@ export function SessionFlow({
         />
       )}
       {stage === "subject" && solve && (
-        <SubjectPicker
-          onPick={pickSubject}
-          guess={solve.subject}
-          guessConfidence={solve.subjectConfidence}
-          detectionNotes={solve.detectionNotes}
-        />
+        <>
+          {conversationMode === "voice" && (
+            <div style={{ maxWidth: 440, margin: "0 auto 14px", display: "flex", justifyContent: "center" }}>
+              <VoiceSubjectChoice guess={solve.subject} onPick={pickSubject} />
+            </div>
+          )}
+          <SubjectPicker
+            onPick={pickSubject}
+            guess={solve.subject}
+            guessConfidence={solve.subjectConfidence}
+            detectionNotes={solve.detectionNotes}
+          />
+        </>
       )}
       {stage === "pick" && solve && (
-        <TaskPicker solve={solve} onPick={pickTask} onNewPhoto={newPhoto} />
+        <>
+          {conversationMode === "voice" && solve.tasks.length > 0 && (
+            <div style={{ maxWidth: 440, margin: "0 auto 14px", display: "flex", justifyContent: "center" }}>
+              <VoiceTaskChoice tasks={solve.tasks} onPick={pickTask} />
+            </div>
+          )}
+          <TaskPicker solve={solve} onPick={pickTask} onNewPhoto={newPhoto} />
+        </>
       )}
       {stage === "mode" && task && solve && (
         <ModeSelector task={task} solve={solve} onSelect={pickMode} onBack={() => setStage("pick")} />
@@ -425,7 +585,9 @@ export function SessionFlow({
           onComplete={completeSession}
           onMoreHomework={nextTask}
           onFinishSession={finishSession}
+          onRequestNewPhoto={requestNewPhoto}
           completed={stage === "done"}
+          conversationMode={conversationMode}
         />
       )}
 
@@ -440,7 +602,6 @@ export function SessionFlow({
 
       {showDevTools && (
         <>
-          <DevPanel currentStage={stage} onJump={devJump} />
           <DevLog
             stage={stage}
             solve={solve}
@@ -449,6 +610,18 @@ export function SessionFlow({
             turns={turns}
             completedTasks={completedTasks}
           />
+          {/* Floating preview of the homework photo. Shown during task
+              picker, mode, hint and done stages so we can glance at the
+              original while chatting with the AI. Minimizes to a small
+              corner thumb; click to maximize to a full-screen lightbox. */}
+          {previewUrl &&
+            (stage === "subject" ||
+              stage === "pick" ||
+              stage === "mode" ||
+              stage === "hint" ||
+              stage === "done") && (
+              <ImagePreviewPanel url={previewUrl} />
+            )}
         </>
       )}
     </div>

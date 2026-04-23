@@ -11,8 +11,11 @@ const ROUTE_META: Record<RouteKey, {
   home: { priority: 1.0, changeFrequency: "weekly", lastModified: "2026-04-14" },
   faq: { priority: 0.8, changeFrequency: "monthly", lastModified: "2026-04-14" },
   pricing: { priority: 0.7, changeFrequency: "monthly", lastModified: "2026-04-14" },
-  privacy: { priority: 0.4, changeFrequency: "yearly", lastModified: "2026-04-14" },
-  terms: { priority: 0.4, changeFrequency: "yearly", lastModified: "2026-04-14" },
+  // Privacy + terms are required pages but not worth crawling — kept out of
+  // the sitemap so Google's index budget spends on marketing-relevant URLs.
+  // The pages still render, still accept direct links, just not listed here.
+  privacy: null,
+  terms: null,
   login: null,
   signup: null,
   parentDashboard: null,

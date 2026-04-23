@@ -17,3 +17,8 @@ tsconfig.tsbuildinfo
 
 # Claude Code — per-user, not team-shared
 .claude/settings.local.json
+
+# Task samples — homework photos for manual testing.
+# PII under GDPR, never committed. README stays tracked.
+task-samples/*
+!task-samples/README.md

@@ -1,6 +1,7 @@
 import { matematik } from "./matematik"
 import { dansk } from "./dansk"
 import { engelsk } from "./engelsk"
+import { tysk } from "./tysk"
 import type { GradeCurriculum, Subject } from "./types"
 
 export type { GradeCurriculum, Subject }
@@ -9,6 +10,7 @@ const CURRICULA: Record<Subject, Record<number, GradeCurriculum>> = {
   matematik,
   dansk,
   engelsk,
+  tysk,
 }
 
 const SUBJECT_ALIASES: Record<string, Subject> = {
@@ -19,6 +21,9 @@ const SUBJECT_ALIASES: Record<string, Subject> = {
   danish: "dansk",
   english: "engelsk",
   engelsk: "engelsk",
+  tysk: "tysk",
+  german: "tysk",
+  deutsch: "tysk",
 }
 
 /**

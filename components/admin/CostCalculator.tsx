@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import {
-  computeCost,
+  computeHourlyCost,
   MODELS,
   TOKEN_ASSUMPTIONS,
   USD_TO_DKK,
@@ -13,29 +13,33 @@ import {
 } from "@/lib/ai-pricing"
 
 const SUBSCRIPTION_DKK = 229
+const WEEKS_PER_MONTH = 4.33
 
 export function CostCalculator() {
-  const [sessionsPerWeek, setSessionsPerWeek] = useState(5)
-  const [turnsPerSession, setTurnsPerSession] = useState(4)
+  const [tasksPerHour, setTasksPerHour] = useState(5)
+  const [turnsPerTask, setTurnsPerTask] = useState(8)
+  const [hoursPerWeek, setHoursPerWeek] = useState(3)
   const [visionModel, setVisionModel] = useState<ModelId>("gpt-5-mini")
   const [hintModel, setHintModel] = useState<ModelId>("gpt-5-mini")
-  const [voiceProvider, setVoiceProvider] = useState<VoiceProviderId>("off")
+  const [voiceProvider, setVoiceProvider] = useState<VoiceProviderId>("azure")
 
   const cost = useMemo(
     () =>
-      computeCost({
-        sessionsPerWeek,
-        turnsPerSession,
+      computeHourlyCost({
+        tasksPerHour,
+        turnsPerTask,
         visionModel,
         hintModel,
         voiceProvider,
       }),
-    [sessionsPerWeek, turnsPerSession, visionModel, hintModel, voiceProvider]
+    [tasksPerHour, turnsPerTask, visionModel, hintModel, voiceProvider]
   )
 
+  const perMonthDkk = cost.perHourDkk * hoursPerWeek * WEEKS_PER_MONTH
+  const perMonthUsd = cost.perHourUsd * hoursPerWeek * WEEKS_PER_MONTH
   const marginPct = Math.max(
     0,
-    ((SUBSCRIPTION_DKK - cost.perMonthDkk) / SUBSCRIPTION_DKK) * 100
+    ((SUBSCRIPTION_DKK - perMonthDkk) / SUBSCRIPTION_DKK) * 100
   )
 
   return (
@@ -46,25 +50,36 @@ export function CostCalculator() {
       >
         <h3 className="text-base font-semibold text-ink">Brug per barn</h3>
         <p className="mt-1 text-sm text-muted">
-          Justér sliderne for at se hvad et barns AI-forbrug koster os per måned.
+          Justér sliderne for at se hvad én times lektier koster os — og hvad det
+          ruller op til per måned ved valgt ugentlig brug.
         </p>
 
         <Slider
-          label="Sessioner per uge"
-          value={sessionsPerWeek}
+          label="Opgaver per time"
+          value={tasksPerHour}
           min={1}
-          max={40}
-          onChange={setSessionsPerWeek}
-          suffix={sessionsPerWeek === 1 ? "session" : "sessioner"}
+          max={10}
+          onChange={setTasksPerHour}
+          suffix={tasksPerHour === 1 ? "opgave" : "opgaver"}
+          help="Hvor mange separate lektieopgaver barnet kommer igennem på en time."
         />
         <Slider
-          label="Turns per session"
-          value={turnsPerSession}
+          label="Ture per opgave"
+          value={turnsPerTask}
           min={1}
-          max={8}
-          onChange={setTurnsPerSession}
-          suffix={turnsPerSession === 1 ? "tur" : "ture"}
-          help="Hårdt loft i produktion er 8 ture."
+          max={12}
+          onChange={setTurnsPerTask}
+          suffix={turnsPerTask === 1 ? "tur" : "ture"}
+          help="Sokratisk frem-og-tilbage per opgave. Hårdt loft i produktion er 8."
+        />
+        <Slider
+          label="Timer per uge"
+          value={hoursPerWeek}
+          min={1}
+          max={15}
+          onChange={setHoursPerWeek}
+          suffix={hoursPerWeek === 1 ? "time" : "timer"}
+          help="Bruges kun til måneds-udregning og margin."
         />
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -92,7 +107,8 @@ export function CostCalculator() {
           <ul className="mt-2 space-y-1 pl-4">
             <li>
               Vision: {fmt(TOKEN_ASSUMPTIONS.visionInputTokens)} in /{" "}
-              {fmt(TOKEN_ASSUMPTIONS.visionOutputTokens)} out per foto
+              {fmt(TOKEN_ASSUMPTIONS.visionOutputTokens)} out per opgave (kører
+              én gang per foto/opgave)
             </li>
             <li>
               Hint: {fmt(TOKEN_ASSUMPTIONS.hintInputTokensPerTurn)} in /{" "}
@@ -100,14 +116,12 @@ export function CostCalculator() {
             </li>
             <li>
               Voice: {VOICE_ASSUMPTIONS.sttSecondsPerTurn}s barn-tale /{" "}
-              {VOICE_ASSUMPTIONS.ttsCharsPerTurn} tegn AI-tale per tur
+              {VOICE_ASSUMPTIONS.ttsCharsPerTurn} tegn AI-tale per tur (matcher
+              25-ord cap i voice-prompten)
             </li>
             <li>USD → DKK: {USD_TO_DKK}</li>
-            <li>Måned = 4.33 uger (52/12)</li>
+            <li>Måned = {WEEKS_PER_MONTH} uger (52 / 12)</li>
           </ul>
-          <p className="mt-2 pl-4">
-            Se <code>docs/voice-pricing-estimates.md</code> for vendor-sammenligning.
-          </p>
         </details>
       </div>
 
@@ -117,28 +131,45 @@ export function CostCalculator() {
           style={{ boxShadow: "var(--shadow-card)" }}
         >
           <div className="text-sm font-medium text-muted">
-            AI-omkostning per måned
+            Pris per time lektier
           </div>
           <div
             className="mt-1 text-4xl font-bold text-mint-deep"
             style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
           >
-            {fmtDkk(cost.perMonthDkk)}
+            {fmtDkk(cost.perHourDkk)}
           </div>
           <div className="mt-1 text-xs text-muted">
-            ≈ ${cost.perMonthUsd.toFixed(3)} USD
+            ≈ ${cost.perHourUsd.toFixed(2)} USD · {tasksPerHour * turnsPerTask}{" "}
+            ture/time
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-            <Row label="Per session" value={fmtDkk(cost.perSessionDkk)} sub={`$${cost.perSessionUsd.toFixed(4)}`} />
-            <Row label="Per år" value={fmtDkk(cost.perYearDkk)} sub={`$${cost.perYearUsd.toFixed(2)}`} />
-            <Row label="Vision-del" value={fmtDkk(cost.visionUsd * USD_TO_DKK)} sub="per session" />
-            <Row label="Hint-del" value={fmtDkk(cost.hintUsd * USD_TO_DKK)} sub="per session" />
+            <Row
+              label="Per opgave"
+              value={fmtDkk(cost.perTaskDkk)}
+              sub={`$${cost.perTaskUsd.toFixed(4)}`}
+            />
+            <Row
+              label="Per måned"
+              value={fmtDkk(perMonthDkk)}
+              sub={`$${perMonthUsd.toFixed(2)} · ${hoursPerWeek}t/uge`}
+            />
+            <Row
+              label="Vision-del"
+              value={fmtDkk(cost.visionUsd * USD_TO_DKK)}
+              sub="per time"
+            />
+            <Row
+              label="Hint-del"
+              value={fmtDkk(cost.hintUsd * USD_TO_DKK)}
+              sub="per time"
+            />
             {voiceProvider !== "off" && (
               <Row
                 label="Voice-del"
                 value={fmtDkk(cost.voiceUsd * USD_TO_DKK)}
-                sub="per session"
+                sub="per time"
               />
             )}
           </div>
@@ -161,7 +192,8 @@ export function CostCalculator() {
             {marginPct.toFixed(1)}%
           </div>
           <div className="mt-1 text-xs text-muted">
-            Dækker kun AI-inference. Supabase, hosting, Resend og skat ikke medregnet.
+            Ved {hoursPerWeek} timer/uge. Dækker kun AI-inference. Supabase,
+            hosting, Resend og skat ikke medregnet.
           </div>
         </div>
       </div>

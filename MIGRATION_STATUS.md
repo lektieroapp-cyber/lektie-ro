@@ -7,15 +7,19 @@
 | `supabase/migrations/003_children_profile.sql` | ☑ | ☑ | adds `interests` + `special_needs` columns for AI personalisation |
 | `supabase/migrations/004_admin_rls_fix.sql` | ☑ | ☑ | fixes recursive RLS on admin role checks (CRITICAL — admin promotion silently no-ops without it) |
 | `supabase/migrations/005_subscription_tier.sql` | ☑ | ☑ | adds `subscription_tier` to profiles (free/standard/family) to enforce child slot limits |
+| `supabase/migrations/006_sessions_turns.sql` | ☑ | ? | `sessions` + `turns` tables + RLS. Dev verified 2026-04-23 via REST probe (rows exist). Prod: re-confirm before handover. |
+| `supabase/migrations/007_child_companion.sql` | ☑ | ? | `companion_type` on children. Dev verified 2026-04-23 via REST probe (column exists). Prod: re-confirm before handover. |
 
-Run in Supabase SQL editor → paste the file contents → verify `subscription_tier` column appears on `profiles`.
+Run in Supabase SQL editor → paste the file contents → verify the new columns / tables appear.
 
-| `supabase/migrations/006_sessions_turns.sql` | ☐ | ☐ | `sessions` + `turns` tables + RLS — **run before going live with AI** |
-| `supabase/migrations/007_child_companion.sql` | ☐ | ☐ | `companion_type` on children — kid's chosen animal mascot persisted per-profile |
+Quick dev-check (runs against whatever `.env.local` points at):
 
-**To apply 006:** paste contents into Supabase SQL editor (dev first, then prod).
-Enables: session tracking, difficulty scoring, parent overview real stats, turn history.
+```bash
+node --env-file=.env.local -e "
+const u = process.env.NEXT_PUBLIC_SUPABASE_URL, k = process.env.SUPABASE_SERVICE_ROLE_KEY;
+['sessions','turns'].forEach(t => fetch(u+'/rest/v1/'+t+'?select=id&limit=1',{headers:{apikey:k,Authorization:'Bearer '+k}}).then(r=>r.text()).then(b=>console.log(t,b.slice(0,120))));
+fetch(u+'/rest/v1/children?select=companion_type&limit=1',{headers:{apikey:k,Authorization:'Bearer '+k}}).then(r=>r.text()).then(b=>console.log('companion_type',b.slice(0,120)));
+"
+```
 
-**To apply 007:** same — adds one nullable column. Before it's applied the CompanionContext
-falls back to the `lr_companion` cookie, so the flow still works; after it's applied the
-choice is saved to the `children` row and shown as the kid's avatar on the profile selector.
+200 + a row = applied. 404 / missing-column error = not applied.

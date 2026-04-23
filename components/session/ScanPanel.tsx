@@ -5,6 +5,7 @@ import { Companion } from "@/components/mascot/Companion"
 import { useCompanion } from "@/components/mascot/CompanionContext"
 import { DEFAULT_COMPANION } from "@/components/mascot/types"
 import { K } from "./design-tokens"
+import type { ConversationMode } from "./types"
 
 function dragHasFile(e: DragEvent): boolean {
   if (!e.dataTransfer) return false
@@ -21,6 +22,8 @@ export function ScanPanel({
   childName,
   completedCount = 0,
   onFinish,
+  conversationMode,
+  onConversationModeChange,
 }: {
   onSelect: () => void
   onFile: (file: File) => void
@@ -30,6 +33,10 @@ export function ScanPanel({
   completedCount?: number
   /** Click handler for "Færdig for i dag" text link — only rendered if provided */
   onFinish?: () => void
+  /** Current voice-vs-text preference. */
+  conversationMode?: ConversationMode
+  /** When omitted, the toggle is hidden (voice feature flag off). */
+  onConversationModeChange?: (next: ConversationMode) => void
 }) {
   const [dragging, setDragging] = useState(false)
   const [hover, setHover] = useState(false)
@@ -133,6 +140,16 @@ export function ScanPanel({
             {subhead}
           </p>
         </div>
+
+        {/* Voice-vs-text mode toggle. Only rendered when the voice feature
+            flag is on (parent passes an onChange handler). Kid can flip it
+            before the photo is taken so the whole session follows one style. */}
+        {onConversationModeChange && conversationMode && (
+          <ConversationModeToggle
+            value={conversationMode}
+            onChange={onConversationModeChange}
+          />
+        )}
 
         {/* Photo capture card — warm dashed border */}
         <button
@@ -329,5 +346,100 @@ export function ScanPanel({
         </div>
       )}
     </div>
+  )
+}
+
+// Segmented pill — v3 palette: mint-soft outer, white+shadow for active, ink
+// for text. Same tint both sides per the "subjects share one palette"
+// principle; the icon + label is what differentiates.
+function ConversationModeToggle({
+  value,
+  onChange,
+}: {
+  value: ConversationMode
+  onChange: (next: ConversationMode) => void
+}) {
+  const options: { id: ConversationMode; label: string; icon: React.ReactNode }[] = [
+    { id: "voice", label: "Snak", icon: <MicGlyph /> },
+    { id: "text", label: "Skriv", icon: <PencilGlyph /> },
+  ]
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Hvordan vil du hjælpes i dag?"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 4,
+        background: K.mintSoft,
+        borderRadius: 999,
+        padding: 4,
+      }}
+    >
+      {options.map(opt => {
+        const active = value === opt.id
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={opt.label}
+            title={opt.label}
+            onClick={() => onChange(opt.id)}
+            style={{
+              border: "none",
+              background: active ? K.card : "transparent",
+              color: active ? K.ink : K.ink2,
+              borderRadius: 999,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: 14,
+              fontWeight: 700,
+              boxShadow: active
+                ? "0 1px 0 rgba(31,45,26,0.04), 0 6px 16px -10px rgba(31,45,26,0.18)"
+                : "none",
+              transition: "background 0.15s, color 0.15s",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            <span aria-hidden style={{ display: "inline-flex" }}>
+              {opt.icon}
+            </span>
+            <span>{opt.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function MicGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="2" />
+      <path d="M5 11a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 18v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 21h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PencilGlyph() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 20l3.5-.8L18 8.7l-2.7-2.7L4.8 16.5 4 20z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M14.5 7.2l2.6 2.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 5.5l1.5 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
   )
 }
