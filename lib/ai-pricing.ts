@@ -199,6 +199,18 @@ export function computeVoiceCost(
 // Cost helpers for live (measured) usage — used by the dev cost panel.
 // Each helper takes raw counters (tokens / seconds / chars) and returns USD.
 
+/** Best-effort map from a deployment name (e.g. "gpt-5-mini") to a known
+ *  ModelId. Falls back to gpt-5-mini — it's our prod default and will at
+ *  least give a directionally-correct cost in the dev panel. */
+export function modelIdFromDeployment(deployment: string): ModelId {
+  const d = deployment.toLowerCase()
+  if (d.includes("nano")) return "gpt-5-nano"
+  if (d.includes("mini")) return "gpt-5-mini"
+  if (d.includes("chat")) return "gpt-5-chat"
+  if (d.includes("gpt-5")) return "gpt-5"
+  return "gpt-5-mini"
+}
+
 export function llmUsdFromTokens(
   modelId: ModelId,
   promptTokens: number,

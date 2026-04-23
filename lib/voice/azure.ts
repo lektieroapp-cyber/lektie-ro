@@ -188,10 +188,12 @@ function wrapLetterLabelsInSayAs(escaped: string): string {
 }
 
 // Wrap quoted content in <lang xml:lang="en-US"> so the Danish Christel/
-// Jeppe voice switches to English pronunciation for English words/phrases.
-// English exercises reference target-language words via quotes — without
-// this, Christel reads "dog" with Danish phonemes ("dåhv") which is hard
-// for a kid to match.
+// Jeppe voice attempts English pronunciation for English words.
+//
+// Danish content in quotes (e.g., "æble", "ørred") must NOT be wrapped —
+// under an en-US lang tag the Danish voice butchers æ/ø/å (they get read
+// with English vowel phonemes which sounds wrong and is confusing to kids).
+// We detect Danish-specific chars and skip the wrap when any appear.
 //
 // Handles:
 //   - Straight ASCII quotes: "word"   (&quot; after xml-escape)
@@ -199,18 +201,25 @@ function wrapLetterLabelsInSayAs(escaped: string): string {
 // Caps content length at 60 chars so a rogue unclosed quote can't swallow
 // a whole paragraph into the wrap.
 //
-// Non-English quoted content in Danish homework is rare, and when it does
-// occur the kid-facing impact of English pronunciation is minimal. Kept
-// on globally — pull out behind a subject flag if it becomes an issue.
+// Known limitation: quality of Danish→English→Danish mid-sentence switch
+// is still "Danish voice faking English" — if we want proper English
+// pronunciation we'd need to nest <voice name="en-US-JennyNeural"> which
+// requires restructuring the outer <voice>/<prosody> wrapping. Follow-up.
+const DANISH_CHARS = /[æøåÆØÅ]/
+
 function wrapQuotedAsEnglish(escaped: string): string {
+  const wrap = (content: string): string => {
+    if (DANISH_CHARS.test(content)) return content
+    return `<lang xml:lang="en-US">${content}</lang>`
+  }
   return escaped
     .replace(
       /&quot;([^&]{1,60}?)&quot;/g,
-      '&quot;<lang xml:lang="en-US">$1</lang>&quot;'
+      (_m, content: string) => `&quot;${wrap(content)}&quot;`
     )
     .replace(
       /“([^“”]{1,60}?)”/g,
-      '“<lang xml:lang="en-US">$1</lang>”'
+      (_m, content: string) => `“${wrap(content)}”`
     )
 }
 

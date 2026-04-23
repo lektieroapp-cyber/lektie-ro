@@ -49,7 +49,15 @@ export type CostEvent =
 let events: CostEvent[] = []
 const listeners = new Set<() => void>()
 
-export function pushCostEvent(e: Omit<CostEvent, "ts">): void {
+// Plain `Omit<T, K>` collapses a discriminated union instead of distributing
+// over it, so callers get an error when they pass `{kind:"vision", promptTokens,…}`
+// because TypeScript thinks `promptTokens` isn't in the keys of the collapsed
+// type. This distributive variant keeps each branch of the union intact.
+type DistributiveOmit<T, K extends keyof CostEvent> = T extends CostEvent
+  ? Omit<T, K>
+  : never
+
+export function pushCostEvent(e: DistributiveOmit<CostEvent, "ts">): void {
   events = [...events, { ...e, ts: Date.now() } as CostEvent]
   for (const l of listeners) l()
 }

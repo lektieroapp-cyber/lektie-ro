@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { startPcmRecorder, type PcmRecorderHandle } from "@/lib/voice/pcm-recorder"
 import { startSilenceDetector } from "@/lib/voice/silence-detector"
+import { pushCostEvent } from "@/lib/dev-cost"
 import { K } from "./design-tokens"
 import type { Task } from "./types"
 
@@ -88,6 +89,11 @@ export function VoiceTaskChoice({
       }
       const blob = await res.blob()
       if (signal.aborted) return
+      pushCostEvent({
+        kind: "tts",
+        provider: res.headers.get("x-voice-provider") === "elevenlabs" ? "elevenlabs" : "azure",
+        chars: text.length,
+      })
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audioElRef.current = audio
@@ -288,6 +294,8 @@ async function transcribe(blob: Blob, signal: AbortSignal): Promise<string | nul
       signal,
     })
     if (!res.ok) return null
+    const audioSec = Math.max(0, (blob.size - 44) / 32000)
+    pushCostEvent({ kind: "stt", provider: "azure", audioSec })
     const j = (await res.json()) as { text?: string }
     return j.text ?? null
   } catch {

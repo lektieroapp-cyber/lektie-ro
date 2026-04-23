@@ -9,12 +9,54 @@ import { startBargeInDetector } from "@/lib/voice/barge-in-detector"
 import { startPcmRecorder, type PcmRecorderHandle } from "@/lib/voice/pcm-recorder"
 import { startSilenceDetector, type DetectorStats } from "@/lib/voice/silence-detector"
 import { stripForTts } from "@/lib/voice/tts-text"
+import { modelIdFromDeployment, type VoiceProviderId } from "@/lib/ai-pricing"
+import { pushCostEvent } from "@/lib/dev-cost"
 import { renderWithBlocks } from "./blocks/parse"
 import { StepChecklist } from "./StepChecklist"
 import { logDevEvent } from "./dev-log"
 import { K } from "./design-tokens"
 import { VoiceCanvas } from "./VoiceCanvas"
 import type { ConversationMode, HintMode, SolveResponse, Task, Turn } from "./types"
+
+// /api/hint appends "\n[[LR_USAGE:{...}]]" to the end of the streamed text.
+// We strip it before display and parse it for the dev cost panel.
+const USAGE_SENTINEL_START = "\n[[LR_USAGE:"
+const USAGE_SENTINEL_END = "]]"
+
+// Map an `x-voice-provider` response header to a pricing-known provider id.
+// The server always sends "azure" or "elevenlabs"; default to azure if a
+// future provider lands without rate-card support.
+function ttsProviderId(raw: string): VoiceProviderId {
+  return raw === "elevenlabs" ? "elevenlabs" : "azure"
+}
+
+function splitUsageSentinel(acc: string): {
+  text: string
+  usage: { promptTokens: number; completionTokens: number; model: string } | null
+} {
+  // Defensive: also strip a partially-arrived sentinel so it never flashes
+  // on screen between chunks. "[[LR_USAGE" alone is enough to start hiding.
+  const partialIdx = acc.indexOf("[[LR_USAGE")
+  if (partialIdx === -1) return { text: acc, usage: null }
+  // The newline before the sentinel is an artifact, trim it from displayed text.
+  const trimEnd = partialIdx > 0 && acc[partialIdx - 1] === "\n" ? partialIdx - 1 : partialIdx
+  const text = acc.slice(0, trimEnd)
+  const startIdx = acc.indexOf(USAGE_SENTINEL_START)
+  if (startIdx === -1) return { text, usage: null }
+  const jsonStart = startIdx + USAGE_SENTINEL_START.length
+  const endIdx = acc.indexOf(USAGE_SENTINEL_END, jsonStart)
+  if (endIdx === -1) return { text, usage: null }
+  try {
+    const parsed = JSON.parse(acc.slice(jsonStart, endIdx)) as {
+      promptTokens: number
+      completionTokens: number
+      model: string
+    }
+    return { text, usage: parsed }
+  } catch {
+    return { text, usage: null }
+  }
+}
 
 const MAX_TURNS = 25
 const WARN_AT = 20
@@ -341,6 +383,12 @@ export function HintChat({
         chars: text.length,
         bytes: blob.size,
       })
+      pushCostEvent({
+        kind: "tts",
+        provider: ttsProviderId(provider),
+        chars: text.length,
+        ms: wall,
+      })
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audio.preload = "auto"
@@ -524,9 +572,11 @@ export function HintChat({
           firstTokenAt = Math.round(performance.now() - start)
           logDevEvent("info", "first token", { ms: firstTokenAt })
         }
+        // Strip the dev-cost sentinel from anything we display or speak.
+        const display = splitUsageSentinel(acc).text
         if (useTypingGate) {
-          if (gateOpen) setPartial(acc)
-          else buffered = acc
+          if (gateOpen) setPartial(display)
+          else buffered = display
         }
         if (voiceAgent) {
           // Dispatch every complete sentence that's arrived since last scan.
@@ -534,11 +584,11 @@ export function HintChat({
           // TTS ~400 ms before the full sentence lands.
           while (true) {
             const isFirst = slots.length === 0 && spokenUpTo === 0
-            const boundary = findNextSpeakableBoundary(acc, spokenUpTo, {
+            const boundary = findNextSpeakableBoundary(display, spokenUpTo, {
               allowEarlyComma: isFirst,
             })
             if (boundary < 0) break
-            const sentence = acc.slice(spokenUpTo, boundary + 1)
+            const sentence = display.slice(spokenUpTo, boundary + 1)
             spokenUpTo = boundary + 1
             dispatchChunk(sentence)
           }
@@ -554,6 +604,20 @@ export function HintChat({
         if (elapsed < MIN_THINKING_MS) {
           await new Promise(r => setTimeout(r, MIN_THINKING_MS - elapsed))
         }
+      }
+
+      // Final split: the sentinel arrives in the last chunk. Push the cost
+      // event and store only the visible text in the turns history.
+      const { text: finalText, usage } = splitUsageSentinel(acc)
+      acc = finalText
+      if (usage) {
+        pushCostEvent({
+          kind: "hint",
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          model: modelIdFromDeployment(usage.model),
+          ms: Math.round(performance.now() - start),
+        })
       }
 
       setTurns(prev => [...prev, { role: "assistant", content: acc }])
@@ -687,6 +751,12 @@ export function HintChat({
       const ms = Number(res.headers.get("x-voice-ms") ?? "0")
       const provider = res.headers.get("x-voice-provider") ?? "?"
       const blob = await res.blob()
+      pushCostEvent({
+        kind: "tts",
+        provider: ttsProviderId(provider),
+        chars: text.length,
+        ms,
+      })
       const url = URL.createObjectURL(blob)
       const el = audioElRef.current ?? new Audio()
       audioElRef.current = el
@@ -815,7 +885,7 @@ export function HintChat({
         }
         return
       }
-      await sendRecording(blob)
+      await sendRecording(blob, durMs)
     }
 
     if (voiceAgent) {
@@ -927,7 +997,7 @@ export function HintChat({
             sttMs: null,
           }
         })
-        await sendRecording(blob)
+        await sendRecording(blob, durMs)
       })()
       return
     }
@@ -937,20 +1007,27 @@ export function HintChat({
     setMicLevel(0)
   }
 
-  async function sendRecording(blob: Blob) {
+  async function sendRecording(blob: Blob, durMs: number) {
     setTranscribing(true)
     const sttStart = performance.now()
     // Language-aware STT: when the homework is English, Azure needs to be
     // told to recognize English — otherwise it mis-transcribes English
-    // speech as garbled Danish ("I have a cat" → "ai hæv a kat"). For all
-    // other subjects we stay on da-DK (the default). Trade-off: if the kid
-    // switches mid-turn to ask for help in Danish on an English task, that
-    // Danish will get mistranscribed. Acceptable — kids mostly speak one
-    // language per turn, and the AI can still infer intent from context.
-    const sttLocale = solve.subject === "engelsk" ? "en-US" : "da-DK"
+    // speech as garbled Danish ("I have a cat" → "ai hæv a kat"). But kids
+    // doing English homework constantly slip into Danish for meta-comm
+    // ("hvad skal jeg sige?", "jeg er forvirret"), and those get
+    // transcribed as English gibberish ("A really familiar procedure is
+    // Jessica"). Fix: pass BOTH locales and let the server run them in
+    // parallel, then pick the higher-confidence result. Same pattern for
+    // tysk. Trade-off: 2x STT cost per turn on non-Danish tasks.
+    const sttLocales =
+      solve.subject === "engelsk"
+        ? "en-US,da-DK"
+        : solve.subject === "tysk"
+          ? "de-DE,da-DK"
+          : "da-DK"
     try {
       const res = await fetch(
-        `/api/stt?locale=${encodeURIComponent(sttLocale)}`,
+        `/api/stt?locale=${encodeURIComponent(sttLocales)}`,
         {
           method: "POST",
           headers: { "Content-Type": blob.type || "audio/webm" },
@@ -975,11 +1052,16 @@ export function HintChat({
         }
         return
       }
-      const { text } = (await res.json()) as { text?: string }
+      const { text, locale: pickedLocale, alternatives } = (await res.json()) as {
+        text?: string
+        locale?: string
+        alternatives?: Array<{ text: string; confidence?: number }>
+      }
       if (!text) {
         logDevEvent("info", "STT tom — intet at sende", {
           ms: sttMs,
           bytes: blob.size,
+          locale: pickedLocale ?? sttLocales,
         })
         setLastRecording(prev =>
           prev ? { ...prev, sttStatus: 200, sttMs, transcript: "(tomt)" } : prev
@@ -991,10 +1073,29 @@ export function HintChat({
         }
         return
       }
+      // When the STT ran in multi-locale mode, log both the candidate list
+      // and which locale actually won. Confusing bugs on mixed-language
+      // tasks show up here: if the kid spoke Danish on an engelsk task and
+      // da-DK won with 0.85 vs en-US with 0.30, you'll see that at a glance.
+      const isMulti = sttLocales.includes(",")
+      const topConf = alternatives?.[0]?.confidence
       logDevEvent("info", "STT ✓", {
         ms: sttMs,
         chars: text.length,
         preview: text.slice(0, 40),
+        ...(isMulti
+          ? {
+              locale: pickedLocale ?? "?",
+              conf: topConf != null ? topConf.toFixed(2) : "—",
+              candidates: sttLocales,
+            }
+          : {}),
+      })
+      pushCostEvent({
+        kind: "stt",
+        provider: "azure",
+        audioSec: durMs / 1000,
+        ms: sttMs,
       })
       setLastRecording(prev =>
         prev ? { ...prev, sttStatus: 200, sttMs, transcript: text } : prev

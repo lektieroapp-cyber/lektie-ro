@@ -53,6 +53,12 @@ export type SolveResponse = {
   /** Optional short AI note shown in the subject picker when confidence is low. */
   detectionNotes?: string | null
   mocked?: boolean
+  /** Real Azure usage for the dev cost panel. Null if mocked or omitted. */
+  usage?: {
+    promptTokens: number
+    completionTokens: number
+    model: string
+  } | null
 }
 
 export type Turn = {

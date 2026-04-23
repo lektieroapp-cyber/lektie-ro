@@ -8,7 +8,10 @@ import { DevLog } from "./DevLog"
 import { EmptyPhotoPanel } from "./EmptyPhotoPanel"
 import { ImagePreviewPanel } from "./ImagePreviewPanel"
 import { ScanPanel } from "./ScanPanel"
+import { SessionCostPanel } from "./SessionCostPanel"
 import { ThinkingPanel } from "./ThinkingPanel"
+import { clearCostEvents, pushCostEvent } from "@/lib/dev-cost"
+import { modelIdFromDeployment } from "@/lib/ai-pricing"
 import { SubjectPicker } from "./SubjectPicker"
 import { TaskPicker } from "./TaskPicker"
 import { ModeSelector } from "./ModeSelector"
@@ -194,6 +197,15 @@ export function SessionFlow({
       const solveMs = Math.round(performance.now() - solveStart)
       if (!res.ok) throw new Error("solve failed")
       const data = (await res.json()) as SolveResponse
+      if (data.usage) {
+        pushCostEvent({
+          kind: "vision",
+          promptTokens: data.usage.promptTokens,
+          completionTokens: data.usage.completionTokens,
+          model: modelIdFromDeployment(data.usage.model),
+          ms: solveMs,
+        })
+      }
       const resolvedSubject = data.subject || sessionSubject
       if (resolvedSubject) setSessionSubject(resolvedSubject)
       const solveWithSubject = resolvedSubject ? { ...data, subject: resolvedSubject } : data
@@ -259,6 +271,15 @@ export function SessionFlow({
       })
       if (!res.ok) throw new Error("solve failed")
       const data = (await res.json()) as SolveResponse
+      if (data.usage) {
+        pushCostEvent({
+          kind: "vision",
+          promptTokens: data.usage.promptTokens,
+          completionTokens: data.usage.completionTokens,
+          model: modelIdFromDeployment(data.usage.model),
+          ms: Math.round(performance.now() - start),
+        })
+      }
       const resolvedSubject = data.subject || sessionSubject
       if (resolvedSubject) setSessionSubject(resolvedSubject)
       const solveWithSubject = resolvedSubject ? { ...data, subject: resolvedSubject } : data
@@ -443,6 +464,7 @@ export function SessionFlow({
     newPhoto()
     setSessionSubject(null)
     setCompletedTasks(0)
+    clearCostEvents()
   }
 
   function finishSession() {
@@ -610,6 +632,7 @@ export function SessionFlow({
             turns={turns}
             completedTasks={completedTasks}
           />
+          <SessionCostPanel />
           {/* Floating preview of the homework photo. Shown during task
               picker, mode, hint and done stages so we can glance at the
               original while chatting with the AI. Minimizes to a small
