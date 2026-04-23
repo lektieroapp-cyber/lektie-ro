@@ -5,24 +5,47 @@
 //
 // Barge-in-detector: watches for the kid to START talking (interrupting
 // Dani). Runs during Dani's turn — while TTS audio is playing through the
-// speakers. Fires once, then cleans up.
+// speakers. Two-phase state machine:
 //
-// Why a separate detector: the thresholds are different. During Dani's
-// speech we need a HIGHER RMS threshold (and a sustained-duration check)
-// to avoid false triggers from acoustic echo — Dani's own voice leaking
-// back through the mic even with browser-level AEC enabled. Regular
-// silence-detector thresholds would constantly fire during Dani's speech.
+//   waiting   → RMS > threshold sustained for sustainMs → tentative
+//   tentative → onTentative() fires; caller pauses TTS but keeps slot queue
+//     • if kid keeps talking (no long quiet window) until confirmMs elapses
+//       → onConfirmed() fires; caller aborts queue, mic opens
+//     • if kid goes quiet for falseAlarmQuietMs while tentative
+//       → onFalseAlarm() fires; caller resumes TTS from the paused point
+//
+// Why two-phase: a single high-RMS event fires on breaths, coughs, book
+// pages flipping, chair squeaks, the kid saying "um" briefly while listening.
+// Before the split, every one of those would kill Dani mid-word. The
+// tentative phase lets those false-positives recover silently; only real
+// sustained speech during tentative escalates to confirmed.
+//
+// The higher base RMS threshold (vs the regular silence-detector speech
+// threshold) accounts for acoustic echo — Dani's own voice leaking back
+// through the mic even with browser-level AEC enabled.
 
 type BargeInOpts = {
-  /** RMS must exceed this to count as speech onset. Higher than the regular
-   *  speech threshold (0.015) because AEC leak is always a bit noisy. */
+  /** RMS must exceed this to count as potential speech. Higher than the
+   *  silence-detector speech threshold (~0.015) because AEC leak is always
+   *  a bit noisy during playback. */
   speechThreshold?: number
-  /** How long RMS must stay above threshold before we fire — rejects single
-   *  spikes (door slam, mic pop). */
+  /** How long RMS must stay above threshold before we enter tentative. */
   sustainMs?: number
-  /** Fires once when sustained speech is detected. Detector self-cleans. */
-  onSpeechDetected: () => void
-  /** Optional live RMS for the mic meter (same pattern as silence-detector). */
+  /** How long tentative lasts before we commit to confirmed. The longer
+   *  this is, the more time a false-alarm has to declare itself. */
+  confirmMs?: number
+  /** Quiet streak after tentative that dismisses as a false alarm. */
+  falseAlarmQuietMs?: number
+  /** Fires when the first sustained burst is detected. Caller should PAUSE
+   *  TTS but keep the queued audio slots — we may resume them. */
+  onTentative: () => void
+  /** Fires after tentative elapses without a false-alarm. Caller should
+   *  ABORT the TTS queue and hand control to the kid's mic turn. */
+  onConfirmed: () => void
+  /** Fires if RMS drops during the tentative window. Caller should
+   *  RESUME the paused audio element (and the queue continues naturally). */
+  onFalseAlarm: () => void
+  /** Optional live RMS for diagnostics. */
   onLevel?: (rms: number) => void
 }
 
@@ -30,11 +53,16 @@ export function startBargeInDetector(
   stream: MediaStream,
   opts: BargeInOpts
 ): () => void {
-  const threshold = opts.speechThreshold ?? 0.03
-  const sustainMs = opts.sustainMs ?? 180
+  const threshold = opts.speechThreshold ?? 0.055
+  const sustainMs = opts.sustainMs ?? 250
+  const confirmMs = opts.confirmMs ?? 600
+  const falseAlarmQuietMs = opts.falseAlarmQuietMs ?? 400
 
-  let fired = false
+  type State = "waiting" | "tentative" | "done"
+  let state: State = "waiting"
   let speechStart: number | null = null
+  let tentativeStart: number | null = null
+  let quietSince: number | null = null
   let ctx: AudioContext | null = null
   let source: MediaStreamAudioSourceNode | null = null
   let analyser: AnalyserNode | null = null
@@ -57,11 +85,23 @@ export function startBargeInDetector(
     }
   }
 
-  function fire() {
-    if (fired) return
-    fired = true
+  function fireTentative() {
+    state = "tentative"
+    tentativeStart = performance.now()
+    quietSince = null
+    opts.onTentative()
+  }
+
+  function fireConfirmed() {
+    state = "done"
     cleanup()
-    opts.onSpeechDetected()
+    opts.onConfirmed()
+  }
+
+  function fireFalseAlarm() {
+    state = "done"
+    cleanup()
+    opts.onFalseAlarm()
   }
 
   try {
@@ -75,7 +115,7 @@ export function startBargeInDetector(
     buf = new Uint8Array(analyser.fftSize)
 
     timer = window.setInterval(() => {
-      if (!analyser || !buf || fired) return
+      if (!analyser || !buf || state === "done") return
       analyser.getByteTimeDomainData(
         buf as unknown as Uint8Array<ArrayBuffer>
       )
@@ -86,12 +126,30 @@ export function startBargeInDetector(
       }
       const rms = Math.sqrt(sumSquares / buf.length)
       opts.onLevel?.(rms)
+      const now = performance.now()
 
+      if (state === "waiting") {
+        if (rms >= threshold) {
+          if (speechStart === null) speechStart = now
+          else if (now - speechStart >= sustainMs) fireTentative()
+        } else {
+          speechStart = null
+        }
+        return
+      }
+
+      // state === "tentative"
       if (rms >= threshold) {
-        if (speechStart === null) speechStart = performance.now()
-        else if (performance.now() - speechStart >= sustainMs) fire()
+        quietSince = null
       } else {
-        speechStart = null
+        if (quietSince === null) quietSince = now
+        else if (now - quietSince >= falseAlarmQuietMs) {
+          fireFalseAlarm()
+          return
+        }
+      }
+      if (tentativeStart !== null && now - tentativeStart >= confirmMs) {
+        fireConfirmed()
       }
     }, 40)
   } catch {

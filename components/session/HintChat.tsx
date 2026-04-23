@@ -173,10 +173,14 @@ export function HintChat({
   const micStreamRef = useRef<MediaStream | null>(null)
   // Barge-in detector active during Dani's TTS playback. One per turn.
   const bargeInCleanupRef = useRef<(() => void) | null>(null)
-  // Set by the barge-in detector when kid starts talking. Read by the pump()
-  // loop to abort remaining TTS + by callHint's finally to skip the normal
-  // post-TTS delay before startRecording.
+  // Flipped to true when the kid has CONFIRMED speech onset (not just a
+  // tentative pause). Read by the pump() loop to abort remaining TTS + by
+  // callHint's finally to skip the normal post-TTS delay before startRecording.
   const bargeInFiredRef = useRef(false)
+  // Set during the tentative window between "we heard a spike" and "kid is
+  // really talking / really just breathed". Used so we don't accidentally
+  // treat a breath-then-silence as a user turn.
+  const bargeInTentativeRef = useRef(false)
   // Mirrors `turns` so callbacks fired from async pipelines (STT → submitAnswer,
   // setTimeout-driven mic reopens, barge-in handlers) read the CURRENT history
   // instead of the stale closure value from the render that scheduled them.
@@ -252,9 +256,12 @@ export function HintChat({
     if (numeric.length === 0) return task.steps ?? null
     const max = Math.max(...numeric, 4)
     const count = Math.max(max, 4)
+    // Empty `prompt` — the extractor didn't give us descriptions, and
+    // "Trin 1" is redundant with the label. Expanded checklist treats an
+    // empty prompt as "label alone" so we don't show "Trin 1 / Trin 1".
     return Array.from({ length: count }, (_, i) => ({
       label: String(i + 1),
-      prompt: `Trin ${i + 1}`,
+      prompt: "",
     }))
   }, [task.steps, stepProgress.done, stepProgress.current])
 
@@ -432,6 +439,7 @@ export function HintChat({
     if (inflightRef.current) return
     inflightRef.current = true
     bargeInFiredRef.current = false
+    bargeInTentativeRef.current = false
     setStreaming(true)
     setPartial("")
     const start = performance.now()
@@ -487,17 +495,48 @@ export function HintChat({
       if (bargeInCleanupRef.current) return
       const stream = micStreamRef.current
       if (!stream) return
+      // Explain mode is for CONCEPT orientation — Dani is setting up what
+      // the task is, and an accidental breath-triggered cut hurts more
+      // than in hint mode where back-and-forth is expected. Tighter
+      // thresholds make explain harder to interrupt.
+      const isExplainMode = mode === "explain"
       bargeInCleanupRef.current = startBargeInDetector(stream, {
-        onSpeechDetected: () => {
-          bargeInFiredRef.current = true
-          logDevEvent("info", "Barge-in ▶ kid afbryder Dani")
-          // Pause current audio immediately so Dani shuts up mid-word.
+        speechThreshold: isExplainMode ? 0.075 : 0.055,
+        sustainMs: isExplainMode ? 400 : 250,
+        confirmMs: isExplainMode ? 800 : 600,
+        falseAlarmQuietMs: 400,
+        onTentative: () => {
+          bargeInTentativeRef.current = true
+          logDevEvent("info", "Barge-in · tentativ — pauser Dani")
           if (audioElRef.current) {
             try { audioElRef.current.pause() } catch {}
           }
         },
-        // Don't overwrite mic-meter during speaking — the dock meter reads
-        // from state written by the VAD, which runs during the kid's turn.
+        onConfirmed: () => {
+          bargeInFiredRef.current = true
+          bargeInTentativeRef.current = false
+          logDevEvent("info", "Barge-in ▶ bekræftet — kid afbryder Dani")
+          if (audioElRef.current) {
+            try { audioElRef.current.pause() } catch {}
+          }
+        },
+        onFalseAlarm: () => {
+          bargeInTentativeRef.current = false
+          logDevEvent("info", "Barge-in · falsk alarm — genoptager Dani")
+          // Resume the paused slot from where it stopped. pump()'s
+          // bargeTimer is still ticking, but since bargeInFiredRef stayed
+          // false, it won't trip done() — playback naturally continues.
+          if (audioElRef.current && audioElRef.current.paused) {
+            audioElRef.current.play().catch(() => {
+              // Browser blocked the resume. Fall through: the bargeTimer
+              // + onended will eventually resolve and the queue drains.
+            })
+          }
+          // Re-arm a fresh detector so the kid can still interrupt later
+          // in the same utterance.
+          bargeInCleanupRef.current = null
+          armBargeIn()
+        },
       })
     }
 
