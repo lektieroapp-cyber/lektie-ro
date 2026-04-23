@@ -10,17 +10,34 @@ export function TaskPicker({
   solve,
   onPick,
   onNewPhoto,
+  completedTaskIds,
 }: {
   solve: SolveResponse
   onPick: (t: Task) => void
   onNewPhoto: () => void
+  /** Task IDs already completed in the current photo session — filtered
+   *  from the list so the kid doesn't re-pick what they just solved. */
+  completedTaskIds?: string[]
 }) {
   const { type: companionType } = useCompanion()
   const subjectKey = (solve.subject as SubjectKey | null) ?? "matematik"
   const palette = SUBJECT_PALETTE[subjectKey] ?? SUBJECT_PALETTE.matematik
 
-  const count = solve.tasks.length
-  const countLabel = count === 1 ? "1 opgave" : `${count} opgaver`
+  const done = new Set(completedTaskIds ?? [])
+  const remaining = solve.tasks.filter(t => !done.has(t.id))
+  const doneCount = solve.tasks.length - remaining.length
+  const allDone = remaining.length === 0 && solve.tasks.length > 0
+
+  const headline = allDone
+    ? "Godt gået — alle opgaver er klaret!"
+    : doneCount > 0
+      ? `${remaining.length} ${remaining.length === 1 ? "opgave" : "opgaver"} tilbage`
+      : `Jeg fandt ${solve.tasks.length === 1 ? "1 opgave" : `${solve.tasks.length} opgaver`}!`
+  const subline = allDone
+    ? "Tag et nyt billede når I er klar til næste lektie."
+    : doneCount > 0
+      ? `${doneCount} klaret. Hvilken vil du tage nu?`
+      : "Hvilken én skal vi kigge på først?"
 
   return (
     <div
@@ -38,33 +55,37 @@ export function TaskPicker({
         <Companion type={companionType ?? DEFAULT_COMPANION} mood="happy" size={56} />
         <div style={{ flex: 1, paddingTop: 2 }}>
           <div style={{ fontFamily: K.serif, fontSize: 22, fontWeight: 600, color: K.ink, lineHeight: 1.2 }}>
-            Jeg fandt {countLabel}!
+            {headline}
           </div>
           <div style={{ fontSize: 14, color: K.ink2, marginTop: 4 }}>
-            Hvilken én skal vi kigge på først?
+            {subline}
           </div>
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {solve.tasks.map((t, i) => (
-          <TaskRow key={t.id} task={t} index={i} palette={palette} onPick={() => onPick(t)} />
-        ))}
-      </div>
+      {!allDone && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {remaining.map((t, i) => (
+            <TaskRow key={t.id} task={t} index={i} palette={palette} onPick={() => onPick(t)} />
+          ))}
+        </div>
+      )}
 
       <button
         type="button"
         onClick={onNewPhoto}
         style={{
-          alignSelf: "flex-start",
-          border: "none",
-          background: "transparent",
-          color: K.ink2,
-          fontSize: 13,
-          textDecoration: "underline",
+          alignSelf: allDone ? "stretch" : "flex-start",
+          border: allDone ? "none" : "none",
+          background: allDone ? palette.dot : "transparent",
+          color: allDone ? "#fff" : K.ink2,
+          fontSize: allDone ? 15 : 13,
+          fontWeight: allDone ? 600 : 400,
+          textDecoration: allDone ? "none" : "underline",
           cursor: "pointer",
           fontFamily: "inherit",
-          padding: 4,
+          padding: allDone ? "12px 20px" : 4,
+          borderRadius: allDone ? 999 : 0,
         }}
       >
         Tag et nyt billede

@@ -109,8 +109,11 @@ export function SessionFlow({
     VOICE_ENABLED && childGrade != null && childGrade >= 5
   // Default: voice for 0.-4. klasse (Louise + Marcuz: fjerner skrivebarrieren
   // for de mindste og ordblinde). Older kids default to text.
+  // Admins always start in voice mode regardless of grade — they're testing
+  // the voice flow and shouldn't have to flip the toggle every session.
   const [conversationMode, setConversationMode] = useState<ConversationMode>(() => {
     if (!VOICE_ENABLED) return "text"
+    if (isAdmin) return "voice"
     return childGrade != null && childGrade <= 4 ? "voice" : "text"
   })
   useEffect(() => {
@@ -141,6 +144,10 @@ export function SessionFlow({
   // Remember subject across tasks in the same homework session
   const [sessionSubject, setSessionSubject] = useState<string | null>(null)
   const [completedTasks, setCompletedTasks] = useState(0)
+  // Task IDs already finished on the CURRENT photo. Cleared when the kid
+  // takes a new photo. Used to hide done items in TaskPicker so the kid
+  // doesn't re-pick what they just solved.
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([])
 
   async function uploadFile(file: File): Promise<string> {
     const ext = EXT_FROM_TYPE[file.type] || file.name.split(".").pop()?.toLowerCase() || "jpg"
@@ -403,6 +410,9 @@ export function SessionFlow({
     setStage("done")
     logDevEvent("complete", `Opgave klaret på ${completedTurns.length} ture`)
     setCompletedTasks(n => n + 1)
+    if (task) {
+      setCompletedTaskIds(prev => (prev.includes(task.id) ? prev : [...prev, task.id]))
+    }
     if (!dbSessionId) return
     try {
       await fetch("/api/session", {
@@ -444,6 +454,8 @@ export function SessionFlow({
     setTurns([])
     setImagePath(null)
     setError(null)
+    // New photo → new task set → reset the per-photo completion list.
+    setCompletedTaskIds([])
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
     if (fileRef.current) fileRef.current.value = ""
@@ -583,16 +595,33 @@ export function SessionFlow({
           />
         </>
       )}
-      {stage === "pick" && solve && (
-        <>
-          {conversationMode === "voice" && solve.tasks.length > 0 && (
-            <div style={{ maxWidth: 440, margin: "0 auto 14px", display: "flex", justifyContent: "center" }}>
-              <VoiceTaskChoice tasks={solve.tasks} onPick={pickTask} />
-            </div>
-          )}
-          <TaskPicker solve={solve} onPick={pickTask} onNewPhoto={newPhoto} />
-        </>
-      )}
+      {stage === "pick" && solve && (() => {
+        // Voice-pick should only offer tasks the kid hasn't finished yet.
+        // When every task is done, skip the voice prompt entirely — TaskPicker
+        // renders the "all done" state + "Tag et nyt billede" CTA.
+        const remainingTasks = solve.tasks.filter(
+          t => !completedTaskIds.includes(t.id)
+        )
+        return (
+          <>
+            {conversationMode === "voice" && remainingTasks.length > 0 && (
+              <div style={{ maxWidth: 440, margin: "0 auto 14px", display: "flex", justifyContent: "center" }}>
+                <VoiceTaskChoice
+                  key={remainingTasks.map(t => t.id).join(",")}
+                  tasks={remainingTasks}
+                  onPick={pickTask}
+                />
+              </div>
+            )}
+            <TaskPicker
+              solve={solve}
+              onPick={pickTask}
+              onNewPhoto={newPhoto}
+              completedTaskIds={completedTaskIds}
+            />
+          </>
+        )
+      })()}
       {stage === "mode" && task && solve && (
         <ModeSelector task={task} solve={solve} onSelect={pickMode} onBack={() => setStage("pick")} />
       )}
