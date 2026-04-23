@@ -152,9 +152,17 @@ export const azureTts: TtsProvider = {
     // Neural voice switches to English pronunciation for English words.
     // English exercises reference English words via quotes ("dog", "scream")
     // and without this Christel reads them with Danish phonemes.
-    const escaped = escapeXml(text)
+    // Pipeline:
+    //   raw text
+    //   → wrapQuotedAsEnglishPre (insert ASCII sentinel markers around
+    //     English quotes; skip quotes that contain æ/ø/å)
+    //   → escapeXml (apostrophes become &apos; safely inside sentinels)
+    //   → wrapLetterLabelsInSayAs (Unicode-aware so "Målet" stays intact)
+    //   → materializeLangSentinels (swap sentinels for real <lang> tags)
+    const marked = wrapQuotedAsEnglishPre(text)
+    const escaped = escapeXml(marked)
     const withLabels = wrapLetterLabelsInSayAs(escaped)
-    const withEn = wrapQuotedAsEnglish(withLabels)
+    const withEn = materializeLangSentinels(withLabels)
     const voiceName = escapeXml(voice)
     const fancySsml =
       `<speak version='1.0' xml:lang='da-DK' xmlns:mstts='http://www.w3.org/2001/mstts'>` +
@@ -166,10 +174,13 @@ export const azureTts: TtsProvider = {
     // can't break the whole synthesis. Used when the decorated SSML is
     // rejected by Azure (400). The kid gets a Danish-accented version of
     // the English words instead of silence — not ideal but recoverable.
+    // Fallback: escape the ORIGINAL text directly (no sentinels, no say-as,
+    // no lang tags) so a malformed decoration can't poison the retry.
+    const plainEscaped = escapeXml(text)
     const plainSsml =
       `<speak version='1.0' xml:lang='da-DK'>` +
       `<voice xml:lang='da-DK' name='${voiceName}'>` +
-      `<prosody rate='1.02' pitch='+1%'>${escaped}</prosody>` +
+      `<prosody rate='1.02' pitch='+1%'>${plainEscaped}</prosody>` +
       `</voice></speak>`
 
     const started = Date.now()
@@ -206,9 +217,19 @@ export const azureTts: TtsProvider = {
 // — without catching multi-letter words (ORD, SMART) or lower-case words.
 // Operates on already-xml-escaped text so the injected <say-as> tags are
 // literal SSML, not re-escaped.
+//
+// Gotcha: an earlier version used /\b([A-ZÆØÅ])\b/g. JavaScript's \b is
+// ASCII-only — it sees a boundary between a word-char (A-Z0-9_) and a
+// non-word-char. æ/ø/å are NOT ASCII word chars, so "Målet" had a
+// boundary between "M" (word) and "å" (non-word), and the regex wrapped
+// just "M" as a letter-name. Azure then spoke "em-ålet" instead of
+// "målet". Same bug for "Sæt", "Lær", any Danish capital-then-æøå word.
+// Fix: Unicode-aware lookaround using \p{L} — require the match NOT be
+// preceded or followed by any Unicode letter (so "M" + "å" is NOT a
+// match, because å is \p{L}).
 function wrapLetterLabelsInSayAs(escaped: string): string {
   return escaped.replace(
-    /\b([A-ZÆØÅ])\b/g,
+    /(?<![\p{L}\p{N}])([A-ZÆØÅ])(?![\p{L}\p{N}])/gu,
     '<say-as interpret-as="characters">$1</say-as>'
   )
 }
@@ -216,40 +237,51 @@ function wrapLetterLabelsInSayAs(escaped: string): string {
 // Wrap quoted content in <lang xml:lang="en-US"> so the Danish Christel/
 // Jeppe voice attempts English pronunciation for English words.
 //
-// An earlier attempt used nested <voice name="en-US-JennyNeural"> inside
-// the outer Danish voice to get a native English speaker for those
-// segments. Azure's REST endpoint rejected that with HTTP 400 — per
-// Microsoft docs "each voice element must be a direct child of the speak
-// element", so nested <voice> isn't supported on the short-form API. To
-// switch voices we'd have to break the SSML into multiple sibling <voice>
-// blocks under <speak>, restructure the outer <prosody>, and reassemble.
-// Out of scope for now; <lang> is the safe known-working option.
+// Runs on the RAW text (before XML-escape) using sentinel markers, which
+// are then replaced with real SSML tags after escape. An earlier version
+// operated on escaped text with /&quot;([^&]*)&quot;/ — that broke on
+// anything containing an XML entity inside the quote, e.g. "I'm afraid
+// of the dark" → after escape "I&apos;m afraid of the dark" → the [^&]
+// character class stops at &apos; and the regex never matches. Result:
+// the English stays under Christel in Danish pronunciation, exactly the
+// "sounds horrible" complaint.
+//
+// Sentinel markers survive xml-escape (pure ASCII underscores) and get
+// swapped for <lang> tags just before the final SSML emit.
 //
 // Danish content in quotes (e.g., "æble", "ørred") must NOT be wrapped —
 // under an en-US lang tag the Danish voice butchers æ/ø/å. We detect
 // Danish-specific chars and skip the wrap when any appear.
 //
 // Handles:
-//   - Straight ASCII quotes: "word"   (&quot; after xml-escape)
-//   - Curly/smart quotes:    "word"   (U+201C / U+201D, not escaped)
-// Caps content length at 60 chars so a rogue unclosed quote can't swallow
-// a whole paragraph into the wrap.
+//   - Straight ASCII quotes: "word"
+//   - Curly/smart quotes:    "word"  (U+201C / U+201D)
+// Caps content length at 80 chars so a rogue unclosed quote can't swallow
+// a whole paragraph.
 const DANISH_CHARS = /[æøåÆØÅ]/
+const LANG_EN_OPEN_SENTINEL = "__LR_LANG_EN_OPEN__"
+const LANG_EN_CLOSE_SENTINEL = "__LR_LANG_EN_CLOSE__"
 
-function wrapQuotedAsEnglish(escaped: string): string {
+function wrapQuotedAsEnglishPre(raw: string): string {
   const wrap = (content: string): string => {
     if (DANISH_CHARS.test(content)) return content
-    return `<lang xml:lang="en-US">${content}</lang>`
+    return `${LANG_EN_OPEN_SENTINEL}${content}${LANG_EN_CLOSE_SENTINEL}`
   }
-  return escaped
+  return raw
     .replace(
-      /&quot;([^&]{1,60}?)&quot;/g,
-      (_m, content: string) => `&quot;${wrap(content)}&quot;`
+      /"([^"\n]{1,80}?)"/g,
+      (_m, content: string) => `"${wrap(content)}"`
     )
     .replace(
-      /“([^“”]{1,60}?)”/g,
+      /“([^“”\n]{1,80}?)”/g,
       (_m, content: string) => `“${wrap(content)}”`
     )
+}
+
+function materializeLangSentinels(escaped: string): string {
+  return escaped
+    .split(LANG_EN_OPEN_SENTINEL).join('<lang xml:lang="en-US">')
+    .split(LANG_EN_CLOSE_SENTINEL).join('</lang>')
 }
 
 function escapeXml(s: string): string {
