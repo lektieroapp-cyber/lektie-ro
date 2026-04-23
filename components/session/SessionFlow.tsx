@@ -119,12 +119,15 @@ export function SessionFlow({
   useEffect(() => {
     // Stored kid-preference only applies when the kid is old enough to set
     // it. Below grade 5 the grade-based default wins.
+    // Admins skip the restore — they always start in voice on each load,
+    // even if they manually toggled to text earlier in another session.
     if (!canKidToggleConversation) return
+    if (isAdmin) return
     try {
       const stored = window.localStorage.getItem(CONVO_MODE_STORAGE_KEY)
       if (stored === "voice" || stored === "text") setConversationMode(stored)
     } catch {}
-  }, [canKidToggleConversation])
+  }, [canKidToggleConversation, isAdmin])
   function changeConversationMode(next: ConversationMode) {
     setConversationMode(next)
     try {

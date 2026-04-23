@@ -258,7 +258,7 @@ function TaskRow({
 // the mock-data fallback path don't have one. Derive a kid-friendly headline
 // from the full instruction: strip leading enumeration prefixes ("1 ",
 // "WARM-UP 1"), take the first clause or 5 words.
-function shortFallback(text: string): string {
+export function shortFallback(text: string): string {
   let t = text.trim()
   t = t.replace(/^\s*(?:warm[-\s]?up\s+)?\d+\s*[.:]?\s*/i, "")
   t = t.replace(/^["'`]/, "")

@@ -13,6 +13,7 @@ import { modelIdFromDeployment, type VoiceProviderId } from "@/lib/ai-pricing"
 import { pushCostEvent } from "@/lib/dev-cost"
 import { renderWithBlocks } from "./blocks/parse"
 import { StepChecklist } from "./StepChecklist"
+import { shortFallback } from "./TaskPicker"
 import { logDevEvent } from "./dev-log"
 import { K } from "./design-tokens"
 import { VoiceCanvas } from "./VoiceCanvas"
@@ -1271,18 +1272,7 @@ export function HintChat({
         >
           Opgave
         </div>
-        <div
-          style={{
-            fontFamily: K.serif,
-            fontSize: 20,
-            fontWeight: 600,
-            color: K.ink,
-            marginTop: 4,
-            lineHeight: 1.25,
-          }}
-        >
-          {task.text}
-        </div>
+        <TaskHeadline task={task} />
         {task.steps && task.steps.length > 0 && (
           <div style={{ marginTop: 10 }}>
             <StepChecklist
@@ -1511,6 +1501,71 @@ export function HintChat({
             setLastRecording(null)
           }}
         />
+      )}
+    </div>
+  )
+}
+
+// Compact task headline for the hint screen. The earlier version dumped
+// `task.text` verbatim, which on composition tasks was a whole paragraph
+// ("Work with a friend. Read all the words in the light blue circle. Now
+// take turns saying a true sentence..."). That wall of text is redundant
+// — Dani already narrates the task, and the kid can tap "vis hele
+// opgaven" if they want the book text back. Default to the short title.
+function TaskHeadline({ task }: { task: Task }) {
+  const [expanded, setExpanded] = useState(false)
+  const headline = task.title || shortFallback(task.text)
+  const hasMore =
+    task.text.trim().length > headline.length + 10 &&
+    task.text.trim() !== headline
+  return (
+    <div>
+      <div
+        style={{
+          fontFamily: K.serif,
+          fontSize: 20,
+          fontWeight: 600,
+          color: K.ink,
+          marginTop: 4,
+          lineHeight: 1.25,
+        }}
+      >
+        {headline}
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          style={{
+            marginTop: 6,
+            background: "transparent",
+            border: "none",
+            padding: 0,
+            color: K.ink2,
+            fontSize: 12,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            textDecoration: "underline",
+          }}
+        >
+          {expanded ? "Skjul" : "Vis hele opgaven"}
+        </button>
+      )}
+      {expanded && (
+        <div
+          style={{
+            marginTop: 8,
+            padding: "10px 12px",
+            background: "rgba(31,27,51,0.03)",
+            borderRadius: 10,
+            fontSize: 13,
+            lineHeight: 1.45,
+            color: K.ink2,
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {task.text}
+        </div>
       )}
     </div>
   )
