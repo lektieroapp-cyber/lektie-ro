@@ -618,6 +618,7 @@ export function HintChat({
           taskSteps: task.steps ?? null,
           taskType: task.type ?? null,
           needsPaper: task.needsPaper ?? null,
+          taskContext: task.context ?? null,
           subject: solve.subject,
           turns: nextTurns,
           childId,

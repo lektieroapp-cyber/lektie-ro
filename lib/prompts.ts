@@ -20,6 +20,9 @@ export type HintPromptParams = {
   /** True when the task requires paper (drawing, measuring, dictation).
    *  Flips the tutor from "solve with me" to "coach, kid writes". */
   needsPaper?: boolean | null
+  /** Free-form extractor notes for Dani only (never shown to the child).
+   *  Injected as an opaque reference block. */
+  taskContext?: string | null
   child: ChildContext | null
   /** "voice" = reply will be read aloud by TTS. */
   deliveryMode?: "text" | "voice"
@@ -57,6 +60,7 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
     taskSteps,
     taskType,
     needsPaper,
+    taskContext,
   } = params
 
   const childLine = buildChildLine(child, grade)
@@ -80,6 +84,7 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
   const goalBlock = buildGoalBlock(taskGoal, taskSteps)
   const languageBlock = buildSubjectLanguageBlock(subject)
   const taskPatternBlock = buildTaskPatternBlock(taskType, needsPaper)
+  const contextBlock = buildContextBlock(taskContext)
 
   return [
     BASE_RULES,
@@ -92,11 +97,28 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
     languageBlock,
     taskPatternBlock,
     goalBlock,
+    contextBlock,
     HINT_INSTRUCTIONS,
     deliveryBlock,
   ]
     .filter(Boolean)
     .join("\n\n")
+}
+
+// Context block — opaque reference the extractor captured for Dani's use.
+// Never shown to the child. Contents vary: target answers visible on the
+// page, unusual constraints, formulae the chapter is practising, etc.
+// Keeps the prompt principles-based: the extractor decides what's worth
+// carrying, the tutor treats it as private reference.
+function buildContextBlock(context: string | null | undefined): string {
+  if (!context || !context.trim()) return ""
+  return `\
+TUTOR CONTEXT (private — do NOT read this aloud or paste to the child):
+${context.trim()}
+
+Use this only as reference when answering the child's questions or
+checking their work. Everything the child sees must come from your own
+Socratic guidance, not from this block.`
 }
 
 // ─── Base rules ──────────────────────────────────────────────────────────────
@@ -361,12 +383,10 @@ function buildTaskPatternBlock(
   if (needsPaper) {
     parts.push(`\
 TASK: HANDS-ON (paper required)
-The child must write, draw, measure, or mark on paper. You can't solve it
-for them in the chat.
-- Explain HOW to do it. "Mål linje A med din lineal, skriv længden på linjen."
-- Check understanding ("Har du linealen klar?").
-- Ask the child to tell you what they wrote or drew — you confirm verbally.
-- Don't Socratic-drill "hvad tror du svaret er?" here — they have to do it.`)
+The child writes, draws or measures on paper. You coach, you don't solve.
+- Explain how and check readiness once. Then ask them to SAY the result.
+- Trust self-reports ("det har jeg gjort") — never audit layout or
+  handwriting; that's the parent's role, not Dani's.`)
   }
 
   const t = (taskType ?? "").toLowerCase()
@@ -499,8 +519,9 @@ STEP-GUIDING RULES:
    about the goal. Later replies never restart with "Målet:" — the child
    has heard it.
 2. One step at a time. Start with the first unsolved step.
-3. Announce a step ONLY when switching to a new one: "Nu **[label]**…".
-   During the same step, don't repeat "Vi er ved [label]".
+3. Announce a step ONLY when switching to a new one. Bold the bare label
+   ("Nu **B**…"), never bracket it ("**[B]**") — brackets are reserved
+   for visual-block markers. Don't re-announce within the same step.
 4. When a step is solved: brief praise, confirm the answer, roll to the
    next step in the same reply, AND emit
    [progress done="..." current="..."] so the tick lands on screen.
@@ -510,7 +531,10 @@ STEP-GUIDING RULES:
    Don't emit [progress] until it's actually solved.
 6. All steps solved: [progress done="A,B,C,..."] (no "current"), then a
    one-sentence summary of what the child learned.
-7. "done" is CUMULATIVE — always include all previously solved labels.`)
+7. "done" is CUMULATIVE — always include all previously solved labels.
+8. The steps list above is authoritative: use it to answer progress
+   questions, suggest next items when the child asks, and recognise when
+   everything is done. Never invent or guess items outside this list.`)
   } else if (hasGoal) {
     parts.push(`\
 RULES:
@@ -589,8 +613,10 @@ SPOKEN-LANGUAGE PATTERNS:
 - Avoid written-register ("lad os", "det vi gør er", "det samlede billede").
 
 BLOCKS in voice:
-- Blocks may be used; TTS ignores the markup. Don't count a block as a
-  sentence.
+- [tryit] is FORBIDDEN in voice mode — it renders a text input, and the
+  child is speaking, not typing. Never emit it here.
+- Other visual blocks may be used; TTS ignores the markup. Don't count a
+  block as a spoken sentence.
 - [needphoto] and [offscope] work as in text.
 
 STT DOUBT:

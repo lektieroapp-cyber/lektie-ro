@@ -9,6 +9,7 @@
 | `supabase/migrations/005_subscription_tier.sql` | ☑ | ☑ | adds `subscription_tier` to profiles (free/standard/family) to enforce child slot limits |
 | `supabase/migrations/006_sessions_turns.sql` | ☑ | ? | `sessions` + `turns` tables + RLS. Dev verified 2026-04-23 via REST probe (rows exist). Prod: re-confirm before handover. |
 | `supabase/migrations/007_child_companion.sql` | ☑ | ? | `companion_type` on children. Dev verified 2026-04-23 via REST probe (column exists). Prod: re-confirm before handover. |
+| `supabase/migrations/008_drop_session_mode.sql` | ☑ | ? | drops `sessions.mode` — explain/hint distinction gone from UI + prompt. Applied on dev 2026-04-24. Prod: re-apply after the code change (stop-writing-mode) is deployed. |
 
 Run in Supabase SQL editor → paste the file contents → verify the new columns / tables appear.
 

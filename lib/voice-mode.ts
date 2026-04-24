@@ -27,7 +27,10 @@ export type VoiceMode = {
   elevenLabsVoiceId: string
 }
 
-const DEFAULT_AZURE_VOICE = "da-DK-ChristelNeural"
+// Jeppe (male) is the prod Danish voice — A/B testing confirmed he sounds
+// noticeably warmer and more natural than Christel for kid-facing dialogue.
+// Override per-environment via AZURE_SPEECH_TTS_VOICE.
+const DEFAULT_AZURE_VOICE = "da-DK-JeppeNeural"
 
 export async function getVoiceMode(): Promise<VoiceMode> {
   const cookieStore = await cookies()

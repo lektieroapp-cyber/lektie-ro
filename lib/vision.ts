@@ -16,6 +16,13 @@ export type VisionTask = {
   goal?: string
   needsPaper?: boolean
   steps?: { label: string; prompt: string }[]
+  /** Free-form notes the extractor captured for Dani's use during the
+   *  session but shouldn't be shown on the task card. Typical content:
+   *  unusual constraints the prompt text doesn't carry, target answers
+   *  visible on the page, formulae the chapter is practising. Injected
+   *  into the hint prompt as an OPAQUE context block — Dani uses it as
+   *  reference, never copy-pastes it to the child. */
+  context?: string
 }
 
 export type VisionConfidence = "high" | "medium" | "low"
@@ -95,93 +102,92 @@ export function deriveShortTitle(text: string): string {
 }
 
 export const VISION_SYSTEM_PROMPT = `\
-Du er en assistent der udtrækker danske folkeskoleopgaver fra et foto.
-Returnér UDELUKKENDE valid JSON med denne struktur:
+You extract Danish folkeskole homework tasks from a photo.
+Return ONLY valid JSON with this structure:
 
 {
   "subject": "matematik" | "dansk" | "engelsk" | "tysk" | null,
   "subjectConfidence": "high" | "medium" | "low",
   "tasks": [
     {
-      "title": "Kort overskrift vist på opgave-kortet (MAKS 5 ord, handlings-orienteret)",
-      "text": "opgaveteksten ordret som på billedet",
+      "title": "short action headline shown on the task card (Danish, max 5 words)",
+      "text": "task instruction verbatim from the image",
       "type": "addition"|"subtraction"|"multiplication"|"division"|"word-problem"|"measurement"|"geometry"|"symmetry"|"comparison"|"table"|"diagram"|"reading"|"dictation"|"grammar"|"vocabulary"|"spelling"|"syllables"|"translation"|"composition"|"interview"|"creative"|"puzzle"|"task",
-      "goal": "ÉN sætning om hvad eleven lærer fagligt",
+      "goal": "ONE sentence describing what the child learns (pedagogical, not administrative)",
       "needsPaper": true,
       "steps": [
-        { "label": "A", "prompt": "præcist hvad eleven skal gøre i dette delrin" }
-      ]
+        { "label": "A", "prompt": "exactly what the child does for this sub-item" }
+      ],
+      "context": "optional free-form notes Dani needs during the session but the child shouldn't see in the task card"
     }
   ],
   "reason": "not_homework" | "unreadable" | "no_tasks" | null,
-  "detectionNotes": "kort dansk note hvis du er i tvivl om faget, ellers null"
+  "detectionNotes": "short Danish note when subject is uncertain, else null"
 }
 
-OPGAVESTRUKTUR — LÆS DETTE OMHYGGELIGT:
+TASK STRUCTURE — PRINCIPLE:
+A page typically has 1–4 task GROUPS. A group = one overarching instruction
+plus its sub-items. Groups are the unit; individual sub-items are steps.
+Cap at 8 groups per page and ~20 steps per group.
 
-En side har typisk 1-4 opgave-GRUPPER. En gruppe = én overordnet instruktion
-+ dens delopgaver. Grupperne er det vigtige — IKKE de enkelte sub-items.
+STEPS vs CONTEXT — pick deliberately:
+- STEPS are discrete sub-problems with definite answers (math a/b/c,
+  grammar fill-ins, dictation rows). Emit them when the child works
+  through them ONE AT A TIME and each has a specific correct response.
+  Labels are the task's own labels (a, b, c; A, B, 1, 2).
+- Do NOT turn every item in a loose / conversational task into its own
+  step. "Say a sentence about each word in the circle" is ONE task —
+  the child's goal is talking fluently, not ticking off 8 boxes. Same
+  for interview, composition, free-response creative work. For these
+  either leave steps empty or give at most 2–3 high-level milestones
+  ("read the words aloud", "say a few sentences", "share with a friend").
+- CONTEXT is Dani's private reference — put the concrete list of target
+  items (words, names, pictures) here so Dani can answer "how many are
+  left?" and suggest the next one, without pretending every item is its
+  own locked sub-task. Example context for a circle-of-words task:
+  "Target words visible in the light blue circle: dark, scream, zombie,
+  ghost, skeleton, night, alone, mum. Child should talk about several,
+  not necessarily all."
+- Also use CONTEXT for: target answers visible on the page, formulae
+  the chapter is practising, unusual constraints that shape feedback.
+  Never duplicate the task text or the steps.
 
-Eksempler:
-  "Mål linjerne." med 6 linjer (A-F)       → ÉN gruppe, 6 steps
-  "Find linjernes samlede længde." med     → ÉN gruppe, 4 steps
-    A+B, C+D, E+F, A+F
-  "Udfyld regnetabellen." (én tabel)       → ÉN gruppe, steps = hver rækkes
-                                             regnestykke
-  Et enkelt regnestykke (24 + 17)          → ÉN gruppe, steps = [] (eller bare
-                                             én step med hele regnestykket)
-  Tekststykke med 3 spørgsmål under         → ÉN gruppe, 3 steps
+Pedagogy anchor (see docs/pedagogy.md): rigid step-ticking is right for
+concrete-facit tasks and wrong for conversational / oral-language tasks
+where the pedagogical point is fluency, confidence, and voice.
 
-Så hele billedet "Mål linjerne + Find samlede længde + Prøv selv +
-Regnetabeller" = FIRE grupper (ikke 18 enkelt-opgaver).
-
-REGLER:
-- Maks 8 grupper per side. Dense opgavebogssider (fx 5. kl. matematik med
-  "Opgave 24-35" sekventielt nummereret) må gerne give flere grupper hvis
-  de er pædagogisk adskilte.
-- Maks ca. 20 steps per gruppe. Grad 5 matematik kan have en gruppe med
-  "Opgave 25: a-j" (10 sub-items) + "Opgave 27: a-h" (8) — hvis de deler
-  én instruktion er det én gruppe med mange steps.
-- "title" er en KORT handlings-overskrift på dansk, maks 5 ord, som barnet
-  ser på opgave-kortet. Ingen numre, ingen "WARM-UP". Fokus på hvad barnet
-  skal GØRE. Eksempler: "Mål linjerne" · "Beskriv dit hjem" · "Læs op og svar".
-  IKKE: "WARM-UP 1 Work with a friend...". Hvis opgaven er på engelsk,
-  oversæt titlen til dansk (resten af "text" kan forblive engelsk).
-- "text" er gruppens instruktion ordret fra billedet (bevar original-sproget,
-  f.eks. engelsk for en engelsk-opgave). Ret åbenlyse OCR-fejl.
-- "goal" er ÉN sætning om det faglige, IKKE administrativt. Skriv "Øv at aflæse
-  lineal og skrive mål som decimaltal" — IKKE "Løs opgaverne". Goal er det der
-  styrer Danis pædagogik.
-- "steps[].label" er kort (bogstav, tal, eller par som "A+B"). "prompt" er
-  præcist hvad eleven skal gøre — inkluder konkrete tal/ord fra billedet.
-  Eksempel: { "label": "A", "prompt": "Mål linje A. Den røde linje." }
-- "steps" MÅ være tomt hvis gruppen kun består af én instruktion uden
-  separate delopgaver.
-- "needsPaper": true når opgaven KRÆVER at eleven skriver, tegner, måler,
-  farvelægger, tæller på et fysisk billede eller laver noget hands-on der
-  ikke kan løses mundtligt. Eksempler: "Mål linjerne med lineal",
-  "Sæt kryds i diagrammet", "Tegn selv", "Farv de rigtige ord røde",
-  "Skriv det hele ned som diktat", "Spejl figuren". Når true: AI'en hjælper
-  med at forstå + guide, men gør det klart at selve svaret skal skrives/
-  tegnes på papir.
-- "needsPaper": false for rent mundtlige/skriftlige opgaver som eleven kan
-  løse i chatten: regnestykker, oversættelse, læse-og-svar, sætninger på
-  engelsk, ordklasse-bestemmelse.
-- "subject": sæt dit bedste bud selv hvis du er i tvivl.
-  - high: tydeligt fag (regneopgaver, grammatikspørgsmål)
-  - medium: sandsynligt men der mangler entydig kontekst
-  - low: du gætter
-- "subject": null kun hvis du virkelig ikke kan afgøre det.
-- Tysk-opgaver genkendes på tyske ord (der/die/das, Klassenzimmer, Hallo,
-  ich bin) kombineret med danske meta-instruktioner.
-- GÆT IKKE KLASSETRIN. Klassetrin kommer fra barnets profil.
-- "tasks": [] hvis der ikke er skoleopgaver på billedet.
-- "reason": udfyld KUN hvis tasks er tom.
-  - "not_homework": billedet viser ikke skoleopgaver
-  - "unreadable": teksten er for sløret eller forvrænget
-  - "no_tasks": skoleagtigt materiale uden egentlige opgaver
-- "detectionNotes": kort forklaring kun ved subjectConfidence = low/medium.
-- INTET andet end JSON. Ingen markdown. Ingen kommentarer.`
+FIELD RULES:
+- "title": short, action-oriented, Danish, max 5 words. Strip leading
+  numbers and "WARM-UP" labels. Translate the headline to Danish even
+  when the task body is in English. Examples: "Mål linjerne", "Beskriv
+  dit hjem", "Læs op og svar".
+- "text": the group's instruction verbatim from the image, preserving the
+  original language of the task. Fix obvious OCR errors only.
+- "goal": one sentence, PEDAGOGICAL ("Øv at aflæse lineal og skrive mål
+  som decimaltal"), not administrative ("Løs opgaverne").
+- "steps[].prompt": precise action for the child, including concrete
+  numbers or words from the image.
+- "needsPaper": true when the task REQUIRES writing, drawing, measuring,
+  colouring, marking a physical diagram, or any hands-on action that
+  can't be solved in chat. Examples: measuring lines with a ruler,
+  crossing items in a diagram, drawing own figures, dictation writing,
+  mirroring a figure. false for purely oral / chat-solvable work:
+  arithmetic, translation, read-and-answer, English-sentence making,
+  word-class identification.
+- "subject":
+    high:   obvious subject (number problems, grammar questions)
+    medium: likely but ambient context is ambiguous
+    low:    guessing
+  null only when truly indeterminate. Tysk = tyske-looking words
+  (der/die/das, Klassenzimmer, ich bin) plus Danish meta-instructions.
+- Do NOT guess grade level — it comes from the child's profile.
+- "tasks": [] when the image shows no homework.
+- "reason": filled in ONLY when tasks is empty.
+    not_homework: image does not show schoolwork
+    unreadable:   text is too blurry / distorted
+    no_tasks:     school-looking material but no actual tasks
+- "detectionNotes": short Danish note, only for subjectConfidence ≠ high.
+- Output NOTHING except JSON. No markdown, no comments.`
 
 // Core vision call. Accepts a data URL (data:image/jpeg;base64,...) and
 // returns a normalised VisionResult. Throws on Azure failure — caller
@@ -237,6 +243,7 @@ export async function extractTasksFromImage(
       goal?: string
       needsPaper?: boolean
       steps?: { label?: string; prompt?: string }[]
+      context?: string
     }[]
     reason?: string
     detectionNotes?: string | null
@@ -270,6 +277,10 @@ export async function extractTasksFromImage(
           : deriveShortTitle(t.text!)
       const needsPaper =
         typeof t.needsPaper === "boolean" ? t.needsPaper : undefined
+      const context =
+        typeof t.context === "string" && t.context.trim().length > 0
+          ? t.context.trim().slice(0, 600)
+          : undefined
       return {
         id: `t${i + 1}`,
         title,
@@ -278,6 +289,7 @@ export async function extractTasksFromImage(
         ...(goal ? { goal } : {}),
         ...(needsPaper !== undefined ? { needsPaper } : {}),
         ...(steps.length > 0 ? { steps } : {}),
+        ...(context ? { context } : {}),
       }
     })
 

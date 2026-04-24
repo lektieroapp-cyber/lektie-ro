@@ -37,8 +37,6 @@ export async function POST(request: NextRequest) {
       parent_id: user.id,
       subject: body.subject,
       grade: body.grade,
-      // `mode` column kept for legacy rows but always "hint" going forward.
-      mode: "hint",
       problem_text: body.problemText ?? null,
       problem_type: body.problemType ?? null,
       image_path: body.imagePath ?? null,

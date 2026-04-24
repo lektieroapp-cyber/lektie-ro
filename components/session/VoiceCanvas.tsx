@@ -375,11 +375,11 @@ function Hero({
       style={{
         position: "relative",
         zIndex: 1,
-        padding: "10px 24px 14px",
+        padding: "4px 20px 10px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 14,
+        gap: 8,
       }}
     >
       <OrbStage
@@ -451,8 +451,8 @@ function OrbStage({
       style={{
         all: "unset",
         position: "relative",
-        width: 168,
-        height: 168,
+        width: 110,
+        height: 110,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -478,23 +478,23 @@ function OrbStage({
         aria-hidden
         style={{
           position: "absolute",
-          inset: 22,
+          inset: 14,
           borderRadius: "50%",
           background: `radial-gradient(circle at 40% 30%, ${ring}33 0%, transparent 70%)`,
         }}
       />
       <span style={{ position: "relative", zIndex: 1 }}>
-        <Companion type={companionType} mood={mood} size={112} bobbing={bobbing} />
+        <Companion type={companionType} mood={mood} size={72} bobbing={bobbing} />
       </span>
       {phase === "idle" && (
         <span
           aria-hidden
           style={{
             position: "absolute",
-            bottom: -6,
-            right: -6,
-            width: 36,
-            height: 36,
+            bottom: -4,
+            right: -4,
+            width: 28,
+            height: 28,
             borderRadius: 999,
             background: K.mint,
             color: "#1F2D1A",

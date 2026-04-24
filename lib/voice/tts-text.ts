@@ -8,7 +8,9 @@
 
 // Must match BLOCK_RE in components/session/blocks/parse.tsx — kept local so
 // the client can import this file without dragging the React block imports in.
-const BLOCK_STRIP_RE = /\[\w+(?:\s+[a-zA-Z_]+="[^"]*")*\s*\]/g
+// Must match BLOCK_RE in components/session/blocks/parse.tsx. Tag starts
+// with a letter so "[1]" in narration isn't wrongly treated as a block.
+const BLOCK_STRIP_RE = /\[[a-zA-Z]\w*(?:\s+[a-zA-Z_]+="[^"]*")*\s*\]/g
 const DANISH_CHARS = /[æøåÆØÅ]/
 
 type StripOpts = {

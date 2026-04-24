@@ -24,6 +24,10 @@ export type Task = {
    *  task this is omitted/empty. Dani walks the kid through these in order
    *  during the hint flow. */
   steps?: TaskStep[]
+  /** Free-form extractor notes for Dani's reference only (never rendered
+   *  to the kid). Used for constraints, target answers visible on the page,
+   *  or anything the other fields can't carry. */
+  context?: string
 }
 
 export type TaskStep = {

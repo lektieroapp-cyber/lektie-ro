@@ -175,7 +175,15 @@ function StepDot({
 
 // Expanded row for the single in-focus step. Clay accent outlines it so the
 // kid can't miss "this is what we're working on right now".
+//
+// Label handling:
+//   - Short single-char labels (A, B, 1, 2) get the "TRIN X" framing
+//     because the letter alone carries no meaning.
+//   - Word labels (e.g. "dark", "scream" for engelsk circle-of-words
+//     tasks) are themselves the meaning — show them directly, no "TRIN"
+//     prefix (that just adds noise).
 function FocusRow({ label, prompt }: { label: string; prompt: string }) {
+  const isWordLabel = label.length > 2
   return (
     <div
       style={{
@@ -206,15 +214,15 @@ function FocusRow({ label, prompt }: { label: string; prompt: string }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: prompt ? 12 : 14,
+            fontSize: isWordLabel ? 15 : prompt ? 12 : 14,
             fontWeight: 700,
             color: K.clay,
-            textTransform: "uppercase",
-            letterSpacing: 0.4,
+            textTransform: isWordLabel ? "none" : "uppercase",
+            letterSpacing: isWordLabel ? 0 : 0.4,
             marginBottom: prompt ? 1 : 0,
           }}
         >
-          Trin {label}
+          {isWordLabel ? label : `Trin ${label}`}
         </div>
         {prompt && (
           <div

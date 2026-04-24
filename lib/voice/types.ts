@@ -9,26 +9,28 @@ export const STT_LOCALE_DANISH = "da-DK"
 // Voice override for the engelsk subject. Christel can't switch into English
 // pronunciation inside a Danish sentence (standard neural voices ignore the
 // SSML <lang> wrap), so for English homework the AI's voice swaps to a
-// multilingual neural voice that handles BOTH Danish narration AND properly
-// pronounces the quoted English words. Yes, the Danish narration sounds a
-// little accented — but the kid is studying English; correct target-language
-// pronunciation is what they need to hear.
+// multilingual neural voice that pronounces the quoted English words
+// correctly. Yes, the Danish narration carries a noticeable English accent —
+// we tested the alternatives (Jenny/Ryan auto-detect, Dragon HD, German
+// multilinguals) and none did Danish meaningfully better. Andrew it is.
 export const ENGELSK_AZURE_VOICE = "en-US-AndrewMultilingualNeural"
 
-// Azure Danish Neural TTS voices.
-// - Christel/Jeppe are STANDARD da-DK voices: warmest Danish output but they
-//   IGNORE <lang xml:lang="en-US"> switches inside SSML — quoted English words
-//   get read with Danish phonetics regardless ("dark" → "dark" the Danish way).
-// - The Multilingual voices (Microsoft's 2024 release) speak fluent Danish AND
-//   honour <lang> switches properly. Use one of these if English-pronunciation
-//   correctness matters more than the warmth of Christel. They're available in
-//   Sweden Central and priced identically to the standard voices.
+// Azure Neural TTS voices we actually use in production.
+//
+// - Christel/Jeppe: native da-DK, used for matematik/dansk/tysk. Warm Danish
+//   but ignores <lang> SSML switches — English quotes get Danish phonetics.
+// - Andrew Multilingual: used for engelsk only (see ENGELSK_AZURE_VOICE).
+//   Properly pronounces quoted English words; carries an English accent on
+//   Danish narration. Tested alternatives (Jenny/Ryan auto-detect, Dragon HD,
+//   German multilinguals) — none did Danish meaningfully better, so we
+//   accepted Andrew's accent on the engelsk subject.
+//
+// Other voices removed from the admin picker after A/B testing — re-add
+// from git history if a new test is warranted.
 export const AZURE_VOICES = [
-  { id: "da-DK-ChristelNeural", label: "Christel (kvinde, kun dansk)", gender: "female" as const },
-  { id: "da-DK-JeppeNeural", label: "Jeppe (mand, kun dansk)", gender: "male" as const },
-  { id: "en-US-AvaMultilingualNeural", label: "Ava (kvinde, multilingual — taler dansk + engelsk)", gender: "female" as const },
-  { id: "en-US-AndrewMultilingualNeural", label: "Andrew (mand, multilingual — taler dansk + engelsk)", gender: "male" as const },
-  { id: "en-US-EmmaMultilingualNeural", label: "Emma (kvinde, multilingual — taler dansk + engelsk)", gender: "female" as const },
+  { id: "da-DK-JeppeNeural", label: "Jeppe (DA, prod default)", gender: "male" as const },
+  { id: "da-DK-ChristelNeural", label: "Christel (DA, alternativ)", gender: "female" as const },
+  { id: "en-US-AndrewMultilingualNeural", label: "Andrew (EN multilingual — bruges til engelsk)", gender: "male" as const },
 ]
 
 export type SttResult = {

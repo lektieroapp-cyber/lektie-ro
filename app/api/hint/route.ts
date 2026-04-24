@@ -19,6 +19,9 @@ type Body = {
   taskType?: string | null
   /** True when the task requires paper; flips prompt to coach mode. */
   needsPaper?: boolean | null
+  /** Free-form extractor context Dani uses during the session (never
+   *  shown to the kid). */
+  taskContext?: string | null
   /** "voice" = reply will be spoken via TTS, tunes output for spoken delivery. */
   conversationMode?: "text" | "voice"
 }
@@ -63,6 +66,7 @@ export async function POST(request: NextRequest) {
     taskSteps: body.taskSteps ?? null,
     taskType: body.taskType ?? null,
     needsPaper: body.needsPaper ?? null,
+    taskContext: body.taskContext ?? null,
     child,
     deliveryMode,
   })

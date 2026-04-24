@@ -39,7 +39,11 @@ export type BlockActions = {
   onEndTask?: () => void
 }
 
-const BLOCK_RE = /\[(\w+)((?:\s+[a-zA-Z_]+="[^"]*")*)\s*\]/g
+// Tag must start with a LETTER so we don't accidentally match plain
+// bracketed numbers ("[1]", "[2]") that Dani sometimes writes for step
+// labels, page references, or list markers. Tags are conventionally
+// lowercase identifiers (tenframe, tryit, progress, …).
+const BLOCK_RE = /\[([a-zA-Z]\w*)((?:\s+[a-zA-Z_]+="[^"]*")*)\s*\]/g
 const ATTR_RE = /([a-zA-Z_]+)="([^"]*)"/g
 
 export type BlockToken =
