@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { K } from "./design-tokens"
 import type { TaskStep } from "./types"
 
@@ -12,10 +13,11 @@ import type { TaskStep } from "./types"
 // Layout (focus mode):
 //   TRIN   ● ● ○ ○        2/4
 //          └─────── dots for every step: filled mint = done, outlined
-//                   clay = current, faded = upcoming. Tiny, stays on one line.
+//                   clay = current, faded = upcoming. Tap a dot to PEEK
+//                   at that step's prompt without changing the active one.
 //
-//   [ ] TRIN C                                    ← only the current step
-//       Tag tur og begynd din beskrivelse med...    gets the full row.
+//   [ ] TRIN C                                    ← focus row shows the
+//       Tag tur og begynd din beskrivelse med...    active or peeked step.
 //
 // Done steps compress to dots so the kid isn't staring at a wall of
 // already-completed work. Upcoming steps also compress — curiosity is fine,
@@ -33,19 +35,31 @@ export function StepChecklist({
   done: Set<string>
   current: string | null
 }) {
+  // Kid can tap any step dot to peek at that step's prompt — useful for
+  // "what does B want?" curiosity without losing the current focus.
+  // Click the same dot again to dismiss the peek.
+  const [peekedLabel, setPeekedLabel] = useState<string | null>(null)
+
   if (!steps || steps.length === 0) return null
   const doneCount = steps.filter(s => done.has(s.label)).length
   const total = steps.length
 
   // Pick the "focus" step: the explicit current, else the first undone.
   const firstUndone = steps.find(s => !done.has(s.label))
-  const focusLabel =
+  const activeLabel =
     current && steps.some(s => s.label === current && !done.has(s.label))
       ? current
       : firstUndone?.label ?? null
-  const focusStep = focusLabel
-    ? steps.find(s => s.label === focusLabel) ?? null
+  const activeStep = activeLabel
+    ? steps.find(s => s.label === activeLabel) ?? null
     : null
+  // Peek overrides active for the focus-row display; dot styling keeps
+  // showing the REAL active step in clay so the kid isn't confused about
+  // where they actually are.
+  const isPeeking = peekedLabel !== null && peekedLabel !== activeLabel
+  const displayedStep = isPeeking
+    ? steps.find(s => s.label === peekedLabel) ?? activeStep
+    : activeStep
   const allDone = doneCount === total
 
   return (
@@ -65,7 +79,7 @@ export function StepChecklist({
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
-          marginBottom: focusStep ? 10 : 0,
+          marginBottom: displayedStep ? 10 : 0,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -84,13 +98,18 @@ export function StepChecklist({
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", minWidth: 0 }}>
             {steps.map(step => {
               const isDone = done.has(step.label)
-              const isCurrent = !isDone && step.label === focusLabel
+              const isCurrent = !isDone && step.label === activeLabel
+              const isPeeked = peekedLabel === step.label
               return (
                 <StepDot
                   key={step.label}
                   label={step.label}
                   isDone={isDone}
                   isCurrent={isCurrent}
+                  isPeeked={isPeeked}
+                  onClick={() =>
+                    setPeekedLabel(prev => (prev === step.label ? null : step.label))
+                  }
                 />
               )
             })}
@@ -108,24 +127,32 @@ export function StepChecklist({
         </div>
       </div>
 
-      {focusStep && (
-        <FocusRow label={focusStep.label} prompt={focusStep.prompt} />
+      {displayedStep && (
+        <FocusRow
+          label={displayedStep.label}
+          prompt={displayedStep.prompt}
+          isPeek={isPeeking}
+        />
       )}
     </div>
   )
 }
 
-// Tiny status pill per step — filled mint for done, outlined clay for
-// current, faded grey for upcoming. Label text inside so the kid can still
-// recognise which letter is which.
+// Tiny status pill per step — filled mint for done, outlined clay for the
+// active step, faded grey for upcoming. Clickable: tap to peek that step's
+// prompt in the focus row below; tap again to dismiss the peek.
 function StepDot({
   label,
   isDone,
   isCurrent,
+  isPeeked,
+  onClick,
 }: {
   label: string
   isDone: boolean
   isCurrent: boolean
+  isPeeked: boolean
+  onClick: () => void
 }) {
   const bg = isDone ? K.mintDeep : isCurrent ? "#fff" : "transparent"
   const color = isDone ? "#fff" : isCurrent ? K.clay : K.ink2
@@ -135,8 +162,11 @@ function StepDot({
       ? K.clay
       : "rgba(31,27,51,0.15)"
   return (
-    <span
-      aria-hidden
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Se trin ${label}`}
+      aria-pressed={isPeeked}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -152,7 +182,10 @@ function StepDot({
         fontWeight: 700,
         lineHeight: 1,
         fontFamily: "inherit",
-        transition: "background 0.2s, color 0.2s, border-color 0.2s",
+        cursor: "pointer",
+        outline: isPeeked ? `2px solid ${K.clay}60` : "none",
+        outlineOffset: isPeeked ? 2 : 0,
+        transition: "background 0.2s, color 0.2s, border-color 0.2s, outline 0.15s",
       }}
     >
       {isDone ? (
@@ -169,7 +202,7 @@ function StepDot({
       ) : (
         label
       )}
-    </span>
+    </button>
   )
 }
 
@@ -182,8 +215,34 @@ function StepDot({
 //   - Word labels (e.g. "dark", "scream" for engelsk circle-of-words
 //     tasks) are themselves the meaning — show them directly, no "TRIN"
 //     prefix (that just adds noise).
-function FocusRow({ label, prompt }: { label: string; prompt: string }) {
+// Safety cap for the displayed step prompt. The extractor is instructed to
+// keep step.prompt short and action-oriented (≤ 90 chars), and any lists /
+// examples belong in the private context block. When the extractor ignores
+// that and stuffs a paragraph into prompt, we truncate here so the header
+// doesn't swallow the screen. "Vis mere" expands to the full text on demand.
+const PROMPT_SOFT_CAP = 120
+
+function FocusRow({
+  label,
+  prompt,
+  isPeek = false,
+}: {
+  label: string
+  prompt: string
+  isPeek?: boolean
+}) {
   const isWordLabel = label.length > 2
+  const [expanded, setExpanded] = useState(false)
+  const trimmed = prompt.trim()
+  const needsTruncation = trimmed.length > PROMPT_SOFT_CAP
+  const visible =
+    needsTruncation && !expanded
+      ? trimmed.slice(0, PROMPT_SOFT_CAP).trimEnd() + "…"
+      : trimmed
+  // Peek preview uses a muted grey tint instead of clay so the kid can tell
+  // "this is a step I'm curious about" vs "this is my active step".
+  const accent = isPeek ? K.ink2 : K.clay
+  const bg = isPeek ? "rgba(31,27,51,0.04)" : "rgba(201,121,98,0.08)"
   return (
     <div
       style={{
@@ -191,9 +250,9 @@ function FocusRow({ label, prompt }: { label: string; prompt: string }) {
         alignItems: "flex-start",
         gap: 10,
         padding: "8px 10px",
-        background: "rgba(201,121,98,0.08)",
+        background: bg,
         borderRadius: 10,
-        border: `1.5px solid ${K.clay}70`,
+        border: `1.5px solid ${accent}70`,
       }}
     >
       <span
@@ -205,7 +264,7 @@ function FocusRow({ label, prompt }: { label: string; prompt: string }) {
           width: 20,
           height: 20,
           borderRadius: 6,
-          border: `2px solid ${K.clay}`,
+          border: `2px solid ${accent}`,
           background: "#fff",
           flexShrink: 0,
           marginTop: 2,
@@ -216,13 +275,31 @@ function FocusRow({ label, prompt }: { label: string; prompt: string }) {
           style={{
             fontSize: isWordLabel ? 15 : prompt ? 12 : 14,
             fontWeight: 700,
-            color: K.clay,
+            color: accent,
             textTransform: isWordLabel ? "none" : "uppercase",
             letterSpacing: isWordLabel ? 0 : 0.4,
             marginBottom: prompt ? 1 : 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          {isWordLabel ? label : `Trin ${label}`}
+          <span>{isWordLabel ? label : `Trin ${label}`}</span>
+          {isPeek && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: K.ink2,
+                background: "rgba(31,27,51,0.08)",
+                padding: "2px 6px",
+                borderRadius: 999,
+                letterSpacing: 0.5,
+              }}
+            >
+              KIG
+            </span>
+          )}
         </div>
         {prompt && (
           <div
@@ -232,7 +309,27 @@ function FocusRow({ label, prompt }: { label: string; prompt: string }) {
               color: K.ink,
             }}
           >
-            {prompt}
+            {visible}
+            {needsTruncation && (
+              <button
+                type="button"
+                onClick={() => setExpanded(v => !v)}
+                style={{
+                  marginLeft: 6,
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  color: K.ink2,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  textDecoration: "underline",
+                }}
+              >
+                {expanded ? "vis mindre" : "vis mere"}
+              </button>
+            )}
           </div>
         )}
       </div>

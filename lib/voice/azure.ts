@@ -129,11 +129,25 @@ async function postSsml(url: string, key: string, ssml: string) {
   })
 }
 
+// Hybrid voice IDs follow the form "<da-voice>+<en-voice>", e.g.
+//   "da-DK-JeppeNeural+en-US-AndrewMultilingualNeural"
+// In hybrid mode we render Danish narration with the first voice and the
+// quoted English spans with the second, instead of using a single voice
+// with <lang> SSML switches. Result: native Danish AND native English at
+// the cost of two speakers in one sentence. Detected by the presence of
+// "+" in the voice id.
+const HYBRID_SEPARATOR = "+"
+
 export const azureTts: TtsProvider = {
   id: "azure",
   async synthesize({ text, voice }) {
     const { key, region } = azureConfig()
     const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`
+
+    const isHybrid = voice.includes(HYBRID_SEPARATOR)
+    const [danishVoice, englishVoice] = isHybrid
+      ? voice.split(HYBRID_SEPARATOR)
+      : [voice, voice]
 
     // Conversational SSML tuning.
     //   rate='1.02'  — just above natural. 0.92 (the old value) added ~8%
@@ -148,22 +162,26 @@ export const azureTts: TtsProvider = {
     // get wrapped in say-as so Azure reads them as letter names instead
     // of mis-parsing "A." as a weird abbreviation / punctuation pair.
     //
-    // Quoted content gets wrapped in <lang xml:lang="en-US"> so the Danish
-    // Neural voice switches to English pronunciation for English words.
-    // English exercises reference English words via quotes ("dog", "scream")
-    // and without this Christel reads them with Danish phonemes.
+    // Quoted content handling depends on mode:
+    //   - Single-voice mode: <lang xml:lang="en-US"> wrap. Works only for
+    //     multilingual voices (Christel ignores it).
+    //   - Hybrid mode: close the Danish <voice>, open an English <voice>
+    //     with English voice name, render the quoted text, then re-open the
+    //     Danish voice. Two speakers, but native pronunciation for both.
     // Pipeline:
     //   raw text
     //   → wrapQuotedAsEnglishPre (insert ASCII sentinel markers around
     //     English quotes; skip quotes that contain æ/ø/å)
     //   → escapeXml (apostrophes become &apos; safely inside sentinels)
     //   → wrapLetterLabelsInSayAs (Unicode-aware so "Målet" stays intact)
-    //   → materializeLangSentinels (swap sentinels for real <lang> tags)
+    //   → materializeLangSentinels OR materializeVoiceSwapSentinels
     const marked = wrapQuotedAsEnglishPre(text)
     const escaped = escapeXml(marked)
     const withLabels = wrapLetterLabelsInSayAs(escaped)
-    const withEn = materializeLangSentinels(withLabels)
-    const voiceName = escapeXml(voice)
+    const withEn = isHybrid
+      ? materializeVoiceSwapSentinels(withLabels, escapeXml(danishVoice), escapeXml(englishVoice))
+      : materializeLangSentinels(withLabels)
+    const voiceName = escapeXml(danishVoice)
     const fancySsml =
       `<speak version='1.0' xml:lang='da-DK' xmlns:mstts='http://www.w3.org/2001/mstts'>` +
       `<voice xml:lang='da-DK' name='${voiceName}'>` +
@@ -297,6 +315,24 @@ function materializeLangSentinels(escaped: string): string {
   return escaped
     .split(LANG_EN_OPEN_SENTINEL).join('<lang xml:lang="en-US">')
     .split(LANG_EN_CLOSE_SENTINEL).join('</lang>')
+}
+
+// Hybrid mode: each English span breaks out of the Danish <voice> entirely
+// and renders inside its own English <voice> block. Same prosody on both
+// sides so rate/pitch stays consistent across the swap. The outer <speak>
+// + first <voice> are emitted by the caller; this only fills the body.
+function materializeVoiceSwapSentinels(
+  escaped: string,
+  danishVoiceEscaped: string,
+  englishVoiceEscaped: string
+): string {
+  const closeDanish = `</prosody></voice>`
+  const openEnglish = `<voice xml:lang='en-US' name='${englishVoiceEscaped}'><prosody rate='1.02' pitch='+1%'>`
+  const closeEnglish = `</prosody></voice>`
+  const openDanish = `<voice xml:lang='da-DK' name='${danishVoiceEscaped}'><prosody rate='1.02' pitch='+1%'>`
+  return escaped
+    .split(LANG_EN_OPEN_SENTINEL).join(`${closeDanish}${openEnglish}`)
+    .split(LANG_EN_CLOSE_SENTINEL).join(`${closeEnglish}${openDanish}`)
 }
 
 function escapeXml(s: string): string {

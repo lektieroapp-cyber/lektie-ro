@@ -6,14 +6,13 @@ export type VoiceProviderId = "azure" | "elevenlabs"
 
 export const STT_LOCALE_DANISH = "da-DK"
 
-// Voice override for the engelsk subject. Christel can't switch into English
-// pronunciation inside a Danish sentence (standard neural voices ignore the
-// SSML <lang> wrap), so for English homework the AI's voice swaps to a
-// multilingual neural voice that pronounces the quoted English words
-// correctly. Yes, the Danish narration carries a noticeable English accent —
-// we tested the alternatives (Jenny/Ryan auto-detect, Dragon HD, German
-// multilinguals) and none did Danish meaningfully better. Andrew it is.
-export const ENGELSK_AZURE_VOICE = "en-US-AndrewMultilingualNeural"
+// Voice override for the engelsk subject — uses the HYBRID format
+// "<da-voice>+<en-voice>" understood by lib/voice/azure.ts. Danish narration
+// is rendered with Jeppe (native, warm) and quoted English spans break out
+// to Andrew (multilingual, correct English pronunciation). Two speakers in
+// one sentence, but native quality on both halves — A/B confirmed this
+// sounds better than any single multilingual voice we tested.
+export const ENGELSK_AZURE_VOICE = "da-DK-JeppeNeural+en-US-AndrewMultilingualNeural"
 
 // Azure Neural TTS voices we actually use in production.
 //
@@ -31,6 +30,11 @@ export const AZURE_VOICES = [
   { id: "da-DK-JeppeNeural", label: "Jeppe (DA, prod default)", gender: "male" as const },
   { id: "da-DK-ChristelNeural", label: "Christel (DA, alternativ)", gender: "female" as const },
   { id: "en-US-AndrewMultilingualNeural", label: "Andrew (EN multilingual — bruges til engelsk)", gender: "male" as const },
+  // Hybrid voice IDs use "<da-voice>+<en-voice>" — TTS renders Danish narration
+  // with the first voice and quoted English spans with the second.
+  // Two speakers in one sentence; native pronunciation on both sides.
+  { id: "da-DK-JeppeNeural+en-US-AndrewMultilingualNeural", label: "HYBRID: Jeppe (DA) + Andrew swap til engelske citater", gender: "male" as const },
+  { id: "da-DK-ChristelNeural+en-US-AvaMultilingualNeural", label: "HYBRID: Christel (DA) + Ava swap til engelske citater", gender: "female" as const },
 ]
 
 export type SttResult = {

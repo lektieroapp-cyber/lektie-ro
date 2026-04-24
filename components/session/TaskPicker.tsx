@@ -218,22 +218,12 @@ function TaskRow({
         >
           {displayTitle}
         </div>
-        {task.goal && (
-          <div
-            style={{
-              fontSize: 12,
-              color: K.ink2,
-              marginTop: 6,
-              lineHeight: 1.35,
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 6,
-            }}
-          >
-            <span aria-hidden style={{ opacity: 0.8 }}>🎯</span>
-            <span>{task.goal}</span>
-          </div>
-        )}
+        {/* task.goal intentionally omitted here — it's the pedagogical
+            learning goal written for Dani ("Øv mundtlig brug af ord…"),
+            which reads like a lesson plan and confuses the kid who's
+            choosing a task. The goal already surfaces on the hint screen
+            (GoalBanner) right before the conversation starts. The picker
+            keeps the title + trin count so the kid scans quickly. */}
       </div>
       <svg
         width="14"

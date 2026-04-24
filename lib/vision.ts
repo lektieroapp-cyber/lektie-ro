@@ -141,16 +141,17 @@ STEPS vs CONTEXT — pick deliberately:
   for interview, composition, free-response creative work. For these
   either leave steps empty or give at most 2–3 high-level milestones
   ("read the words aloud", "say a few sentences", "share with a friend").
-- CONTEXT is Dani's private reference — put the concrete list of target
-  items (words, names, pictures) here so Dani can answer "how many are
-  left?" and suggest the next one, without pretending every item is its
-  own locked sub-task. Example context for a circle-of-words task:
-  "Target words visible in the light blue circle: dark, scream, zombie,
-  ghost, skeleton, night, alone, mum. Child should talk about several,
-  not necessarily all."
-- Also use CONTEXT for: target answers visible on the page, formulae
-  the chapter is practising, unusual constraints that shape feedback.
-  Never duplicate the task text or the steps.
+- Step PROMPT must be short and action-oriented (≤ 90 chars, one clause).
+  It is rendered to the child verbatim. DO NOT stuff target-word lists,
+  example sentences, or the full task text into the step prompt. Those
+  are context, not step content.
+- CONTEXT is Dani's private reference (never shown to the child). Put
+  the concrete list of target items (words, names, pictures), example
+  answers, visible formulae, unusual constraints — anything the other
+  fields can't carry. Example context for a circle-of-words task:
+  "Target words in the light blue circle: dark, scream, zombie, ghost,
+  skeleton, night, alone, mum. Child talks about several, not all."
+- Never duplicate the task text or the steps in context.
 
 Pedagogy anchor (see docs/pedagogy.md): rigid step-ticking is right for
 concrete-facit tasks and wrong for conversational / oral-language tasks

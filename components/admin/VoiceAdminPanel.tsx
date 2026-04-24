@@ -65,7 +65,10 @@ export function VoiceAdminPanel({ initialMode, initialDiagnostics }: Props) {
             options={AZURE_VOICES.map(v => ({ value: v.id, label: v.label }))}
           />
           <p className="mt-1 text-xs text-muted">
-            Christel er den varmere kvindestemme. Jeppe er mandlig.
+            Jeppe / Christel er native danske stemmer — udtaler IKKE engelske
+            citater korrekt. HYBRID-valgene skifter til en engelsk stemme for
+            tekst i citationstegn (to forskellige talere i samme sætning, men
+            korrekt udtale begge sider).
           </p>
         </div>
 
