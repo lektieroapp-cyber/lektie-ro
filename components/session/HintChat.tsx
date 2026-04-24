@@ -1402,13 +1402,17 @@ export function HintChat({
         overflow: "hidden",
       }}
     >
-      {/* Task pill at top */}
+      {/* Task pill at top.
+          Responsive padding: phones squeeze this down so the task headline
+          + goal banner + checklist fit on a narrow viewport without
+          horizontal clipping. */}
       <div
         style={{
-          padding: "14px 22px 16px",
+          padding: "14px clamp(14px, 4vw, 22px) 16px",
           borderBottom: "1px solid rgba(31,27,51,0.06)",
           background: "rgba(255,255,255,0.6)",
           backdropFilter: "blur(8px)",
+          overflowWrap: "anywhere",
         }}
       >
         <div
@@ -2324,6 +2328,38 @@ function CelebrationPanel({
   const companionType = type ?? DEFAULT_COMPANION
   const companion = companionByType(companionType)
   const confettiColors = [K.coral, K.butter, K.sky, K.mint, K.plum, companion.accent]
+
+  // Auto-advance back to the task picker after a short celebration. Kid
+  // gets the cheer + confetti, then flows naturally back to "what's next?"
+  // without having to tap. Tapping "Jeg er færdig for i dag" cancels.
+  // Tapping anywhere else (including the countdown button) just advances
+  // immediately. A ref tracks whether we've advanced or been cancelled so
+  // the setInterval doesn't double-fire.
+  const AUTO_NEXT_SECONDS = 4
+  const [secondsLeft, setSecondsLeft] = useState(AUTO_NEXT_SECONDS)
+  const resolvedRef = useRef(false)
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setSecondsLeft(s => (s > 0 ? s - 1 : 0))
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [])
+  useEffect(() => {
+    if (secondsLeft <= 0 && !resolvedRef.current) {
+      resolvedRef.current = true
+      onMoreHomework()
+    }
+  }, [secondsLeft, onMoreHomework])
+  const cancelAutoAdvance = () => {
+    if (resolvedRef.current) return
+    resolvedRef.current = true
+    onFinishSession()
+  }
+  const advanceNow = () => {
+    if (resolvedRef.current) return
+    resolvedRef.current = true
+    onMoreHomework()
+  }
   return (
     <div
       style={{
@@ -2430,10 +2466,10 @@ function CelebrationPanel({
           zIndex: 1,
         }}
       >
-        <BigBtn tone="coral" onClick={onMoreHomework} style={{ width: "100%" }}>
-          Næste opgave
+        <BigBtn tone="coral" onClick={advanceNow} style={{ width: "100%" }}>
+          {secondsLeft > 0 ? `Næste opgave om ${secondsLeft}…` : "Næste opgave"}
         </BigBtn>
-        <BigBtn tone="ghost" onClick={onFinishSession} style={{ width: "100%" }}>
+        <BigBtn tone="ghost" onClick={cancelAutoAdvance} style={{ width: "100%" }}>
           Jeg er færdig for i dag
         </BigBtn>
       </div>

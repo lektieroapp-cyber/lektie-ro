@@ -843,8 +843,8 @@ function Dock({
           onClick={() => setMuted(m => !m)}
           aria-label={muted ? "Slå lyd til" : "Slå lyd fra"}
           style={{
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             borderRadius: 999,
             flexShrink: 0,
             border: "none",
@@ -947,7 +947,7 @@ function Dock({
           aria-label="Færdig med opgaven"
           title="Færdig med opgaven"
           style={{
-            height: 40,
+            height: 44,
             borderRadius: 999,
             flexShrink: 0,
             border: "none",
