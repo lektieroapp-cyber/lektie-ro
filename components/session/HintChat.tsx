@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Companion, Sparkles } from "@/components/mascot/Companion"
 import { useCompanion } from "@/components/mascot/CompanionContext"
 import { companionByType, DEFAULT_COMPANION } from "@/components/mascot/types"
-import { IdeaIcon } from "@/components/icons/ModeIcons"
 import { startBargeInDetector } from "@/lib/voice/barge-in-detector"
 import { startPcmRecorder, type PcmRecorderHandle } from "@/lib/voice/pcm-recorder"
 import { startSilenceDetector, type DetectorStats } from "@/lib/voice/silence-detector"
@@ -37,6 +36,19 @@ function ttsProviderId(raw: string): VoiceProviderId {
   return raw === "elevenlabs" ? "elevenlabs" : "azure"
 }
 
+// Detect Dani's verbal completion celebration in a turn. Fires on phrases
+// like "du er **færdig**!" / "du er færdig!" / "godt gået — du er færdig."
+// that the prompt uses as the completion template. This is the safety net
+// for when Dani forgets to emit [progress done="all"] alongside the words.
+//
+// Intentionally conservative: we require the exact "du er færdig" phrase
+// followed by sentence-ending punctuation, so "spørg mig hvornår du er
+// færdig?" (a question) doesn't false-trigger.
+const VERBAL_DONE_RE = /du er\s+\*{0,2}færdig\*{0,2}\s*[!.]/i
+function hasVerbalCompletion(text: string): boolean {
+  return VERBAL_DONE_RE.test(text)
+}
+
 function splitUsageSentinel(acc: string): {
   text: string
   usage: { promptTokens: number; completionTokens: number; model: string } | null
@@ -67,6 +79,10 @@ function splitUsageSentinel(acc: string): {
 
 const MAX_TURNS = 25
 const WARN_AT = 20
+// After this many assistant turns, surface a gentle "are you done?" nudge.
+// Most tasks resolve in 3-6 turns; past that the kid may be stuck in a
+// STT/miscommunication loop and wants an exit, not more hints.
+const FINISH_NUDGE_AT = 6
 // Minimum time the typing dots show before any text renders — makes Azure's
 // fast-start responses feel less abrupt + gives the "Dani er ved at tænke" beat.
 const MIN_THINKING_MS = 700
@@ -753,38 +769,46 @@ export function HintChat({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [turns, partial])
 
-  // Auto-complete when Dani signals the task is done by emitting
-  // [progress done="all"]. Without this, template/composition tasks ran
-  // forever — the kid got all four "My home is a..." sentences out but
-  // the flow kept asking for more because there was no explicit exit. The
-  // prompt now instructs Dani to emit done="all" on completion; we trip
-  // onComplete and let SessionFlow flip to the celebration panel.
+  // Auto-complete when Dani signals the task is done — either via the
+  // explicit [progress done="all"] marker (preferred) or via a verbal
+  // "du er færdig"-style celebration in the latest turn (safety net for
+  // when Dani forgets the marker, which happens on long chats).
   //
-  // Dev logging: surface BOTH the detection of "all" AND whether we
-  // actually flip completed. A common class of "Dani says done but UI
-  // doesn't" bugs is the effect firing but something upstream (parent
-  // completed prop, streaming tail) blocking the transition.
+  // Without the verbal fallback, a session where Dani says "Godt gået —
+  // du er **færdig**!" but skips the marker leaves the kid stranded on
+  // the hint screen with no auto-flip to the celebration panel.
+  //
+  // Dev logging: surface BOTH the detection path AND whether we actually
+  // flip completed, so "Dani says done but UI doesn't" bugs are easy to
+  // diagnose.
   useEffect(() => {
     if (completed) return
-    if (stepProgress.done.has("all")) {
-      if (streaming) {
+    if (streaming) {
+      if (stepProgress.done.has("all")) {
         logDevEvent("info", "Progress done=\"all\" set — awaiting stream end")
-        return
       }
-      logDevEvent("complete", "Auto-complete via [progress done=\"all\"]", {
-        stepsDone: displayedSteps
-          ? displayedSteps.filter(s => stepProgress.done.has(s.label)).length
-          : 0,
-        stepsTotal: displayedSteps?.length ?? 0,
-      })
-      onComplete(turns, buildCompletionStatus({
-        displayedSteps,
-        doneSet: stepProgress.done,
-        userSignaledDone: true,
-      }))
+      return
     }
+    const lastAssistant = [...turns].reverse().find(t => t.role === "assistant")
+    const verbalDone = lastAssistant
+      ? hasVerbalCompletion(lastAssistant.content)
+      : false
+    const markerDone = stepProgress.done.has("all")
+    if (!markerDone && !verbalDone) return
+    logDevEvent("complete", "Auto-complete", {
+      via: markerDone ? "progress=all" : "verbal",
+      stepsDone: displayedSteps
+        ? displayedSteps.filter(s => stepProgress.done.has(s.label)).length
+        : 0,
+      stepsTotal: displayedSteps?.length ?? 0,
+    })
+    onComplete(turns, buildCompletionStatus({
+      displayedSteps,
+      doneSet: stepProgress.done,
+      userSignaledDone: true,
+    }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepProgress.done, streaming, completed])
+  }, [stepProgress.done, streaming, completed, turns])
 
   // Log every fresh [progress …] marker as it lands so we can see when
   // Dani is trying to move progress and what the parsed values were.
@@ -972,6 +996,10 @@ export function HintChat({
 
   async function startRecording() {
     if (recording || transcribing || streaming) return
+    // Text mode: using the mic is the "activation" for audio in text mode.
+    // Flip voiceOn so Dani's replies read aloud for the rest of the session.
+    // Voice-agent mode already has voiceOn forced on from its setup effect.
+    if (!voiceAgent) setVoiceOn(true)
     // Reuse the long-lived mic stream when possible — avoids 200-500 ms
     // getUserMedia per turn + is how barge-in stays hot across turns.
     // Fall back to opening a fresh stream if we're not in voice-agent mode
@@ -1421,7 +1449,6 @@ export function HintChat({
           Opgave
         </div>
         <TaskHeadline task={task} />
-        <GoalBanner task={task} />
         {displayedSteps && displayedSteps.length > 0 && (
           <div style={{ marginTop: 10 }}>
             <StepChecklist
@@ -1506,14 +1533,37 @@ export function HintChat({
           </div>
         ) : (
           <>
-            {assistantTurns >= WARN_AT && (
+            {assistantTurns >= WARN_AT ? (
               <p style={{ margin: 0, fontSize: 12, color: K.coral }}>
                 Du er tæt på grænsen. Få mere ud af dit næste svar.
               </p>
-            )}
+            ) : assistantTurns >= FINISH_NUDGE_AT ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  margin: 0,
+                  padding: "8px 12px",
+                  background: K.mintSoft,
+                  border: `1px solid ${K.mintEdge}`,
+                  borderRadius: 12,
+                  fontSize: 13,
+                  color: K.ink,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden style={{ flexShrink: 0 }}>
+                  <circle cx="8" cy="8" r="6.5" fill="none" stroke={K.mintDeep} strokeWidth="1.5" />
+                  <path d="M5 8.5l2 2 4-5" stroke={K.mintDeep} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>
+                  Føler du dig færdig? Tryk <b>Opgave løst ✓</b> nedenfor.
+                </span>
+              </div>
+            ) : null}
             <form onSubmit={send} style={{ display: "flex", gap: 8 }}>
               {VOICE_ENABLED && (
-                <MicButton
+                <VoiceInputButton
                   recording={recording}
                   transcribing={transcribing}
                   disabled={streaming}
@@ -1567,62 +1617,11 @@ export function HintChat({
               </button>
             </form>
 
-            {VOICE_ENABLED && voiceAgent && (
-              <span
-                style={{
-                  alignSelf: "flex-start",
-                  background: K.mint,
-                  color: "#1F2D1A",
-                  borderRadius: 999,
-                  padding: "6px 12px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-                aria-live="polite"
-              >
-                {speaking
-                  ? "🔊 Dani læser op …"
-                  : recording
-                    ? "🎙 Lytter — tryk stop når du er færdig"
-                    : transcribing
-                      ? "✎ Skriver det du sagde …"
-                      : "🎙 Snak-tilstand"}
-              </span>
-            )}
-            {VOICE_ENABLED && !voiceAgent && (
-              <button
-                type="button"
-                onClick={toggleVoice}
-                style={{
-                  alignSelf: "flex-start",
-                  border: "none",
-                  background: voiceOn ? K.mint : "rgba(31,27,51,0.06)",
-                  color: voiceOn ? "#1F2D1A" : K.ink2,
-                  borderRadius: 999,
-                  padding: "6px 12px",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  fontFamily: "inherit",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-                aria-pressed={voiceOn}
-              >
-                {speaking ? "🔊 Læser op …" : voiceOn ? "🔊 Lyd til" : "🔇 Lyd fra"}
-              </button>
-            )}
-
             <div style={{ display: "flex", gap: 10 }}>
               <BigBtn
                 tone="ghost"
                 onClick={askHint}
                 style={{ flex: 1 }}
-                icon={<IdeaIcon size={18} color={K.ink} />}
                 disabled={streaming}
               >
                 {assistantTurns <= 1 ? "Giv mig et hint" : "Endnu et hint"}
@@ -1649,160 +1648,24 @@ export function HintChat({
   )
 }
 
-// Compact task headline for the hint screen. The earlier version dumped
-// `task.text` verbatim, which on composition tasks was a whole paragraph
-// ("Work with a friend. Read all the words in the light blue circle. Now
-// take turns saying a true sentence..."). That wall of text is redundant
-// — Dani already narrates the task, and the kid can tap "vis hele
-// opgaven" if they want the book text back. Default to the short title.
+// Compact task headline for the hint screen. Dani narrates the task
+// itself, so we only show the short title here — no raw task text.
 function TaskHeadline({ task }: { task: Task }) {
-  const [expanded, setExpanded] = useState(false)
   const headline = task.title || shortFallback(task.text)
-  const hasMore =
-    task.text.trim().length > headline.length + 10 &&
-    task.text.trim() !== headline
-  return (
-    <div>
-      <div
-        style={{
-          fontFamily: K.serif,
-          fontSize: 20,
-          fontWeight: 600,
-          color: K.ink,
-          marginTop: 4,
-          lineHeight: 1.25,
-        }}
-      >
-        {headline}
-      </div>
-      {hasMore && (
-        <button
-          type="button"
-          onClick={() => setExpanded(v => !v)}
-          style={{
-            marginTop: 6,
-            background: "transparent",
-            border: "none",
-            padding: 0,
-            color: K.ink2,
-            fontSize: 12,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            textDecoration: "underline",
-          }}
-        >
-          {expanded ? "Skjul" : "Vis hele opgaven"}
-        </button>
-      )}
-      {expanded && (
-        <div
-          style={{
-            marginTop: 8,
-            padding: "10px 12px",
-            background: "rgba(31,27,51,0.03)",
-            borderRadius: 10,
-            fontSize: 13,
-            lineHeight: 1.45,
-            color: K.ink2,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {task.text}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Surface the pedagogical goal + the modality up front. Addresses the De
-// 10 H'er principles "Hvad skal jeg lave" + "Hvordan skal jeg lave det":
-// the kid should see the goal AND how they're supposed to engage (talk,
-// write, draw, interview) before Dani even opens their mouth. Without
-// this the goal was buried in Dani's first narration and easy to miss.
-function GoalBanner({ task }: { task: Task }) {
-  const modality = modalityFor(task)
-  if (!task.goal && !modality) return null
   return (
     <div
       style={{
-        marginTop: 10,
-        padding: "10px 12px",
-        background: "rgba(196,227,209,0.35)",
-        border: "1px solid rgba(79,142,107,0.18)",
-        borderRadius: 12,
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 10,
+        fontFamily: K.serif,
+        fontSize: 20,
+        fontWeight: 600,
+        color: K.ink,
+        marginTop: 4,
+        lineHeight: 1.25,
       }}
     >
-      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden style={{ flexShrink: 0, marginTop: 2 }}>
-        <circle cx="8" cy="8" r="6.5" fill="none" stroke={K.mintDeep} strokeWidth="1.5" />
-        <circle cx="8" cy="8" r="2" fill={K.mintDeep} />
-      </svg>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: K.mintDeep,
-            letterSpacing: 0.4,
-            textTransform: "uppercase",
-          }}
-        >
-          Mål
-        </div>
-        {task.goal && (
-          <div
-            style={{
-              fontSize: 13,
-              lineHeight: 1.4,
-              color: K.ink,
-              marginTop: 2,
-            }}
-          >
-            {task.goal}
-          </div>
-        )}
-        {modality && (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              marginTop: task.goal ? 6 : 2,
-              fontSize: 12,
-              fontWeight: 600,
-              color: K.ink2,
-              background: "#fff",
-              padding: "3px 10px 3px 8px",
-              borderRadius: 999,
-              border: "1px solid rgba(31,27,51,0.06)",
-            }}
-          >
-            <span aria-hidden>{modality.icon}</span>
-            <span>{modality.label}</span>
-          </div>
-        )}
-      </div>
+      {headline}
     </div>
   )
-}
-
-// Derive how the kid should engage with the task. Order matters: needsPaper
-// overrides type (a "reading" task that also requires marking still needs
-// paper). Keeps labels short + action-oriented.
-function modalityFor(task: Task): { icon: string; label: string } | null {
-  if (task.needsPaper) return { icon: "✏️", label: "Skriv eller tegn det" }
-  const t = (task.type ?? "").toLowerCase()
-  if (t === "interview") return { icon: "🎤", label: "Interview nogen" }
-  if (t === "dictation") return { icon: "✏️", label: "Skriv det du hører" }
-  if (t === "reading") return { icon: "📖", label: "Læs teksten" }
-  if (t === "composition" || t === "creative")
-    return { icon: "✍️", label: "Skriv en kort tekst" }
-  if (t === "translation") return { icon: "🔤", label: "Oversæt" }
-  if (t === "vocabulary") return { icon: "📚", label: "Find ord" }
-  if (t === "puzzle") return { icon: "🧩", label: "Løs gåden" }
-  return { icon: "💬", label: "Tal med Dani" }
 }
 
 // ─── Dev audio debug panel (localhost only) ──────────────────────────────
@@ -2151,9 +2014,14 @@ function BigBtn({
   )
 }
 
-// ─── Mic button + MediaRecorder helpers ─────────────────────────────────
+// ─── Voice input button + MediaRecorder helpers ─────────────────────────
+//
+// Single "activation button" for text mode: tapping the mic starts speech
+// input AND implicitly enables audible replies (startRecording sets voiceOn).
+// One control, both directions. Idle → mint outline, recording → mint filled
+// with pulse ring, transcribing → three dots.
 
-function MicButton({
+function VoiceInputButton({
   recording,
   transcribing,
   disabled,
@@ -2168,29 +2036,94 @@ function MicButton({
 }) {
   const busy = transcribing || disabled
   const active = recording
+  const label = transcribing
+    ? "Skriver det du sagde"
+    : active
+      ? "Stop og send"
+      : "Tal ind"
   return (
     <button
       type="button"
       onClick={active ? onStop : onStart}
-      disabled={busy}
-      aria-label={active ? "Stop optagelse" : "Tal ind"}
+      disabled={busy && !active}
+      aria-label={label}
+      title={label}
       style={{
+        position: "relative",
         width: 46,
         height: 46,
         flexShrink: 0,
         borderRadius: 12,
-        border: `1.5px solid ${active ? K.coral : "rgba(31,27,51,0.1)"}`,
-        background: active ? K.coral : "#fff",
+        border: active ? "none" : `1.5px solid rgba(31,27,51,0.1)`,
+        background: active ? K.mintDeep : "#fff",
         color: active ? "#fff" : K.ink,
-        fontSize: 18,
-        cursor: busy ? "not-allowed" : "pointer",
-        opacity: busy ? 0.5 : 1,
+        cursor: busy && !active ? "not-allowed" : "pointer",
+        opacity: busy && !active ? 0.5 : 1,
         fontFamily: "inherit",
         transition: "all 0.18s",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
-      title={active ? "Stop" : "Tal ind"}
     >
-      {transcribing ? "…" : active ? "⏹" : "🎙"}
+      {active && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: -4,
+            borderRadius: 14,
+            border: `2px solid ${K.mintDeep}`,
+            opacity: 0.35,
+            animation: "voiceBtnPulse 1.2s ease-in-out infinite",
+          }}
+        />
+      )}
+      {transcribing ? (
+        <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: 2 }}>…</span>
+      ) : (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden
+        >
+          <rect
+            x="9"
+            y="3"
+            width="6"
+            height="12"
+            rx="3"
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+          <path
+            d="M5 11a7 7 0 0 0 14 0"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <path
+            d="M12 18v3"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <path
+            d="M9 21h6"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
+      <style>{`
+        @keyframes voiceBtnPulse {
+          0%, 100% { transform: scale(1); opacity: 0.35; }
+          50%      { transform: scale(1.08); opacity: 0; }
+        }
+      `}</style>
     </button>
   )
 }

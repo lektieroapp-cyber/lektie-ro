@@ -221,9 +221,8 @@ function TaskRow({
         {/* task.goal intentionally omitted here — it's the pedagogical
             learning goal written for Dani ("Øv mundtlig brug af ord…"),
             which reads like a lesson plan and confuses the kid who's
-            choosing a task. The goal already surfaces on the hint screen
-            (GoalBanner) right before the conversation starts. The picker
-            keeps the title + trin count so the kid scans quickly. */}
+            choosing a task. Dani's first hint narration surfaces the
+            goal in kid-facing language. */}
       </div>
       <svg
         width="14"

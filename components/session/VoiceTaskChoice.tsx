@@ -6,6 +6,7 @@ import { startSilenceDetector } from "@/lib/voice/silence-detector"
 import { modelIdFromDeployment } from "@/lib/ai-pricing"
 import { pushCostEvent } from "@/lib/dev-cost"
 import { K } from "./design-tokens"
+import { shortFallback } from "./TaskPicker"
 import type { Task } from "./types"
 
 // Voice-mode task picker. Speaks "Jeg fandt N opgaver — første X, anden Y,
@@ -263,7 +264,9 @@ function buildQuestion(tasks: Task[]): string {
   const countWord = numberWord(tasks.length)
   const parts = tasks.map((t, i) => {
     const label = ordinalWord(i) ?? `nummer ${i + 1}`
-    const title = t.title ?? t.text.slice(0, 60)
+    // Same derivation as TaskPicker so voice speaks exactly what the card
+    // shows — no "voice said X, card says Y" drift when title is missing.
+    const title = t.title || shortFallback(t.text)
     return `${label}: ${title}`
   })
   return `Jeg fandt ${countWord} opgaver. ${parts.join(". ")}. Hvilken vil du starte med?`
