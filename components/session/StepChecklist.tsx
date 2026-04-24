@@ -7,19 +7,22 @@ import type { TaskStep } from "./types"
 // Pedagogical intent (from docs/pedagogy.md):
 //   - tydelig trin-progression — eleven ser præcis hvilke delopgaver der er løst
 //   - flueben ved løst trin    — visuel bekræftelse på fremgang
-//   - overkommelighed          — afgrænset omfang reducerer angst inden man starter
+//   - overkommelighed          — ét trin ad gangen reducerer overbelastning
 //
-// Two layouts:
-//   - EXPANDED (row-per-step with full prompt text): when steps.length ≤ 6.
-//     Used for template tasks and small multi-step exercises where the kid
-//     benefits from seeing *what* each trin means, not just the label.
-//   - COMPACT (pills): when steps.length > 6. Grade-5+ math pages with 12+
-//     a/b/c items would overflow in expanded form, so we fall back.
+// Layout (focus mode):
+//   TRIN   ● ● ○ ○        2/4
+//          └─────── dots for every step: filled mint = done, outlined
+//                   clay = current, faded = upcoming. Tiny, stays on one line.
+//
+//   [ ] TRIN C                                    ← only the current step
+//       Tag tur og begynd din beskrivelse med...    gets the full row.
+//
+// Done steps compress to dots so the kid isn't staring at a wall of
+// already-completed work. Upcoming steps also compress — curiosity is fine,
+// cognitive load is not. When all steps are done we just show the summary row.
 //
 // Progress is derived from [progress done="A,B" current="C"] markers the AI
-// emits in its responses — parent component does the parsing + passes here.
-
-const EXPANDED_LAYOUT_MAX = 6
+// emits — parent component does the parsing + passes here.
 
 export function StepChecklist({
   steps,
@@ -33,12 +36,22 @@ export function StepChecklist({
   if (!steps || steps.length === 0) return null
   const doneCount = steps.filter(s => done.has(s.label)).length
   const total = steps.length
-  const expanded = total <= EXPANDED_LAYOUT_MAX
+
+  // Pick the "focus" step: the explicit current, else the first undone.
+  const firstUndone = steps.find(s => !done.has(s.label))
+  const focusLabel =
+    current && steps.some(s => s.label === current && !done.has(s.label))
+      ? current
+      : firstUndone?.label ?? null
+  const focusStep = focusLabel
+    ? steps.find(s => s.label === focusLabel) ?? null
+    : null
+  const allDone = doneCount === total
 
   return (
     <div
       style={{
-        padding: expanded ? "10px 12px" : "10px 14px",
+        padding: "10px 14px",
         background: "rgba(255,255,255,0.7)",
         borderRadius: 14,
         border: "1px solid rgba(31,27,51,0.06)",
@@ -51,105 +64,151 @@ export function StepChecklist({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: expanded ? 8 : 0,
+          gap: 12,
+          marginBottom: focusStep ? 10 : 0,
         }}
       >
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: K.ink2,
-            letterSpacing: 0.5,
-            textTransform: "uppercase",
-          }}
-        >
-          Trin
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: K.ink2,
+              letterSpacing: 0.5,
+              textTransform: "uppercase",
+              flexShrink: 0,
+            }}
+          >
+            Trin
+          </span>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", minWidth: 0 }}>
+            {steps.map(step => {
+              const isDone = done.has(step.label)
+              const isCurrent = !isDone && step.label === focusLabel
+              return (
+                <StepDot
+                  key={step.label}
+                  label={step.label}
+                  isDone={isDone}
+                  isCurrent={isCurrent}
+                />
+              )
+            })}
+          </div>
         </div>
         <div
           style={{
             fontSize: 11,
             fontWeight: 700,
-            color: doneCount === total ? K.mintDeep : K.ink2,
+            color: allDone ? K.mintDeep : K.ink2,
+            flexShrink: 0,
           }}
         >
           {doneCount} / {total}
         </div>
       </div>
-      {expanded ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {steps.map(step => {
-            const isDone = done.has(step.label)
-            const isCurrent = !isDone && current === step.label
-            return (
-              <StepRow
-                key={step.label}
-                label={step.label}
-                prompt={step.prompt}
-                isDone={isDone}
-                isCurrent={isCurrent}
-              />
-            )
-          })}
-        </div>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {steps.map(step => {
-            const isDone = done.has(step.label)
-            const isCurrent = !isDone && current === step.label
-            return (
-              <StepPill
-                key={step.label}
-                label={step.label}
-                isDone={isDone}
-                isCurrent={isCurrent}
-                tooltip={step.prompt}
-              />
-            )
-          })}
-        </div>
+
+      {focusStep && (
+        <FocusRow label={focusStep.label} prompt={focusStep.prompt} />
       )}
     </div>
   )
 }
 
-// One row per step — full prompt visible. Checkbox left, label + prompt right.
-function StepRow({
+// Tiny status pill per step — filled mint for done, outlined clay for
+// current, faded grey for upcoming. Label text inside so the kid can still
+// recognise which letter is which.
+function StepDot({
   label,
-  prompt,
   isDone,
   isCurrent,
 }: {
   label: string
-  prompt: string
   isDone: boolean
   isCurrent: boolean
 }) {
-  const rowBg = isDone
-    ? "rgba(122,203,162,0.12)"
+  const bg = isDone ? K.mintDeep : isCurrent ? "#fff" : "transparent"
+  const color = isDone ? "#fff" : isCurrent ? K.clay : K.ink2
+  const border = isDone
+    ? K.mintDeep
     : isCurrent
-      ? "rgba(201,121,98,0.08)"
-      : "transparent"
-  const borderColor = isCurrent ? `${K.clay}70` : "transparent"
+      ? K.clay
+      : "rgba(31,27,51,0.15)"
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 22,
+        height: 22,
+        borderRadius: 999,
+        background: bg,
+        color,
+        border: `1.5px solid ${border}`,
+        padding: "0 6px",
+        fontSize: 11,
+        fontWeight: 700,
+        lineHeight: 1,
+        fontFamily: "inherit",
+        transition: "background 0.2s, color 0.2s, border-color 0.2s",
+      }}
+    >
+      {isDone ? (
+        <svg width="10" height="10" viewBox="0 0 10 10">
+          <path
+            d="M2 5.2L4 7.2L8 3"
+            stroke="#fff"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </svg>
+      ) : (
+        label
+      )}
+    </span>
+  )
+}
+
+// Expanded row for the single in-focus step. Clay accent outlines it so the
+// kid can't miss "this is what we're working on right now".
+function FocusRow({ label, prompt }: { label: string; prompt: string }) {
   return (
     <div
       style={{
         display: "flex",
         alignItems: "flex-start",
         gap: 10,
-        padding: "6px 10px",
-        background: rowBg,
+        padding: "8px 10px",
+        background: "rgba(201,121,98,0.08)",
         borderRadius: 10,
-        border: `1.5px solid ${borderColor}`,
-        transition: "background 0.2s, border-color 0.2s",
+        border: `1.5px solid ${K.clay}70`,
       }}
     >
-      <Checkbox isDone={isDone} isCurrent={isCurrent} />
+      <span
+        aria-hidden
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 20,
+          height: 20,
+          borderRadius: 6,
+          border: `2px solid ${K.clay}`,
+          background: "#fff",
+          flexShrink: 0,
+          marginTop: 2,
+        }}
+      />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
             fontSize: prompt ? 12 : 14,
             fontWeight: 700,
-            color: isDone ? K.mintDeep : isCurrent ? K.clay : K.ink2,
+            color: K.clay,
             textTransform: "uppercase",
             letterSpacing: 0.4,
             marginBottom: prompt ? 1 : 0,
@@ -162,9 +221,7 @@ function StepRow({
             style={{
               fontSize: 13,
               lineHeight: 1.35,
-              color: isDone ? K.ink2 : K.ink,
-              textDecoration: isDone ? "line-through" : "none",
-              textDecorationColor: isDone ? K.mintDeep : undefined,
+              color: K.ink,
             }}
           >
             {prompt}
@@ -172,112 +229,5 @@ function StepRow({
         )}
       </div>
     </div>
-  )
-}
-
-function Checkbox({ isDone, isCurrent }: { isDone: boolean; isCurrent: boolean }) {
-  const border = isDone ? K.mintDeep : isCurrent ? K.clay : "rgba(31,27,51,0.25)"
-  return (
-    <span
-      aria-hidden
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 20,
-        height: 20,
-        borderRadius: 6,
-        border: `2px solid ${border}`,
-        background: isDone ? K.mintDeep : "#fff",
-        flexShrink: 0,
-        marginTop: 2,
-        transition: "background 0.2s, border-color 0.2s",
-      }}
-    >
-      {isDone && (
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <path
-            d="M2.5 6.5L4.8 8.8L9.5 3.5"
-            stroke="#fff"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </svg>
-      )}
-    </span>
-  )
-}
-
-function StepPill({
-  label,
-  isDone,
-  isCurrent,
-  tooltip,
-}: {
-  label: string
-  isDone: boolean
-  isCurrent: boolean
-  tooltip: string
-}) {
-  const bg = isDone
-    ? K.mint
-    : isCurrent
-      ? K.claySoft
-      : "rgba(31,27,51,0.04)"
-  const color = isDone
-    ? K.ink
-    : isCurrent
-      ? K.clay
-      : K.ink2
-  const border = isCurrent ? `1.5px solid ${K.clay}` : "1.5px solid transparent"
-  return (
-    <span
-      title={tooltip}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        background: bg,
-        color,
-        border,
-        borderRadius: 999,
-        padding: "4px 10px 4px 8px",
-        fontSize: 12,
-        fontWeight: isDone || isCurrent ? 700 : 500,
-        fontFamily: "inherit",
-        transition: "all 0.2s",
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 14,
-          height: 14,
-          borderRadius: 999,
-          background: isDone ? "#fff" : "transparent",
-          border: isDone ? "none" : `1.5px solid ${isCurrent ? K.clay : "rgba(31,27,51,0.2)"}`,
-          flexShrink: 0,
-        }}
-      >
-        {isDone && (
-          <svg width="9" height="9" viewBox="0 0 9 9">
-            <path
-              d="M1.5 4.8L3.5 6.8L7.5 2.2"
-              stroke={K.mintDeep}
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
-      </span>
-      <span style={{ lineHeight: 1 }}>{label}</span>
-    </span>
   )
 }

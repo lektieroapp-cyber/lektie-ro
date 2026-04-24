@@ -765,9 +765,24 @@ export function HintChat({
   // the flow kept asking for more because there was no explicit exit. The
   // prompt now instructs Dani to emit done="all" on completion; we trip
   // onComplete and let SessionFlow flip to the celebration panel.
+  //
+  // Dev logging: surface BOTH the detection of "all" AND whether we
+  // actually flip completed. A common class of "Dani says done but UI
+  // doesn't" bugs is the effect firing but something upstream (parent
+  // completed prop, streaming tail) blocking the transition.
   useEffect(() => {
-    if (completed || streaming) return
+    if (completed) return
     if (stepProgress.done.has("all")) {
+      if (streaming) {
+        logDevEvent("info", "Progress done=\"all\" set — awaiting stream end")
+        return
+      }
+      logDevEvent("complete", "Auto-complete via [progress done=\"all\"]", {
+        stepsDone: displayedSteps
+          ? displayedSteps.filter(s => stepProgress.done.has(s.label)).length
+          : 0,
+        stepsTotal: displayedSteps?.length ?? 0,
+      })
       onComplete(turns, buildCompletionStatus({
         displayedSteps,
         doneSet: stepProgress.done,
@@ -776,6 +791,22 @@ export function HintChat({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepProgress.done, streaming, completed])
+
+  // Log every fresh [progress …] marker as it lands so we can see when
+  // Dani is trying to move progress and what the parsed values were.
+  // Set-identity-based: only logs on additions, not every render.
+  const loggedProgressRef = useRef<string>("")
+  useEffect(() => {
+    const doneKey = [...stepProgress.done].sort().join(",")
+    const signature = `${doneKey}|${stepProgress.current ?? ""}`
+    if (signature === loggedProgressRef.current) return
+    loggedProgressRef.current = signature
+    if (doneKey.length === 0 && !stepProgress.current) return
+    logDevEvent("info", "[progress]", {
+      done: doneKey || "—",
+      current: stepProgress.current ?? "—",
+    })
+  }, [stepProgress])
 
   // Computes how much of the task was actually solved. "all" in the done-set
   // (Dani explicitly marked the whole task done) is always "completed"
