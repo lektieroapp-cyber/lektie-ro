@@ -14,14 +14,12 @@ import { clearCostEvents, pushCostEvent } from "@/lib/dev-cost"
 import { modelIdFromDeployment } from "@/lib/ai-pricing"
 import { SubjectPicker } from "./SubjectPicker"
 import { TaskPicker } from "./TaskPicker"
-import { ModeSelector } from "./ModeSelector"
 import { HintChat } from "./HintChat"
 import { VoiceSubjectChoice } from "./VoiceSubjectChoice"
 import { VoiceTaskChoice } from "./VoiceTaskChoice"
 import type {
   CompletionStatus,
   ConversationMode,
-  HintMode,
   SolveResponse,
   Task,
   Turn,
@@ -37,7 +35,6 @@ type Stage =
   | "emptyPhoto"
   | "subject"
   | "pick"
-  | "mode"
   | "hint"
   | "done"
   | "sessionDone"
@@ -144,7 +141,6 @@ export function SessionFlow({
   }
   const [solve, setSolve] = useState<SolveResponse | null>(null)
   const [task, setTask] = useState<Task | null>(null)
-  const [mode, setMode] = useState<HintMode | null>(null)
   const [dbSessionId, setDbSessionId] = useState<string | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -343,15 +339,12 @@ export function SessionFlow({
     logDevEvent("subject", `Valgt: ${subject}`)
   }
 
-  // Kid goes straight from task → hint. The ModeSelector "hvor vil du starte?"
-  // screen was removed (2026-04-23): with the new goal+steps extraction, Dani's
-  // first turn already orients around the task and asks the kid to engage, so
-  // the three-way picker was extra clicks without extra value. Dev panel can
-  // still jump to the "mode" stage if we need the legacy picker for testing.
+  // Kid goes straight from task → hint. With the goal+steps extraction,
+  // Dani's first turn already orients around the task and asks the kid to
+  // engage, so the old explain/hint ModeSelector was removed entirely.
   async function pickTask(t: Task) {
     setTask(t)
     setTurns([])
-    setMode("hint")
     setStage("hint")
     logDevEvent("task", t.text.slice(0, 60), { type: t.type })
 
@@ -366,43 +359,10 @@ export function SessionFlow({
             subject: solve.subject,
             // Grade comes from the child's profile, not the photo.
             grade: childGrade ?? null,
-            mode: "hint",
             // Use `t` directly — setTask(t) is async, so this closure's `task`
             // state is still the previous value at this point.
             problemText: t.text,
             problemType: t.type,
-            imagePath: imagePath ?? undefined,
-          }),
-        })
-        if (res.ok) {
-          const json = await res.json() as { sessionId: string }
-          setDbSessionId(json.sessionId)
-        }
-      } catch {
-        // Non-fatal: session won't be recorded but flow continues.
-      }
-    }
-  }
-
-  // Retained for the dev panel's mode-stage jump. Normal kid flow no longer
-  // hits this path — pickTask transitions straight to "hint".
-  async function pickMode(m: HintMode) {
-    setMode(m)
-    setStage("hint")
-    logDevEvent("mode", m)
-
-    if (activeChildId && activeChildId !== "parent" && solve) {
-      try {
-        const res = await fetch("/api/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            childId: activeChildId,
-            subject: solve.subject,
-            grade: childGrade ?? null,
-            mode: m,
-            problemText: task?.text,
-            problemType: task?.type,
             imagePath: imagePath ?? undefined,
           }),
         })
@@ -456,7 +416,6 @@ export function SessionFlow({
   // Go back to task picker (same photo) or scan (new photo)
   function nextTask() {
     setTask(null)
-    setMode(null)
     setDbSessionId(null)
     setTurns([])
     // Go back to task picker if we still have the solve data
@@ -472,7 +431,6 @@ export function SessionFlow({
     setStage("idle")
     setSolve(null)
     setTask(null)
-    setMode(null)
     setDbSessionId(null)
     setTurns([])
     setImagePath(null)
@@ -516,13 +474,12 @@ export function SessionFlow({
     })
   }, [stage])
 
-  function devJump(target: Stage, opts?: { mode?: HintMode }) {
+  function devJump(target: Stage) {
     setError(null)
     setPreviewUrl(null)
     setImagePath(null)
-    const needsSolve = ["subject", "pick", "mode", "hint", "done"].includes(target)
-    const needsTask  = ["mode", "hint", "done"].includes(target)
-    const needsMode  = ["hint", "done"].includes(target)
+    const needsSolve = ["subject", "pick", "hint", "done"].includes(target)
+    const needsTask  = ["hint", "done"].includes(target)
     // Use remembered subject, fall back to DEV_SOLVE default
     const sub = sessionSubject ?? DEV_SOLVE.subject ?? "matematik"
     const tasks = MOCK_TASKS[sub] ?? DEV_SOLVE.tasks
@@ -544,7 +501,6 @@ export function SessionFlow({
       setSolve(null)
     }
     if (needsTask)  setTask(tasks[0]);  else setTask(null)
-    setMode(needsMode ? (opts?.mode ?? "hint") : null)
     setDbSessionId(null)
     setTurns([])
     setStage(target)
@@ -632,6 +588,7 @@ export function SessionFlow({
                 <VoiceTaskChoice
                   key={remainingTasks.map(t => t.id).join(",")}
                   tasks={remainingTasks}
+                  subject={solve.subject}
                   onPick={pickTask}
                 />
               </div>
@@ -645,14 +602,10 @@ export function SessionFlow({
           </>
         )
       })()}
-      {stage === "mode" && task && solve && (
-        <ModeSelector task={task} solve={solve} onSelect={pickMode} onBack={() => setStage("pick")} />
-      )}
-      {(stage === "hint" || stage === "done") && task && solve && mode && (
+      {(stage === "hint" || stage === "done") && task && solve && (
         <HintChat
           task={task}
           solve={solve}
-          mode={mode}
           turns={turns}
           setTurns={setTurns}
           childId={activeChildId ?? undefined}
@@ -684,18 +637,16 @@ export function SessionFlow({
             stage={stage}
             solve={solve}
             task={task}
-            mode={mode}
             turns={turns}
             completedTasks={completedTasks}
           />
           {/* Floating preview of the homework photo. Shown during task
-              picker, mode, hint and done stages so we can glance at the
-              original while chatting with the AI. Minimizes to a small
-              corner thumb; click to maximize to a full-screen lightbox. */}
+              picker, hint and done stages so we can glance at the original
+              while chatting with the AI. Minimizes to a small corner thumb;
+              click to maximize to a full-screen lightbox. */}
           {previewUrl &&
             (stage === "subject" ||
               stage === "pick" ||
-              stage === "mode" ||
               stage === "hint" ||
               stage === "done") && (
               <ImagePreviewPanel url={previewUrl} />
@@ -708,17 +659,15 @@ export function SessionFlow({
 
 // ─── Dev panel ───────────────────────────────────────────────────────────────
 
-const STAGES: { label: string; stage: Stage; opts?: { mode?: HintMode } }[] = [
+const STAGES: { label: string; stage: Stage }[] = [
   { label: "📷 Scan",       stage: "idle" },
   { label: "⏳ Uploading",  stage: "uploading" },
   { label: "🔍 Thinking",   stage: "thinking" },
   { label: "❓ Empty photo", stage: "emptyPhoto" },
   { label: "📚 Subject",    stage: "subject" },
   { label: "📋 Pick task",  stage: "pick" },
-  { label: "🎯 Mode pick",  stage: "mode" },
-  { label: "📖 Explain",    stage: "hint", opts: { mode: "explain" } },
-  { label: "💡 Hint",       stage: "hint", opts: { mode: "hint" } },
-  { label: "✅ Done",       stage: "done", opts: { mode: "hint" } },
+  { label: "💡 Hint",       stage: "hint" },
+  { label: "✅ Done",       stage: "done" },
   { label: "🏁 Session done", stage: "sessionDone" },
 ]
 
@@ -732,7 +681,7 @@ type AiModeChecks = {
 
 function DevPanel({ currentStage, onJump }: {
   currentStage: Stage
-  onJump: (stage: Stage, opts?: { mode?: HintMode }) => void
+  onJump: (stage: Stage) => void
 }) {
   const [open, setOpen] = useState(false)
   const [aiMode, setAiMode] = useState<"live" | "test" | null>(null)
@@ -829,13 +778,13 @@ function DevPanel({ currentStage, onJump }: {
             Jump to stage
           </p>
           <div className="flex flex-col gap-1">
-            {STAGES.map(({ label, stage, opts }) => {
+            {STAGES.map(({ label, stage }) => {
               const active = currentStage === stage
               return (
                 <button
                   key={label}
                   type="button"
-                  onClick={() => onJump(stage, opts)}
+                  onClick={() => onJump(stage)}
                   className={`rounded-lg px-3 py-1.5 text-left text-[13px] font-medium transition ${
                     active ? "bg-ink/10 text-ink" : "text-ink/70 hover:bg-canvas"
                   }`}

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import {
+  ENGELSK_AZURE_VOICE,
   getTtsProvider,
   isVoiceProviderReady,
   type VoiceProviderId,
@@ -20,6 +21,11 @@ const bodySchema = z.object({
   text: z.string().min(1).max(2000),
   provider: z.enum(["azure", "elevenlabs"]).optional(),
   voice: z.string().min(1).max(100).optional(),
+  // Subject the kid is working on. When "engelsk" we swap the Azure voice
+  // to a multilingual one so quoted English words get correct pronunciation
+  // (the standard Danish voices ignore <lang> SSML switches). Ignored when
+  // an explicit `voice` override is also passed.
+  subject: z.string().min(1).max(40).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -46,9 +52,22 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Voice resolution priority (first match wins):
+  //   1. explicit `voice` override from the request body (admin tester)
+  //   2. engelsk-subject override → multilingual voice for correct English
+  //      pronunciation of quoted words
+  //   3. provider's configured default voice (Christel for Azure)
+  const wantsEngelskOverride =
+    providerId === "azure" &&
+    !parsed.data.voice &&
+    parsed.data.subject?.toLowerCase() === "engelsk"
   const voice =
     parsed.data.voice ??
-    (providerId === "elevenlabs" ? mode.elevenLabsVoiceId : mode.azureVoice)
+    (wantsEngelskOverride
+      ? ENGELSK_AZURE_VOICE
+      : providerId === "elevenlabs"
+        ? mode.elevenLabsVoiceId
+        : mode.azureVoice)
 
   if (!voice) {
     return NextResponse.json(

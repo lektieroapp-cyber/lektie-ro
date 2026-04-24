@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { subscribeDevLog, type DevEvent } from "./dev-log"
-import type { HintMode, SolveResponse, Task, Turn } from "./types"
+import type { SolveResponse, Task, Turn } from "./types"
 
 const MAX_EVENTS = 40
 
@@ -24,14 +24,12 @@ export function DevLog({
   stage,
   solve,
   task,
-  mode,
   turns,
   completedTasks,
 }: {
   stage: string
   solve: SolveResponse | null
   task: Task | null
-  mode: HintMode | null
   turns: Turn[]
   completedTasks: number
 }) {
@@ -114,7 +112,6 @@ export function DevLog({
               v={task ? truncate(task.text, 42) : "—"}
               color="#3E8A6A"
             />
-            <Row k="mode" v={mode ?? "—"} color="#8A4230" />
             <Row k="turns" v={`${aiTurnCount} / ${turnCount}`} color="#1F2D1A" />
             <Row k="done" v={String(completedTasks)} color="#4F8E6B" />
             {solve?.mocked && (

@@ -268,7 +268,7 @@ export default async function ParentOverview({
                       {s.problem_text ?? `${s.subject} — ${s.grade}. klasse`}
                     </p>
                     <p className="text-xs text-muted capitalize">
-                      {child?.name} · {s.subject} · {s.mode === "explain" ? "Forstå" : "Hint"}
+                      {child?.name} · {s.subject}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">

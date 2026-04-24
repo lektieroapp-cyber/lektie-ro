@@ -20,7 +20,6 @@ import { VoiceCanvas } from "./VoiceCanvas"
 import type {
   CompletionStatus,
   ConversationMode,
-  HintMode,
   SolveResponse,
   Task,
   Turn,
@@ -84,7 +83,6 @@ function aiTurnsBefore(turns: Turn[]): number {
 export function HintChat({
   task,
   solve,
-  mode,
   turns,
   setTurns,
   childId,
@@ -97,7 +95,6 @@ export function HintChat({
 }: {
   task: Task
   solve: SolveResponse
-  mode: HintMode
   turns: Turn[]
   setTurns: (fn: (prev: Turn[]) => Turn[]) => void
   childId?: string
@@ -208,7 +205,6 @@ export function HintChat({
 
   const assistantTurns = turns.filter(t => t.role === "assistant").length
   const atLimit = assistantTurns >= MAX_TURNS
-  const isExplain = mode === "explain"
 
   // Derive step-progression from all assistant turns. The AI emits
   // [progress done="A,B" current="C"] markers as steps are solved; we
@@ -401,7 +397,7 @@ export function HintChat({
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, subject: solve.subject }),
       })
       if (!res.ok) {
         const detail = await res.text().catch(() => "")
@@ -445,7 +441,6 @@ export function HintChat({
     const start = performance.now()
     logDevEvent("info", "→ /api/hint", {
       subject: solve.subject,
-      mode,
       turn: aiTurnsBefore(nextTurns) + 1,
       chars: nextTurns.reduce((n, t) => n + t.content.length, 0),
     })
@@ -495,15 +490,14 @@ export function HintChat({
       if (bargeInCleanupRef.current) return
       const stream = micStreamRef.current
       if (!stream) return
-      // Explain mode is for CONCEPT orientation — Dani is setting up what
-      // the task is, and an accidental breath-triggered cut hurts more
-      // than in hint mode where back-and-forth is expected. Tighter
-      // thresholds make explain harder to interrupt.
-      const isExplainMode = mode === "explain"
+      // First-turn orientation is when Dani is framing the task (goal +
+      // modality) — a breath-triggered cut there hurts more than mid-
+      // exercise back-and-forth. Tighter thresholds protect that moment.
+      const isFirstTurn = turnsRef.current.filter(t => t.role === "assistant").length === 0
       bargeInCleanupRef.current = startBargeInDetector(stream, {
-        speechThreshold: isExplainMode ? 0.075 : 0.055,
-        sustainMs: isExplainMode ? 400 : 250,
-        confirmMs: isExplainMode ? 800 : 600,
+        speechThreshold: isFirstTurn ? 0.075 : 0.055,
+        sustainMs: isFirstTurn ? 400 : 250,
+        confirmMs: isFirstTurn ? 800 : 600,
         falseAlarmQuietMs: 400,
         onTentative: () => {
           bargeInTentativeRef.current = true
@@ -626,7 +620,6 @@ export function HintChat({
           needsPaper: task.needsPaper ?? null,
           subject: solve.subject,
           turns: nextTurns,
-          mode,
           childId,
           conversationMode,
         }),
@@ -747,13 +740,13 @@ export function HintChat({
     }
   }
 
-  // Kick off first AI message on mount / mode change.
+  // Kick off first AI message on mount.
   useEffect(() => {
     if (turns.length === 0) {
       callHint([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode])
+  }, [])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
@@ -902,7 +895,7 @@ export function HintChat({
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, subject: solve.subject }),
       })
       if (!res.ok) {
         const detail = await res.text().catch(() => "")
@@ -1512,7 +1505,7 @@ export function HintChat({
           </div>
         ) : (
           <>
-            {!isExplain && assistantTurns >= WARN_AT && (
+            {assistantTurns >= WARN_AT && (
               <p style={{ margin: 0, fontSize: 12, color: K.coral }}>
                 Du er tæt på grænsen. Få mere ud af dit næste svar.
               </p>
@@ -1532,13 +1525,7 @@ export function HintChat({
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                placeholder={
-                  transcribing
-                    ? "Lytter …"
-                    : isExplain
-                      ? "Spørg om noget …"
-                      : "Skriv dit svar …"
-                }
+                placeholder={transcribing ? "Lytter …" : "Skriv dit svar …"}
                 disabled={streaming || transcribing}
                 style={{
                   flex: 1,

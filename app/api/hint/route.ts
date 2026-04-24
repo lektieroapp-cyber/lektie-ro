@@ -9,7 +9,6 @@ type Body = {
   sessionId: string
   taskText: string
   turns: Turn[]
-  mode?: string
   childId?: string
   subject?: string
   /** ONE-sentence pedagogical goal for the task (from vision extraction). */
@@ -26,7 +25,6 @@ type Body = {
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as Body
-  const mode = (body.mode === "explain" ? "explain" : "hint") as "explain" | "hint"
   const subject = body.subject ?? "matematik"
 
   let child = null as null | {
@@ -56,7 +54,6 @@ export async function POST(request: NextRequest) {
     body.conversationMode === "voice" ? "voice" : "text"
 
   const systemPrompt = buildChildSystemPrompt({
-    mode,
     subject,
     // Grade comes strictly from the child profile — no photo-based fallback.
     // If the kid hasn't set a grade, the prompt adapts to unknown level.
@@ -81,7 +78,7 @@ export async function POST(request: NextRequest) {
   const aiMode = await getAIMode()
   // Test mode → canned stream so the flow is demoable without credits.
   if (aiMode === "test") {
-    return streamFallback(mode, subject)
+    return streamFallback(subject)
   }
 
   try {
@@ -152,16 +149,14 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error("[hint] azure call failed:", (err as Error).message)
-    return streamFallback(mode, subject)
+    return streamFallback(subject)
   }
 }
 
 // ─── Fallback (no Azure configured or call failed) ──────────────────────────
 
-function streamFallback(mode: "explain" | "hint", subject: string): Response {
-  const text = mode === "explain"
-    ? FALLBACK_EXPLAIN[subject] ?? FALLBACK_EXPLAIN.matematik
-    : FALLBACK_HINT[subject] ?? FALLBACK_HINT.matematik
+function streamFallback(subject: string): Response {
+  const text = FALLBACK_HINT[subject] ?? FALLBACK_HINT.matematik
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
@@ -180,12 +175,6 @@ function streamFallback(mode: "explain" | "hint", subject: string): Response {
       "X-Mocked": "1",
     },
   })
-}
-
-const FALLBACK_EXPLAIN: Record<string, string> = {
-  matematik: "Den her kan du sagtens klare!\n\nKig først på tallene — hvad beder opgaven dig om at gøre?",
-  dansk: "Læs opgaven langsomt igennem.\n\nHvad er det vigtigste ord i sætningen?",
-  engelsk: "Kig på de danske ord. Hvilke ord ligner de engelske?",
 }
 
 const FALLBACK_HINT: Record<string, string> = {

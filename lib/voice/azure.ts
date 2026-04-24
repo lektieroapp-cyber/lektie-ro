@@ -276,6 +276,21 @@ function wrapQuotedAsEnglishPre(raw: string): string {
       /“([^“”\n]{1,80}?)”/g,
       (_m, content: string) => `“${wrap(content)}”`
     )
+    // Danish low-9 opener „…" and „…" — common when the LLM imitates
+    // Danish typography. Also handle the rarer „…„ misuse.
+    .replace(
+      /„([^„""\n]{1,80}?)["""„]/g,
+      (_m, content: string) => `„${wrap(content)}"`
+    )
+    // Guillemets: French style «…» and Danish/German reversed »…«
+    .replace(
+      /«([^«»\n]{1,80}?)»/g,
+      (_m, content: string) => `«${wrap(content)}»`
+    )
+    .replace(
+      /»([^«»\n]{1,80}?)«/g,
+      (_m, content: string) => `»${wrap(content)}«`
+    )
 }
 
 function materializeLangSentinels(escaped: string): string {

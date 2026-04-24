@@ -27,9 +27,14 @@ type Phase =
 
 export function VoiceTaskChoice({
   tasks,
+  subject,
   onPick,
 }: {
   tasks: Task[]
+  /** Subject of the homework — passed to /api/tts so engelsk tasks get the
+   *  multilingual voice (Andrew) for correct English pronunciation when the
+   *  task title or prompt quotes English words. */
+  subject?: string | null
   onPick: (task: Task) => void
 }) {
   const [phase, setPhase] = useState<Phase>("idle")
@@ -79,7 +84,7 @@ export function VoiceTaskChoice({
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, subject }),
         signal,
       })
       if (signal.aborted) return

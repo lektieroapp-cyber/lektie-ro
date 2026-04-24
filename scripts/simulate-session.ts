@@ -239,7 +239,6 @@ async function simulate(args: {
 
   // Dani system prompt — the REAL production prompt the kid-facing flow uses.
   const daniSystem = buildChildSystemPrompt({
-    mode: "hint",
     subject: args.subject ?? "matematik",
     grade: args.grade,
     taskText: args.task.text,

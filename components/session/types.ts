@@ -66,8 +66,6 @@ export type Turn = {
   content: string
 }
 
-export type HintMode = "explain" | "hint"
-
 /**
  * How the kid prefers to interact with Dani in this session.
  *   text  — type answers, read replies. AI stays quiet.
