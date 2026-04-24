@@ -602,7 +602,11 @@ export function HintChat({
     }
 
     const dispatchChunk = (sentence: string) => {
-      const cleaned = stripForTts(sentence).trim()
+      // Subject-aware strip: for engelsk/tysk tasks, **bold** English
+      // spans get converted to "..." quotes so the TTS pipeline catches
+      // them and wraps in <lang xml:lang="en-US"> for English pronunciation
+      // instead of letting Christel fake Danish-accented English.
+      const cleaned = stripForTts(sentence, { subject: solve.subject }).trim()
       // Skip fragments with no speakable letters ("1.", "ca.", bare markers).
       if (!cleaned || !/\p{L}/u.test(cleaned)) return
       slots.push(fetchSentenceAudio(cleaned))
@@ -840,7 +844,7 @@ export function HintChat({
       spokenUpToRef.current = turns.length
       return
     }
-    const spokenText = stripForTts(last.content)
+    const spokenText = stripForTts(last.content, { subject: solve.subject })
     spokenUpToRef.current = turns.length
     if (!spokenText) {
       // No speakable text (AI emitted only block markers). In voice-agent
