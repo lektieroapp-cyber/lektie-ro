@@ -49,10 +49,15 @@ export function startSilenceDetector(
   // Thresholds tuned for kids 8-14 on a typical laptop / phone mic.
   // speechThreshold is paired with sustainedSpeechMs — the threshold can be
   // low (to catch quiet kids) because single spikes are rejected by the
-  // cumulative-time requirement. Previous build used 0.015 alone and was
-  // tripping on ambient noise + AEC leak from the speaker.
-  const speechThreshold = opts.speechThreshold ?? 0.02
-  const silenceThreshold = opts.silenceThreshold ?? 0.008
+  // cumulative-time requirement. The cumulative gate (sustainedSpeechMs)
+  // is what protects against the ambient-noise + AEC-leak false positives
+  // that an earlier 0.015-alone build suffered from, so we can safely run
+  // a sensitive level threshold without re-tripping that bug. The previous
+  // 0.02 default required kids on phones to noticeably raise their voice
+  // before the VAD considered them "speaking" — bad UX, especially in
+  // homes with siblings / TV in the background.
+  const speechThreshold = opts.speechThreshold ?? 0.012
+  const silenceThreshold = opts.silenceThreshold ?? 0.005
   // 120ms of cumulative above-threshold audio = at least a syllable. Below
   // this, treat the session as "no real speech" even if noise spiked.
   const sustainedSpeechMs = opts.sustainedSpeechMs ?? 120

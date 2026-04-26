@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { armAudioUnlock, getPlaybackAudio } from "@/lib/voice/audio-unlock"
 import { startPcmRecorder, type PcmRecorderHandle } from "@/lib/voice/pcm-recorder"
 import { startSilenceDetector } from "@/lib/voice/silence-detector"
 import { modelIdFromDeployment } from "@/lib/ai-pricing"
@@ -48,6 +49,7 @@ export function VoiceTaskChoice({
   const streamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
+    armAudioUnlock()
     // Each mount gets a fresh AbortController. React strict mode in dev
     // fires mount → cleanup → remount on the same instance; using a local
     // controller (not a persistent ref) means the first mount's flow aborts
@@ -102,18 +104,21 @@ export function VoiceTaskChoice({
         chars: text.length,
       })
       const url = URL.createObjectURL(blob)
-      const audio = new Audio(url)
+      const audio = getPlaybackAudio()
       audioElRef.current = audio
       await new Promise<void>(resolve => {
         let resolved = false
         const done = () => {
           if (resolved) return
           resolved = true
+          audio.onended = null
+          audio.onerror = null
           URL.revokeObjectURL(url)
           resolve()
         }
         audio.onended = done
         audio.onerror = done
+        audio.src = url
         audio.play().catch(done)
         if (signal.aborted) done()
         else signal.addEventListener("abort", done, { once: true })
