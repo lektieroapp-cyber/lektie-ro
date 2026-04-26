@@ -12,6 +12,7 @@ import { SessionCostPanel } from "./SessionCostPanel"
 import { ThinkingPanel } from "./ThinkingPanel"
 import { clearCostEvents, pushCostEvent } from "@/lib/dev-cost"
 import { modelIdFromDeployment } from "@/lib/ai-pricing"
+import { armAudioUnlock } from "@/lib/voice/audio-unlock"
 import { SubjectPicker } from "./SubjectPicker"
 import { TaskPicker } from "./TaskPicker"
 import { HintChat } from "./HintChat"
@@ -100,6 +101,14 @@ export function SessionFlow({
   useEffect(() => {
     const h = window.location.hostname
     setIsLocalhost(h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0")
+  }, [])
+
+  // Mobile browsers refuse audio.play() outside a synchronous user gesture.
+  // Arm a one-shot listener now so the next tap (mode toggle, photo upload,
+  // task pick) primes a shared <audio> element — TTS playback in HintChat
+  // then reuses that element instead of being silently blocked on iOS.
+  useEffect(() => {
+    if (VOICE_ENABLED) armAudioUnlock()
   }, [])
   const showDevTools = isAdmin && isLocalhost
 

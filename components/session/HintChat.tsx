@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Companion, Sparkles } from "@/components/mascot/Companion"
 import { useCompanion } from "@/components/mascot/CompanionContext"
 import { companionByType, DEFAULT_COMPANION } from "@/components/mascot/types"
+import { armAudioUnlock, getPlaybackAudio } from "@/lib/voice/audio-unlock"
 import { startBargeInDetector } from "@/lib/voice/barge-in-detector"
 import { startPcmRecorder, type PcmRecorderHandle } from "@/lib/voice/pcm-recorder"
 import { startSilenceDetector, type DetectorStats } from "@/lib/voice/silence-detector"
@@ -135,6 +136,11 @@ export function HintChat({
   useEffect(() => {
     const h = typeof window !== "undefined" ? window.location.hostname : ""
     setShowAudioDebug(h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0")
+  }, [])
+  // Idempotent — SessionFlow arms it earlier; this is a safety net for any
+  // path that mounts HintChat without going through SessionFlow.
+  useEffect(() => {
+    if (VOICE_ENABLED) armAudioUnlock()
   }, [])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
@@ -403,11 +409,14 @@ export function HintChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed])
 
-  // Kicks off /api/tts for one sentence and resolves with a ready-to-play
-  // Audio element (or null on failure). Used by the voice-agent pipeline.
+  // Kicks off /api/tts for one sentence and resolves with a blob-URL the
+  // pump() loop can hand to the shared playback element. We deliberately
+  // do NOT create a per-chunk new Audio() — iOS Safari only retains
+  // autoplay permission on the single element primed by user gesture
+  // (see lib/voice/audio-unlock.ts), so all chunks must share it.
   async function fetchSentenceAudio(
     text: string
-  ): Promise<{ audio: HTMLAudioElement; url: string } | null> {
+  ): Promise<{ url: string } | null> {
     try {
       const ttsStart = performance.now()
       const res = await fetch("/api/tts", {
@@ -438,9 +447,7 @@ export function HintChat({
         ms: wall,
       })
       const url = URL.createObjectURL(blob)
-      const audio = new Audio(url)
-      audio.preload = "auto"
-      return { audio, url }
+      return { url }
     } catch (err) {
       logDevEvent("ai-error", `TTS fetch exception: ${(err as Error).message}`)
       return null
@@ -491,7 +498,7 @@ export function HintChat({
     // the browser audio element can get).
     let acc = ""
     let spokenUpTo = 0
-    const slots: Array<Promise<{ audio: HTMLAudioElement; url: string } | null>> = []
+    const slots: Array<Promise<{ url: string } | null>> = []
     let playIdx = 0
     let pumping = false
     let streamDone = false
@@ -553,6 +560,10 @@ export function HintChat({
     const pump = async () => {
       if (pumping) return
       pumping = true
+      // Single shared <audio> element across the whole session — the one
+      // primed by the first user tap. Reusing it (vs a fresh new Audio() per
+      // chunk) is what keeps iOS Safari from re-blocking play() on chunk 2+.
+      const playbackEl = getPlaybackAudio()
       while (playIdx < slots.length) {
         if (bargeInFiredRef.current) break
         const slot = await slots[playIdx]
@@ -562,7 +573,7 @@ export function HintChat({
           URL.revokeObjectURL(slot.url)
           continue
         }
-        audioElRef.current = slot.audio
+        audioElRef.current = playbackEl
         setSpeaking(true)
         // Arm barge-in detector on first play (stream may not have been open
         // yet when pump started — ensureMicStream races with first fetch).
@@ -574,12 +585,15 @@ export function HintChat({
             if (resolved) return
             resolved = true
             if (bargeTimer !== null) window.clearInterval(bargeTimer)
+            playbackEl.onended = null
+            playbackEl.onerror = null
             URL.revokeObjectURL(slot.url)
             resolve()
           }
-          slot.audio.onended = done
-          slot.audio.onerror = done
-          slot.audio.play().catch((err: Error) => {
+          playbackEl.onended = done
+          playbackEl.onerror = done
+          playbackEl.src = slot.url
+          playbackEl.play().catch((err: Error) => {
             logDevEvent("ai-error", `play() blokeret: ${err.message}`)
             setVoiceError("Browseren blokerede lyd. Tryk på 🦁 for at tale.")
             done()
@@ -940,7 +954,7 @@ export function HintChat({
         ms,
       })
       const url = URL.createObjectURL(blob)
-      const el = audioElRef.current ?? new Audio()
+      const el = getPlaybackAudio()
       audioElRef.current = el
       el.src = url
       el.onended = () => {

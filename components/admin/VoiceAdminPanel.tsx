@@ -90,15 +90,20 @@ export function VoiceAdminPanel({ initialMode, initialDiagnostics }: Props) {
 
 function AzureStatus({ diagnostics }: { diagnostics: VoiceModeDiagnostics }) {
   const missing: string[] = []
-  if (!diagnostics.azureConfigured) {
-    if (!process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY_PRESENT) {
-      missing.push("AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION")
-    }
-  }
+  if (!diagnostics.envAzureKeyPresent) missing.push("AZURE_SPEECH_KEY")
+  if (!diagnostics.envAzureRegionPresent) missing.push("AZURE_SPEECH_REGION")
   return (
     <div className="mt-5 rounded-lg bg-canvas/60 p-3 text-xs text-muted">
       <div className="font-semibold text-ink/70">Azure-status</div>
       <ul className="mt-1.5 space-y-0.5">
+        <li>
+          AZURE_SPEECH_KEY:{" "}
+          <code>{diagnostics.envAzureKeyPresent ? "(set)" : "(unset)"}</code>
+        </li>
+        <li>
+          AZURE_SPEECH_REGION:{" "}
+          <code>{diagnostics.envAzureRegionPresent ? "(set)" : "(unset)"}</code>
+        </li>
         <li>
           AZURE_SPEECH_TTS_VOICE:{" "}
           <code>{diagnostics.envAzureVoice ?? "(unset)"}</code>
@@ -115,6 +120,8 @@ function AzureStatus({ diagnostics }: { diagnostics: VoiceModeDiagnostics }) {
       ) : (
         <div className="mt-2 text-clay">
           Mangler i env: {missing.join(", ") || "AZURE_SPEECH_KEY + AZURE_SPEECH_REGION"}
+          {" — "}husk at redeploye Vercel efter env-ændringer
+          (NEXT_PUBLIC_-vars indlejres ved build).
         </div>
       )}
     </div>

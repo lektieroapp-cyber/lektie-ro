@@ -65,6 +65,12 @@ export type VoiceModeDiagnostics = {
   voiceEnabledFlag: boolean
   sttReady: boolean
   ttsReady: boolean
+  // Individual env-var presence flags. We expose booleans (not the values
+  // themselves) so the admin page can render a precise "Mangler i env: X, Y"
+  // list without leaking the actual key. KEY + REGION presence is what the
+  // Vercel-redeploy / wrong-environment-scope debugging hinges on.
+  envAzureKeyPresent: boolean
+  envAzureRegionPresent: boolean
 }
 
 export function getVoiceDiagnostics(mode: VoiceMode): VoiceModeDiagnostics {
@@ -78,6 +84,8 @@ export function getVoiceDiagnostics(mode: VoiceMode): VoiceModeDiagnostics {
     voiceEnabledFlag: process.env.NEXT_PUBLIC_VOICE_ENABLED === "true",
     sttReady: isVoiceProviderReady(mode.stt),
     ttsReady: isVoiceProviderReady(mode.tts),
+    envAzureKeyPresent: !!process.env.AZURE_SPEECH_KEY,
+    envAzureRegionPresent: !!process.env.AZURE_SPEECH_REGION,
   }
 }
 
