@@ -8,15 +8,28 @@ export const AI_MODE_COOKIE = "lr_ai_mode"
  * Resolves the AI mode for a server request.
  *
  * Precedence (first match wins):
+ *   0. PRODUCTION HARD-BLOCK — if running on Vercel production AND Azure
+ *      is configured, always return "live". The cookie + env overrides
+ *      are honored only on preview / dev / local. This guarantees a stale
+ *      `lr_ai_mode=test` cookie left over from an admin's dev session
+ *      can never cause mock data to leak into the live app.
  *   1. `lr_ai_mode` cookie — "test" | "live". Set by admin dev panel.
  *   2. `AI_MODE` env — "test" | "live".
  *   3. Fallback: "live" if Azure is configured, otherwise "test".
  *
- * Even in "live" mode, the route handler falls back to the mock if the
- * Azure call throws (network, quota, model filter) — the kid always sees
- * a response instead of an error screen.
+ * In "live" mode the route handlers no longer silently swap to mocks on
+ * Azure failure — they return 5xx errors so the bug is visible to the
+ * caller instead of looking like a "successful" canned response.
  */
 export async function getAIMode(): Promise<AIMode> {
+  // Production safeguard: anything serving lektiero.dk forces live as long
+  // as Azure is wired up. Removing the cookie escape hatch here is what
+  // makes "this should never be possible on live" actually true. Preview /
+  // development still honor the cookie so admins can demo without credits.
+  if (process.env.VERCEL_ENV === "production" && isAzureConfigured()) {
+    return "live"
+  }
+
   const cookieStore = await cookies()
   const cookieValue = cookieStore.get(AI_MODE_COOKIE)?.value
   if (cookieValue === "test" || cookieValue === "live") return cookieValue

@@ -113,13 +113,17 @@ export function SessionFlow({
   const showDevTools = isAdmin && isLocalhost
 
   const [stage, setStage] = useState<Stage>("idle")
-  // Below grade 5 the kid can't reliably type (still building writing fluency),
-  // so voice is the right default AND there's no "ægte" choice for them to
-  // make — we lock the toggle out and let the parent-implied default stand.
-  // Grade 5+ can read/write, so they get to flip it and we remember their
-  // preference per browser.
-  const canKidToggleConversation =
-    VOICE_ENABLED && childGrade != null && childGrade >= 5
+  // Toggle visibility logic:
+  //   - Below grade 5 a kid can't reliably type (still building writing
+  //     fluency). Lock the toggle out for them so the voice default stands
+  //     and they don't accidentally land in a text UX they can't operate.
+  //   - Everyone else — older kids (grade 5+), admins, AND parent mode
+  //     (childGrade == null because no child profile is active) — sees the
+  //     toggle. Parents in particular need this so they can demo / use
+  //     the homework helper themselves without being forced into voice.
+  const isYoungKidLocked =
+    childGrade != null && childGrade <= 4 && !isAdmin
+  const canKidToggleConversation = VOICE_ENABLED && !isYoungKidLocked
   // Default: voice for 0.-4. klasse (Louise + Marcuz: fjerner skrivebarrieren
   // for de mindste og ordblinde). Older kids default to text.
   // Admins always start in voice mode regardless of grade — they're testing
