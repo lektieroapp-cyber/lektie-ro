@@ -17,7 +17,7 @@ export default async function AdminCostsPage({
         <p className="mt-1 max-w-2xl text-sm text-muted">
           Estimér hvad én times lektier koster os i rå Azure-inference, baseret
           på hvor meget arbejde barnet får fra hånden og hvilken voice-løsning
-          der er valgt. Tallene er pay-as-you-go pris — ingen margen, ingen
+          der er valgt. Tallene er pay-as-you-go pris - ingen margen, ingen
           fast infrastruktur.
         </p>
       </section>

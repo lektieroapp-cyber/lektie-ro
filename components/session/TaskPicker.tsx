@@ -29,7 +29,7 @@ export function TaskPicker({
   const allDone = remaining.length === 0 && solve.tasks.length > 0
 
   const headline = allDone
-    ? "Godt gået — alle opgaver er klaret!"
+    ? "Godt gået! Alle opgaver er klaret!"
     : doneCount > 0
       ? `${remaining.length} ${remaining.length === 1 ? "opgave" : "opgaver"} tilbage`
       : `Jeg fandt ${solve.tasks.length === 1 ? "1 opgave" : `${solve.tasks.length} opgaver`}!`
@@ -188,7 +188,7 @@ function TaskRow({
           )}
           {task.needsPaper && (
             <span
-              title="Denne opgave kræver papir — lineal, tegning eller skriftligt svar"
+              title="Denne opgave kræver papir, lineal, tegning eller skriftligt svar"
               style={{
                 background: "rgba(201,121,98,0.12)",
                 color: K.clay,

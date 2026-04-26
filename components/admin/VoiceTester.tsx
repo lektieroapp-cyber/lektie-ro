@@ -295,7 +295,7 @@ function TranscriptCard({ result }: { result: SttResult | null }) {
         <div className="text-xs font-semibold uppercase tracking-wider text-muted">
           Transskription
         </div>
-        <div className="mt-2 text-sm text-ink/40">—</div>
+        <div className="mt-2 text-sm text-ink/40">-</div>
       </div>
     )
   }
@@ -339,7 +339,7 @@ function TranscriptCard({ result }: { result: SttResult | null }) {
                 }
                 title={
                   result.trackSampleRate === 16000
-                    ? "Browser honored 16 kHz request — Azure takes this natively."
+                    ? "Browser honored 16 kHz request. Azure takes this natively."
                     : `Browser gave ${result.trackSampleRate / 1000} kHz. Azure transcodes down to 16 kHz; sometimes loses the start.`
                 }
               >
@@ -365,7 +365,7 @@ function TranscriptCard({ result }: { result: SttResult | null }) {
         {result.error ? (
           <div className={`mt-2 text-sm ${transcriptTone}`}>{result.error}</div>
         ) : waitingOnStt ? (
-          <div className="mt-2 text-sm text-ink/40">—</div>
+          <div className="mt-2 text-sm text-ink/40">-</div>
         ) : (
           <>
             <div className={`mt-2 text-sm ${transcriptTone}`}>
@@ -397,7 +397,7 @@ function TranscriptCard({ result }: { result: SttResult | null }) {
                       <span className="tabular-nums text-muted">
                         {a.confidence !== undefined
                           ? a.confidence.toFixed(2)
-                          : "—"}
+                          : "-"}
                       </span>
                       <span className="text-ink">{a.text || "(tom)"}</span>
                     </li>

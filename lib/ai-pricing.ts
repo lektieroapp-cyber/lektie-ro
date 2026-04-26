@@ -19,7 +19,7 @@ export const MODELS: Record<ModelId, ModelSpec> = {
     label: "gpt-5-nano",
     inputPerMTok: 0.05,
     outputPerMTok: 0.4,
-    note: "Billigst. For svag til Socratic dialog — lækker ofte facit.",
+    note: "Billigst. For svag til Socratic dialog, lækker ofte facit.",
     canVision: true,
   },
   "gpt-5-mini": {

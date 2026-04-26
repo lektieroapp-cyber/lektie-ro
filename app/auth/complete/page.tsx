@@ -115,7 +115,7 @@ function CompleteInner() {
           <p className="mt-3 text-[15px] text-muted leading-relaxed">
             {detail === "otp_expired" || detail === "no_token" ? (
               <>
-                Dit invitationslink er desværre udløbet — de er kun gyldige i 24 timer.{" "}
+                Dit invitationslink er desværre udløbet. De er kun gyldige i 24 timer.{" "}
                 Skriv til{" "}
                 <a
                   href="mailto:marcuz@lektiero.dk"

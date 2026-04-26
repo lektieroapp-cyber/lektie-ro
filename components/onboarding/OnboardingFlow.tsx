@@ -79,7 +79,7 @@ function WelcomeStep({ firstName, onNext }: { firstName: string; onNext: () => v
       <ul className="mt-6 space-y-3 text-left">
         {[
           { icon: "📸", text: "Dit barn snapper et foto af lektien" },
-          { icon: "💡", text: "LektieRo guider med hints — aldrig det færdige svar" },
+          { icon: "💡", text: "LektieRo guider med hints, aldrig det færdige svar" },
           { icon: "🎯", text: "Tilpasset dit barns klassetrin og interesser" },
         ].map(({ icon, text }) => (
           <li key={text} className="flex items-start gap-3 text-[14px] text-ink/80">

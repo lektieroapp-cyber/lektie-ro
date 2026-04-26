@@ -14,6 +14,7 @@ import { clearCostEvents, pushCostEvent } from "@/lib/dev-cost"
 import { modelIdFromDeployment } from "@/lib/ai-pricing"
 import { armAudioUnlock } from "@/lib/voice/audio-unlock"
 import { SubjectPicker } from "./SubjectPicker"
+import { TaskFoundPanel } from "./TaskFoundPanel"
 import { TaskPicker } from "./TaskPicker"
 import { HintChat } from "./HintChat"
 import { VoiceSubjectChoice } from "./VoiceSubjectChoice"
@@ -36,7 +37,8 @@ type Stage =
   | "emptyPhoto"
   | "subject"
   | "pick"
-  | "hint"
+  | "taskFound"   // single-task auto-pick moment — brief friendly splash
+  | "hint"        // before flowing into the hint chat. Beats jumping cold.
   | "done"
   | "sessionDone"
 
@@ -160,6 +162,10 @@ export function SessionFlow({
   const [imagePath, setImagePath] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Carries the (task, solve) pair from a 1-task auto-pick into the
+  // taskFound splash → onContinue handoff. Ref because we don't want
+  // a re-render when it's set; the splash reads it once on advance.
+  const pendingAutoPickRef = useRef<{ task: Task; solve: SolveResponse } | null>(null)
   // Remember subject across tasks in the same homework session
   const [sessionSubject, setSessionSubject] = useState<string | null>(null)
   const [completedTasks, setCompletedTasks] = useState(0)
@@ -260,7 +266,7 @@ export function SessionFlow({
       } else if (!solveWithSubject.subject || solveWithSubject.subjectConfidence === "low") {
         setStage("subject")
       } else if (solveWithSubject.tasks.length === 1) {
-        void pickTask(solveWithSubject.tasks[0], solveWithSubject)
+        showSingleTaskFound(solveWithSubject.tasks[0], solveWithSubject)
       } else {
         setStage("pick")
       }
@@ -328,7 +334,7 @@ export function SessionFlow({
       } else if (!solveWithSubject.subject || solveWithSubject.subjectConfidence === "low") {
         setStage("subject")
       } else if (solveWithSubject.tasks.length === 1) {
-        void pickTask(solveWithSubject.tasks[0], solveWithSubject)
+        showSingleTaskFound(solveWithSubject.tasks[0], solveWithSubject)
       } else {
         setStage("pick")
       }
@@ -361,12 +367,22 @@ export function SessionFlow({
     logDevEvent("subject", `Valgt: ${subject}`)
     // Same single-task fast-path as the post-solve routing — once the kid
     // has confirmed the subject and there's only one task on the page,
-    // skipping the picker takes them straight to the hint flow.
+    // we route through the taskFound splash instead of the picker.
     if (tasks.length === 1) {
-      void pickTask(tasks[0], updated)
+      showSingleTaskFound(tasks[0], updated)
     } else {
       setStage("pick")
     }
+  }
+
+  // Single-task auto-pick path. Stages the task into "taskFound" so the
+  // splash can play before the hint chat takes over. Stores the solve
+  // alongside in a ref so the splash's onContinue can hand it back to
+  // pickTask without relying on stale state.
+  function showSingleTaskFound(t: Task, solveData: SolveResponse) {
+    pendingAutoPickRef.current = { task: t, solve: solveData }
+    setTask(t)
+    setStage("taskFound")
   }
 
   // Kid goes straight from task → hint. With the goal+steps extraction,
@@ -462,7 +478,7 @@ export function SessionFlow({
     if (solve) {
       const remaining = solve.tasks.filter(t => !completedTaskIds.includes(t.id))
       if (remaining.length === 1) {
-        void pickTask(remaining[0], solve)
+        showSingleTaskFound(remaining[0], solve)
       } else {
         setStage("pick")
       }
@@ -537,7 +553,7 @@ export function SessionFlow({
         grade: 0,
         tasks: [],
         reason: "no_tasks",
-        detectionNotes: "Dev jump — ingen rigtig analyse.",
+        detectionNotes: "Dev jump (ingen rigtig analyse).",
         mocked: true,
       })
     } else if (needsSolve) {
@@ -647,6 +663,21 @@ export function SessionFlow({
           </>
         )
       })()}
+      {stage === "taskFound" && task && solve && (
+        <TaskFoundPanel
+          task={task}
+          subject={solve.subject}
+          conversationMode={conversationMode}
+          onContinue={() => {
+            const pending = pendingAutoPickRef.current
+            pendingAutoPickRef.current = null
+            // Hand the captured (task, solve) pair to pickTask. Falls
+            // back to current state if the ref was cleared (shouldn't
+            // happen, but defensive — beats silently no-oping).
+            void pickTask(pending?.task ?? task, pending?.solve ?? solve)
+          }}
+        />
+      )}
       {(stage === "hint" || stage === "done") && task && solve && (
         <HintChat
           task={task}
@@ -773,7 +804,7 @@ function DevPanel({ currentStage, onJump }: {
           </p>
           {checks && !liveAvailable && (
             <div className="mb-2 rounded-md bg-coral-deep/10 p-2 text-[10px] text-coral-deep">
-              <p className="mb-1 font-bold">Live kan ikke nås — Vercel env mangler:</p>
+              <p className="mb-1 font-bold">Live kan ikke nås. Vercel env mangler:</p>
               <ul className="list-disc pl-4 leading-relaxed">
                 {!checks.endpoint && <li>AZURE_OPENAI_ENDPOINT</li>}
                 {!checks.key && <li>AZURE_OPENAI_KEY</li>}
@@ -787,7 +818,7 @@ function DevPanel({ currentStage, onJump }: {
           {checks && liveAvailable && (
             <div className="mb-2 rounded-md bg-success/10 p-2 text-[10px] text-success">
               <p className="font-bold">
-                Azure nået: {checks.endpointHost ?? "—"}
+                Azure nået: {checks.endpointHost ?? "-"}
               </p>
               <p className="mt-0.5 text-[9.5px] text-ink/60">
                 AI_MODE env: <code>{checks.aiModeEnv ?? "(unset)"}</code>

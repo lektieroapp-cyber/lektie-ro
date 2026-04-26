@@ -211,7 +211,7 @@ const waitlistHtml = () =>
       De bedste hilsner,<br>
       <strong style="color:${BRAND.ink};">Marcuz, Louise &amp; Team LektieRo</strong>
     </p>`,
-    "Din plads på ventelisten er bekræftet — vi glæder os til at byde dig velkommen."
+    "Din plads på ventelisten er bekræftet. Vi glæder os til at byde dig velkommen."
   )
 
 // ─── Registry ────────────────────────────────────────────────────────────────

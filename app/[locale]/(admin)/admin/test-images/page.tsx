@@ -47,7 +47,7 @@ export default async function AdminTestImagesPage({
     const parentMap = new Map(
       (usersResult.data?.users ?? [])
         .filter(u => parentIds.includes(u.id))
-        .map(u => [u.id, u.email ?? "—"])
+        .map(u => [u.id, u.email ?? "-"])
     )
 
     // Sign URLs for thumbnails. createSignedUrls batches in one call and
@@ -109,7 +109,7 @@ export default async function AdminTestImagesPage({
         <p className="mt-1 text-sm text-muted">
           Seneste {rows.length || 0} billeder fra rigtige sessioner. Klik et for at
           starte et nyt flow uden at skulle uploade igen. Bucket auto-sletter efter
-          24 timer — gråtonede felter er udløbet.
+          24 timer. Gråtonede felter er udløbet.
         </p>
       </div>
       <TestImagesGrid rows={rows} locale={locale} />

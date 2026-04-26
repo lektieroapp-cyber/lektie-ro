@@ -29,7 +29,7 @@ export const ENGELSK_AZURE_VOICE = "da-DK-JeppeNeural+en-US-AndrewMultilingualNe
 export const AZURE_VOICES = [
   { id: "da-DK-JeppeNeural", label: "Jeppe (DA, prod default)", gender: "male" as const },
   { id: "da-DK-ChristelNeural", label: "Christel (DA, alternativ)", gender: "female" as const },
-  { id: "en-US-AndrewMultilingualNeural", label: "Andrew (EN multilingual — bruges til engelsk)", gender: "male" as const },
+  { id: "en-US-AndrewMultilingualNeural", label: "Andrew (EN multilingual, bruges til engelsk)", gender: "male" as const },
   // Hybrid voice IDs use "<da-voice>+<en-voice>" — TTS renders Danish narration
   // with the first voice and quoted English spans with the second.
   // Two speakers in one sentence; native pronunciation on both sides.

@@ -116,13 +116,13 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
                   {new Date(u.createdAt).toLocaleDateString("da-DK")}
                 </td>
                 <td className="px-5 py-3 text-muted">
-                  {u.lastSignIn ? new Date(u.lastSignIn).toLocaleDateString("da-DK") : "—"}
+                  {u.lastSignIn ? new Date(u.lastSignIn).toLocaleDateString("da-DK") : "-"}
                 </td>
                 <td className="px-5 py-3 text-right tabular-nums text-ink/80">
-                  {u.sessions > 0 ? u.sessions : <span className="text-muted">—</span>}
+                  {u.sessions > 0 ? u.sessions : <span className="text-muted">-</span>}
                 </td>
                 <td className="px-5 py-3 text-right tabular-nums">
-                  {u.sessions > 0 ? formatDkk(u.estCostDkk) : <span className="text-muted">—</span>}
+                  {u.sessions > 0 ? formatDkk(u.estCostDkk) : <span className="text-muted">-</span>}
                 </td>
                 <td className="px-5 py-3">
                   <button

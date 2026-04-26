@@ -105,11 +105,11 @@ export function DevLog({
           {/* Current state */}
           <div className="border-b border-ink/5 px-3 py-2 leading-[1.6]">
             <Row k="stage" v={stage} color="#8C7B9F" />
-            <Row k="subject" v={solve?.subject ?? "—"} color="#3A5F7A" />
-            <Row k="grade" v={solve ? String(solve.grade) : "—"} color="#556048" />
+            <Row k="subject" v={solve?.subject ?? "-"} color="#3A5F7A" />
+            <Row k="grade" v={solve ? String(solve.grade) : "-"} color="#556048" />
             <Row
               k="task"
-              v={task ? truncate(task.text, 42) : "—"}
+              v={task ? truncate(task.text, 42) : "-"}
               color="#3E8A6A"
             />
             <Row k="turns" v={`${aiTurnCount} / ${turnCount}`} color="#1F2D1A" />

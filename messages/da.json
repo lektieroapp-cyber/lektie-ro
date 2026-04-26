@@ -86,7 +86,7 @@
   "promise": {
     "title": "Vi giver aldrig facit",
     "titleItalic": "vi viser vejen",
-    "body": "Vi guider barnet gennem {highlight}, så de selv når svaret. Det skaber ægte læring og selvtillid — ikke afhængighed af en app.",
+    "body": "Vi guider barnet gennem {highlight}, så de selv når svaret. Det skaber ægte læring og selvtillid, ikke afhængighed af en app.",
     "highlight": "løsningsmetoden",
     "demoBadge": "Live eksempel",
     "demoTabs": {

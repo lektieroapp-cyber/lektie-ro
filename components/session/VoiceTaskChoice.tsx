@@ -133,7 +133,7 @@ export function VoiceTaskChoice({
       if (signal.aborted) return
       if (!res.ok) {
         setPhase("error")
-        setErrorMsg("Kunne ikke spille spørgsmål — tryk på en opgave.")
+        setErrorMsg("Kunne ikke spille spørgsmål. Tryk på en opgave.")
         return
       }
       const blob = await res.blob()
@@ -368,7 +368,7 @@ function phaseLabel(phase: Phase): string {
     case "listening": return "Lytter efter dit valg"
     case "transcribing": return "Skriver det du sagde …"
     case "matching": return "Finder opgaven …"
-    case "picked": return "Godt — vi går i gang"
+    case "picked": return "Godt! Vi går i gang"
     case "error": return "Prøv at tappe en opgave i stedet"
     default: return "Lige om lidt …"
   }

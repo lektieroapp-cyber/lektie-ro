@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og"
 
-export const alt = "LektieRo — Ro om lektierne. Plads til familien."
+export const alt = "LektieRo - Ro om lektierne. Plads til familien."
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 

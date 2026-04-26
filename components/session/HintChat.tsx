@@ -1847,7 +1847,7 @@ function AudioDebugPanel({
               aiMode === "live"
                 ? "Kalder rigtig Azure (/api/solve + /api/hint)"
                 : aiMode === "test"
-                  ? "Mock — returnerer dåse-svar"
+                  ? "Mock: returnerer dåse-svar"
                   : "Ukendt tilstand"
             }
             style={{
@@ -1921,7 +1921,7 @@ function AudioDebugPanel({
         <span>{data.reason}</span>
         <span>STT</span>
         <span>
-          {data.sttStatus ?? "—"}
+          {data.sttStatus ?? "-"}
           {data.sttMs !== null ? ` · ${data.sttMs}ms` : ""}
         </span>
       </div>

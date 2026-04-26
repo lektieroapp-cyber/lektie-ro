@@ -82,7 +82,7 @@ export function PromiseBand({ locale }: { locale: Locale }) {
           }}
         >
           {m.promise.title}
-          <br />—{" "}
+          <br />{" "}
           <em
             style={{
               fontStyle: "italic",

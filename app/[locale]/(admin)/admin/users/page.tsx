@@ -49,7 +49,7 @@ export default async function AdminUsersPage({
     const cost = estimateUserCostDkk(stats.sessions, stats.turns)
     return {
       id: u.id,
-      email: u.email ?? "—",
+      email: u.email ?? "-",
       role: profileMap.get(u.id) ?? "parent",
       subscription: "free",
       hasKid: parentsWithKids.has(u.id),

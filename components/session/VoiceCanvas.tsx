@@ -291,7 +291,7 @@ function StatePill({ phase }: { phase: Phase }) {
   const border = isListening
     ? `1px solid rgba(255,255,255,0.45)`
     : "1px solid rgba(31,27,51,0.06)"
-  const label = isListening ? "Optager — sig det" : `Dani ${phaseLabel(phase)}`
+  const label = isListening ? "Optager - sig det" : `Dani ${phaseLabel(phase)}`
   const dotBg = isListening ? "#fff" : dotColor(phase)
   const shadow = isListening ? `0 0 0 4px ${K.clay}33` : "none"
   return (
@@ -1012,9 +1012,9 @@ function Dock({
         }}
       >
         {phase === "listening"
-          ? "🎙 Jeg lytter — bare snak. Jeg stopper selv, når du er færdig"
+          ? "🎙 Jeg lytter. Bare snak. Jeg stopper selv, når du er færdig"
           : phase === "speaking"
-            ? "Dani taler — vent et øjeblik"
+            ? "Dani taler. Vent et øjeblik"
             : phase === "thinking" || phase === "processing"
               ? "Dani tænker …"
               : "Dani åbner mikken lige om lidt"}

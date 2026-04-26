@@ -221,7 +221,7 @@ function MasteryBreakdown({ skills }: { skills: SkillMastery[] }) {
                         {topSkills.map(s => (
                           <span
                             key={s.id}
-                            title={`${s.solid} solid, ${s.struggle} struggle — ${s.score}%`}
+                            title={`${s.solid} solid, ${s.struggle} struggle - ${s.score}%`}
                             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
                               s.score >= 70
                                 ? "bg-mint-soft text-mint-deep"
@@ -544,7 +544,7 @@ export default async function ParentOverview({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">
-                      {s.problem_text ?? `${s.subject} — ${s.grade}. klasse`}
+                      {s.problem_text ?? `${s.subject} · ${s.grade}. klasse`}
                     </p>
                     <p className="text-xs text-muted capitalize">
                       {child?.name} · {s.subject}
@@ -552,7 +552,7 @@ export default async function ParentOverview({
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <span className={`text-xs font-semibold ${diff?.color ?? "text-muted"}`}>
-                      {diff?.label ?? "—"}
+                      {diff?.label ?? "-"}
                     </span>
                     <span className="text-[11px] text-muted">{formatDate(s.created_at)}</span>
                   </div>

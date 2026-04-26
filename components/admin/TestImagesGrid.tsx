@@ -62,7 +62,7 @@ function TestImageCard({ row, locale }: { row: TestImageRow; locale: string }) {
     ? null
     : looksAutoDeleted
       ? "Auto-slettet (over 24 t gammel)"
-      : "Billede mangler — ikke en auto-sletning"
+      : "Billede mangler (ikke en auto-sletning)"
   const when = formatRelative(row.createdAt)
   const reuseHref = unavailable
     ? "#"
@@ -157,7 +157,7 @@ function TestImageCard({ row, locale }: { row: TestImageRow; locale: string }) {
             {unavailable ? (
               <span
                 className="rounded-chip bg-ink/5 px-2 py-1 text-[11px] text-muted"
-                title={looksAutoDeleted ? "Over 24 timer — lifecycle-slettet" : "Billede mangler i storage"}
+                title={looksAutoDeleted ? "Over 24 timer (lifecycle-slettet)" : "Billede mangler i storage"}
               >
                 {looksAutoDeleted ? "Udløbet" : "Mangler"}
               </span>

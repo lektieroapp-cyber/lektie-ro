@@ -124,7 +124,7 @@ export function VoiceSubjectChoice({
       if (signal.aborted) return
       if (!res.ok) {
         setPhase("error")
-        setErrorMsg("Kunne ikke spille spørgsmål — tryk på et fag.")
+        setErrorMsg("Kunne ikke spille spørgsmål. Tryk på et fag.")
         return
       }
       const blob = await res.blob()
@@ -351,7 +351,7 @@ function phaseLabel(phase: Phase): string {
     case "listening": return "Lytter efter dit svar"
     case "transcribing": return "Skriver det du sagde …"
     case "matching": return "Finder faget …"
-    case "picked": return "Godt — vi går i gang"
+    case "picked": return "Godt! Vi går i gang"
     case "error": return "Tryk på et fag i stedet"
     default: return "Lige om lidt …"
   }
