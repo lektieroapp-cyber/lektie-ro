@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Fraunces, Inter, Nunito } from "next/font/google"
 import "./globals.css"
 
@@ -27,6 +27,17 @@ export const metadata: Metadata = {
     default: "LektieRo",
     template: "%s · LektieRo",
   },
+}
+
+// `interactiveWidget: "resizes-content"` makes Android Chrome (and other
+// Chromium browsers) shrink dvh / the layout viewport when the soft keyboard
+// opens, instead of overlaying it. iOS Safari ignores this hint — for iOS we
+// rely on VisualViewportSync (mounted in the parent layout) to track the
+// keyboard via window.visualViewport.height.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1482,6 +1482,7 @@ export function HintChat({
         style={{
           flex: 1,
           overflow: "auto",
+          overscrollBehavior: "contain",
           padding: "22px 22px 14px",
         }}
       >

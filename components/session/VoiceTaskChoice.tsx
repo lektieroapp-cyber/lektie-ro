@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { armAudioUnlock, getPlaybackAudio } from "@/lib/voice/audio-unlock"
+import { startBargeInDetector } from "@/lib/voice/barge-in-detector"
 import { startPcmRecorder, type PcmRecorderHandle } from "@/lib/voice/pcm-recorder"
 import { startSilenceDetector } from "@/lib/voice/silence-detector"
 import { modelIdFromDeployment } from "@/lib/ai-pricing"
@@ -47,6 +48,11 @@ export function VoiceTaskChoice({
   const pcmRecRef = useRef<PcmRecorderHandle | null>(null)
   const vadCleanupRef = useRef<(() => void) | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const bargeInCleanupRef = useRef<(() => void) | null>(null)
+  // Set true when the kid speaks over Dani's question. Read by speak() to
+  // know it should resolve early, and by runFlow() to skip straight to
+  // recordAndMatch() instead of running the normal post-speak transition.
+  const bargeInFiredRef = useRef(false)
 
   useEffect(() => {
     armAudioUnlock()
@@ -63,6 +69,8 @@ export function VoiceTaskChoice({
         try { audioElRef.current.pause() } catch {}
         audioElRef.current = null
       }
+      bargeInCleanupRef.current?.()
+      bargeInCleanupRef.current = null
       vadCleanupRef.current?.()
       vadCleanupRef.current = null
       const handle = pcmRecRef.current
@@ -76,12 +84,44 @@ export function VoiceTaskChoice({
 
   async function runFlow(signal: AbortSignal) {
     if (signal.aborted) return
-    await speak(buildQuestion(tasks), signal)
+    // Open the mic in parallel with the TTS fetch so barge-in detection can
+    // listen WHILE Dani is still speaking. Without this, the kid has to wait
+    // for the question to finish before the mic opens, which feels sluggish
+    // when the kid already knows their answer.
+    const streamPromise = openMicStream()
+    await speak(buildQuestion(tasks), signal, streamPromise)
     if (signal.aborted) return
-    await recordAndMatch(signal)
+    const stream = await streamPromise.catch(() => null)
+    if (!stream) return
+    await recordAndMatch(signal, stream)
   }
 
-  async function speak(text: string, signal: AbortSignal) {
+  async function openMicStream(): Promise<MediaStream | null> {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      })
+      streamRef.current = stream
+      return stream
+    } catch {
+      // Mic permission denied / device error — speak() still runs, kid taps
+      // a task instead. Return null so runFlow exits cleanly.
+      setPhase("error")
+      setErrorMsg("Mikrofon blev afvist. Tryk på en opgave.")
+      return null
+    }
+  }
+
+  async function speak(
+    text: string,
+    signal: AbortSignal,
+    streamPromise: Promise<MediaStream | null>
+  ) {
     setPhase("speaking")
     try {
       const res = await fetch("/api/tts", {
@@ -106,11 +146,47 @@ export function VoiceTaskChoice({
       const url = URL.createObjectURL(blob)
       const audio = getPlaybackAudio()
       audioElRef.current = audio
+      // Arm barge-in once the mic stream resolves. If it resolves AFTER
+      // playback starts that's fine — late arming still catches mid-question
+      // interruptions, just not the very first syllable.
+      void streamPromise.then(stream => {
+        if (!stream || signal.aborted || bargeInFiredRef.current) return
+        bargeInCleanupRef.current = startBargeInDetector(stream, {
+          // Tighter than HintChat's first-turn defaults — the question is
+          // short and the kid often already knows their answer, so we want
+          // a quick interrupt to feel responsive. AEC-leak risk is the same.
+          speechThreshold: 0.06,
+          sustainMs: 250,
+          confirmMs: 600,
+          falseAlarmQuietMs: 400,
+          onTentative: () => {
+            if (audioElRef.current) {
+              try { audioElRef.current.pause() } catch {}
+            }
+          },
+          onConfirmed: () => {
+            bargeInFiredRef.current = true
+            if (audioElRef.current) {
+              try { audioElRef.current.pause() } catch {}
+            }
+          },
+          onFalseAlarm: () => {
+            // Resume playback if it was tentatively paused. play() may reject
+            // if the browser dropped permission — fall through silently and
+            // let the natural onended/timer finish the wait.
+            if (audioElRef.current && audioElRef.current.paused) {
+              audioElRef.current.play().catch(() => {})
+            }
+          },
+        })
+      })
       await new Promise<void>(resolve => {
         let resolved = false
+        let bargeTimer: number | null = null
         const done = () => {
           if (resolved) return
           resolved = true
+          if (bargeTimer !== null) window.clearInterval(bargeTimer)
           audio.onended = null
           audio.onerror = null
           URL.revokeObjectURL(url)
@@ -122,7 +198,14 @@ export function VoiceTaskChoice({
         audio.play().catch(done)
         if (signal.aborted) done()
         else signal.addEventListener("abort", done, { once: true })
+        // pause() doesn't fire 'ended', so we poll the barge-in flag and
+        // resolve as soon as the kid interrupts. 40 ms tick is cheap.
+        bargeTimer = window.setInterval(() => {
+          if (bargeInFiredRef.current) done()
+        }, 40)
       })
+      bargeInCleanupRef.current?.()
+      bargeInCleanupRef.current = null
     } catch (err) {
       if ((err as Error).name === "AbortError") return
       setPhase("error")
@@ -130,22 +213,13 @@ export function VoiceTaskChoice({
     }
   }
 
-  async function recordAndMatch(signal: AbortSignal) {
+  async function recordAndMatch(signal: AbortSignal, stream: MediaStream) {
     setPhase("listening")
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      })
       if (signal.aborted) {
         stream.getTracks().forEach(t => t.stop())
         return
       }
-      streamRef.current = stream
       const pcm = await startPcmRecorder(stream, { sampleRate: 16000 })
       pcmRecRef.current = pcm
 

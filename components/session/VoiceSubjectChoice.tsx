@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { armAudioUnlock, getPlaybackAudio } from "@/lib/voice/audio-unlock"
+import { startBargeInDetector } from "@/lib/voice/barge-in-detector"
 import { startPcmRecorder, type PcmRecorderHandle } from "@/lib/voice/pcm-recorder"
 import { startSilenceDetector } from "@/lib/voice/silence-detector"
 import { modelIdFromDeployment } from "@/lib/ai-pricing"
@@ -48,6 +49,8 @@ export function VoiceSubjectChoice({
   const pcmRecRef = useRef<PcmRecorderHandle | null>(null)
   const vadCleanupRef = useRef<(() => void) | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const bargeInCleanupRef = useRef<(() => void) | null>(null)
+  const bargeInFiredRef = useRef(false)
 
   useEffect(() => {
     armAudioUnlock()
@@ -61,6 +64,8 @@ export function VoiceSubjectChoice({
         try { audioElRef.current.pause() } catch {}
         audioElRef.current = null
       }
+      bargeInCleanupRef.current?.()
+      bargeInCleanupRef.current = null
       vadCleanupRef.current?.()
       vadCleanupRef.current = null
       const handle = pcmRecRef.current
@@ -74,12 +79,40 @@ export function VoiceSubjectChoice({
 
   async function runFlow(signal: AbortSignal) {
     if (signal.aborted) return
-    await speak(buildQuestion(guess ?? null), signal)
+    // Open mic in parallel so barge-in can listen while Dani speaks. See
+    // VoiceTaskChoice for the full rationale — same pattern.
+    const streamPromise = openMicStream()
+    await speak(buildQuestion(guess ?? null), signal, streamPromise)
     if (signal.aborted) return
-    await recordAndMatch(signal)
+    const stream = await streamPromise.catch(() => null)
+    if (!stream) return
+    await recordAndMatch(signal, stream)
   }
 
-  async function speak(text: string, signal: AbortSignal) {
+  async function openMicStream(): Promise<MediaStream | null> {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      })
+      streamRef.current = stream
+      return stream
+    } catch {
+      setPhase("error")
+      setErrorMsg("Mikrofon blev afvist. Tryk på et fag.")
+      return null
+    }
+  }
+
+  async function speak(
+    text: string,
+    signal: AbortSignal,
+    streamPromise: Promise<MediaStream | null>
+  ) {
     setPhase("speaking")
     try {
       const res = await fetch("/api/tts", {
@@ -104,11 +137,38 @@ export function VoiceSubjectChoice({
       const url = URL.createObjectURL(blob)
       const audio = getPlaybackAudio()
       audioElRef.current = audio
+      void streamPromise.then(stream => {
+        if (!stream || signal.aborted || bargeInFiredRef.current) return
+        bargeInCleanupRef.current = startBargeInDetector(stream, {
+          speechThreshold: 0.06,
+          sustainMs: 250,
+          confirmMs: 600,
+          falseAlarmQuietMs: 400,
+          onTentative: () => {
+            if (audioElRef.current) {
+              try { audioElRef.current.pause() } catch {}
+            }
+          },
+          onConfirmed: () => {
+            bargeInFiredRef.current = true
+            if (audioElRef.current) {
+              try { audioElRef.current.pause() } catch {}
+            }
+          },
+          onFalseAlarm: () => {
+            if (audioElRef.current && audioElRef.current.paused) {
+              audioElRef.current.play().catch(() => {})
+            }
+          },
+        })
+      })
       await new Promise<void>(resolve => {
         let resolved = false
+        let bargeTimer: number | null = null
         const done = () => {
           if (resolved) return
           resolved = true
+          if (bargeTimer !== null) window.clearInterval(bargeTimer)
           audio.onended = null
           audio.onerror = null
           URL.revokeObjectURL(url)
@@ -120,7 +180,12 @@ export function VoiceSubjectChoice({
         audio.play().catch(done)
         if (signal.aborted) done()
         else signal.addEventListener("abort", done, { once: true })
+        bargeTimer = window.setInterval(() => {
+          if (bargeInFiredRef.current) done()
+        }, 40)
       })
+      bargeInCleanupRef.current?.()
+      bargeInCleanupRef.current = null
     } catch (err) {
       if ((err as Error).name === "AbortError") return
       setPhase("error")
@@ -128,22 +193,13 @@ export function VoiceSubjectChoice({
     }
   }
 
-  async function recordAndMatch(signal: AbortSignal) {
+  async function recordAndMatch(signal: AbortSignal, stream: MediaStream) {
     setPhase("listening")
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      })
       if (signal.aborted) {
         stream.getTracks().forEach(t => t.stop())
         return
       }
-      streamRef.current = stream
       const pcm = await startPcmRecorder(stream, { sampleRate: 16000 })
       pcmRecRef.current = pcm
 

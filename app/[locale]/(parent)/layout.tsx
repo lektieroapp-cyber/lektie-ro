@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation"
 import { Sidebar } from "@/components/app/Sidebar"
+import { VisualViewportSync } from "@/components/app/VisualViewportSync"
 import { isLocale } from "@/lib/i18n/config"
 import { DEV_BYPASS_AUTH, DEV_PROFILE, DEV_USER, getDevEnsureStatus } from "@/lib/dev-user"
 import { getSessionUser } from "@/lib/auth/session"
@@ -26,9 +27,13 @@ export default async function ParentLayout({
   const { activeChild } = await getActiveChild(user.id)
 
   return (
-    <div className="flex min-h-screen flex-col bg-blue-tint/30 md:h-screen md:min-h-0 md:flex-row md:overflow-hidden">
+    <div
+      className="flex flex-col overflow-hidden bg-blue-tint/30 md:flex-row"
+      style={{ height: "var(--lr-app-h, 100svh)" }}
+    >
+      <VisualViewportSync />
       <Sidebar locale={locale} isAdmin={isAdmin} email={user.email ?? ""} activeChild={activeChild} />
-      <main className="flex flex-1 flex-col overflow-x-hidden md:overflow-y-auto">
+      <main className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
         {DEV_BYPASS_AUTH && <DevBanner />}
         <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 py-4 md:px-10 md:py-12">
           {children}
