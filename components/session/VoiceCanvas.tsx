@@ -279,33 +279,50 @@ function TopBar({
 }
 
 function StatePill({ phase }: { phase: Phase }) {
+  // Listening = "we are capturing your voice right now". Kids reported the
+  // old white pill was too subtle to tell apart from idle/thinking — they
+  // didn't know whether to talk yet. We promote that single phase to a
+  // saturated clay banner with white text + a pulsing recording-style dot
+  // so it reads from across the room. All other phases keep the discreet
+  // white pill so they don't compete visually.
+  const isListening = phase === "listening"
+  const bg = isListening ? K.clay : "#fff"
+  const fg = isListening ? "#fff" : K.ink
+  const border = isListening
+    ? `1px solid rgba(255,255,255,0.45)`
+    : "1px solid rgba(31,27,51,0.06)"
+  const label = isListening ? "Optager — sig det" : `Dani ${phaseLabel(phase)}`
+  const dotBg = isListening ? "#fff" : dotColor(phase)
+  const shadow = isListening ? `0 0 0 4px ${K.clay}33` : "none"
   return (
     <div
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
-        padding: "6px 12px 6px 10px",
+        padding: isListening ? "8px 14px 8px 12px" : "6px 12px 6px 10px",
         borderRadius: 999,
-        background: "#fff",
-        border: "1px solid rgba(31,27,51,0.06)",
-        fontSize: 12,
-        fontWeight: 700,
-        color: K.ink,
+        background: bg,
+        border,
+        fontSize: isListening ? 13 : 12,
+        fontWeight: 800,
+        color: fg,
         flexShrink: 0,
+        boxShadow: shadow,
+        transition: "background 120ms ease, box-shadow 120ms ease, padding 120ms ease",
       }}
     >
       <span
         aria-hidden
         style={{
-          width: 8,
-          height: 8,
+          width: isListening ? 10 : 8,
+          height: isListening ? 10 : 8,
           borderRadius: 999,
-          background: dotColor(phase),
+          background: dotBg,
           animation: "voiceDotPulse 1.4s ease-in-out infinite",
         }}
       />
-      Dani {phaseLabel(phase)}
+      {label}
     </div>
   )
 }
@@ -985,20 +1002,22 @@ function Dock({
         style={{
           marginTop: 8,
           textAlign: "center",
-          fontSize: 11,
-          color: K.ink2,
-          fontWeight: 500,
+          // Listening state needs the strongest visual call — bigger, bolder,
+          // saturated clay so the caption matches the level meter colour and
+          // can't be missed. Other phases stay at the discreet 11/500 spec.
+          fontSize: phase === "listening" ? 13 : 11,
+          color: phase === "listening" ? K.clay : K.ink2,
+          fontWeight: phase === "listening" ? 700 : 500,
+          transition: "color 120ms ease, font-size 120ms ease",
         }}
       >
         {phase === "listening"
-          ? "Jeg stopper selv, når du er færdig"
+          ? "🎙 Jeg lytter — bare snak. Jeg stopper selv, når du er færdig"
           : phase === "speaking"
             ? "Dani taler — vent et øjeblik"
-            : phase === "thinking"
+            : phase === "thinking" || phase === "processing"
               ? "Dani tænker …"
-              : phase === "processing"
-                ? "Skriver det du sagde …"
-                : "Dani åbner mikken lige om lidt"}
+              : "Dani åbner mikken lige om lidt"}
       </div>
     </div>
   )
@@ -1114,9 +1133,14 @@ function buildHeroText(
   // phase=speaking with a kid lastTurn is legit — show a neutral coach line
   // rather than the "Vi starter om et øjeblik" fallback.
   if (phase === "speaking") return { text: "Dani taler …", who: "coach" }
-  if (phase === "thinking") return { text: "Dani tænker over dit svar …", who: "coach" }
+  // Both transcribing-the-kid (processing) and LLM-streaming (thinking) are
+  // "system is working on it" from the kid's perspective — same UI label
+  // makes the wait feel like one beat instead of two named stages. The old
+  // "Skriver det du lige sagde" string confused kids because nothing visible
+  // was being written on their behalf.
+  if (phase === "thinking" || phase === "processing")
+    return { text: "Dani tænker over dit svar …", who: "coach" }
   if (phase === "listening") return { text: "Sig dit svar højt", who: "coach" }
-  if (phase === "processing") return { text: "Skriver det du lige sagde …", who: "coach" }
   if (lastTurn?.role === "assistant") return { text: lastTurn.content, who: "dani" }
   return { text: "Vi starter om et øjeblik …", who: "coach" }
 }
@@ -1133,7 +1157,7 @@ function phaseLabel(phase: Phase): string {
     case "speaking":   return "taler"
     case "listening":  return "lytter"
     case "thinking":   return "tænker"
-    case "processing": return "skriver"
+    case "processing": return "tænker"
     default:           return "klar"
   }
 }

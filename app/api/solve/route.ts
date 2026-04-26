@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { randomUUID } from "crypto"
+import sharp from "sharp"
 import { z } from "zod"
 import { getAIMode } from "@/lib/ai-mode"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -54,36 +55,69 @@ export async function POST(request: NextRequest) {
       usage: extracted.usage ?? null,
     } satisfies SolveResult)
   } catch (err) {
-    console.error("[solve] vision failed:", (err as Error).message)
-    // Graceful fallback — kid still gets a flow even if Azure hiccups.
-    return NextResponse.json(mockSolve(true))
+    const message = (err as Error).message
+    console.error("[solve] vision failed:", message)
+    // Surface a real error in live mode — the previous behaviour of
+    // returning a random mock task on failure looked like the kid had
+    // pasted nonsense (e.g. "her er fake matematik" when the paste actually
+    // failed). Mocks are reserved for AI_MODE=test.
+    return NextResponse.json(
+      { error: "vision_failed", message },
+      { status: 502 },
+    )
   }
 }
 
 // ─── Supabase Storage fetch ─────────────────────────────────────────────────
 
+// Pasted screenshots / phone photos arrive as anything from a 500 KB JPEG
+// to a 9 MB 4K PNG to an iPhone HEIC. Azure GPT-5/4o vision accepts JPEG /
+// PNG / WebP / GIF only — HEIC is rejected — and silently fails on
+// oversized payloads. Normalizing the bytes through sharp before building
+// the data URL collapses every input to a single compact JPEG that the
+// vision model is guaranteed to ingest:
+//   - HEIC/HEIF → JPEG (libheif via sharp)
+//   - longest side capped at 2048 px (homework text is still crisply
+//     readable; Azure's image-token cost drops dramatically vs. 4K)
+//   - quality 85 keeps the data URL small enough not to bloat the
+//     serverless function payload
+//   - .rotate() honors EXIF so iPhone-portrait photos arrive upright
 async function fetchImageAsDataUrl(path: string): Promise<string> {
   const admin = createAdminClient()
   const { data, error } = await admin.storage.from(BUCKET).download(path)
   if (error || !data) {
     throw new Error(`storage_download_failed: ${error?.message ?? "no data"}`)
   }
-  const buffer = Buffer.from(await data.arrayBuffer())
-  const mime = data.type || guessMime(path)
-  return `data:${mime};base64,${buffer.toString("base64")}`
+  const inputBuffer = Buffer.from(await data.arrayBuffer())
+  let normalized: Buffer
+  try {
+    normalized = await sharp(inputBuffer)
+      .rotate()
+      .resize({
+        width: 2048,
+        height: 2048,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 85 })
+      .toBuffer()
+  } catch (err) {
+    // sharp failed (truly malformed file, unsupported codec, etc.). Re-throw
+    // with a clearer message so the catch in POST surfaces a useful log line
+    // instead of "Input buffer contains unsupported image format".
+    throw new Error(
+      `image_normalize_failed: ${(err as Error).message} (size=${inputBuffer.length})`
+    )
+  }
+  return `data:image/jpeg;base64,${normalized.toString("base64")}`
 }
 
-function guessMime(path: string): string {
-  const ext = path.split(".").pop()?.toLowerCase() ?? ""
-  return (
-    { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif" }[ext] ||
-    "image/jpeg"
-  )
-}
+// ─── Test-mode mock ─────────────────────────────────────────────────────────
+// Used ONLY when AI_MODE=test (or env unset and Azure not configured).
+// Live-mode failures return a 502 so the client can show a real error
+// instead of fake homework.
 
-// ─── Fallback mock ──────────────────────────────────────────────────────────
-
-function mockSolve(soft = false): SolveResult {
+function mockSolve(): SolveResult {
   const pool = [
     {
       subject: "matematik",
@@ -115,6 +149,6 @@ function mockSolve(soft = false): SolveResult {
     sessionId: randomUUID(),
     subject: pick.subject,
     tasks: pick.tasks,
-    mocked: !soft ? true : undefined,
+    mocked: true,
   }
 }

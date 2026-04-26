@@ -152,8 +152,19 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (err) {
-    console.error("[hint] azure call failed:", (err as Error).message)
-    return streamFallback(subject)
+    const message = (err as Error).message
+    console.error("[hint] azure call failed:", message)
+    // Live mode → surface the failure. The canned subject-generic hint we
+    // used to return read like a real Dani reply that ignored the kid's
+    // actual problem, which is worse than no reply. Test mode hits the
+    // fallback above before we ever get here.
+    return new Response(
+      JSON.stringify({ error: "hint_failed", message }),
+      {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      },
+    )
   }
 }
 

@@ -245,11 +245,18 @@ export function SessionFlow({
       // Smart routing:
       //  1. No tasks → tell the kid, let them try another photo
       //  2. Tasks exist but subject guess is low-confidence OR null → confirm first
-      //  3. Tasks exist + confident subject → straight to task picker
+      //  3. Tasks exist + confident subject + multiple tasks → task picker
+      //  4. Tasks exist + confident subject + ONE task → auto-pick straight
+      //     to the hint flow. With a single task there's nothing for the kid
+      //     to choose between, so the picker is a friction screen they have
+      //     to dismiss before they can start. Pass solveWithSubject to
+      //     pickTask explicitly because state hasn't propagated yet.
       if (solveWithSubject.tasks.length === 0) {
         setStage("emptyPhoto")
       } else if (!solveWithSubject.subject || solveWithSubject.subjectConfidence === "low") {
         setStage("subject")
+      } else if (solveWithSubject.tasks.length === 1) {
+        void pickTask(solveWithSubject.tasks[0], solveWithSubject)
       } else {
         setStage("pick")
       }
@@ -316,6 +323,8 @@ export function SessionFlow({
         setStage("emptyPhoto")
       } else if (!solveWithSubject.subject || solveWithSubject.subjectConfidence === "low") {
         setStage("subject")
+      } else if (solveWithSubject.tasks.length === 1) {
+        void pickTask(solveWithSubject.tasks[0], solveWithSubject)
       } else {
         setStage("pick")
       }
@@ -343,29 +352,44 @@ export function SessionFlow({
     const tasks = solve.mocked && MOCK_TASKS[subject]
       ? MOCK_TASKS[subject]
       : solve.tasks
-    setSolve({ ...solve, subject, tasks })
-    setStage("pick")
+    const updated = { ...solve, subject, tasks }
+    setSolve(updated)
     logDevEvent("subject", `Valgt: ${subject}`)
+    // Same single-task fast-path as the post-solve routing — once the kid
+    // has confirmed the subject and there's only one task on the page,
+    // skipping the picker takes them straight to the hint flow.
+    if (tasks.length === 1) {
+      void pickTask(tasks[0], updated)
+    } else {
+      setStage("pick")
+    }
   }
 
   // Kid goes straight from task → hint. With the goal+steps extraction,
   // Dani's first turn already orients around the task and asks the kid to
   // engage, so the old explain/hint ModeSelector was removed entirely.
-  async function pickTask(t: Task) {
+  //
+  // `solveOverride` lets callers that auto-pick from inside the same async
+  // flow that just produced the solve (e.g. routing to "hint" directly when
+  // tasks.length === 1) pass the fresh data explicitly. Without it, the
+  // closure read of `solve` here would be the previous render's stale value
+  // because setSolve hasn't propagated yet.
+  async function pickTask(t: Task, solveOverride?: SolveResponse) {
+    const effectiveSolve = solveOverride ?? solve
     setTask(t)
     setTurns([])
     setStage("hint")
     logDevEvent("task", t.text.slice(0, 60), { type: t.type })
 
     // Create a session row if we have a real child (not dev/parent mode).
-    if (activeChildId && activeChildId !== "parent" && solve) {
+    if (activeChildId && activeChildId !== "parent" && effectiveSolve) {
       try {
         const res = await fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             childId: activeChildId,
-            subject: solve.subject,
+            subject: effectiveSolve.subject,
             // Grade comes from the child's profile, not the photo.
             grade: childGrade ?? null,
             // Use `t` directly — setTask(t) is async, so this closure's `task`
@@ -427,9 +451,17 @@ export function SessionFlow({
     setTask(null)
     setDbSessionId(null)
     setTurns([])
-    // Go back to task picker if we still have the solve data
+    // Go back to task picker if we still have the solve data, OR auto-pick
+    // the only remaining task if just one is left after completion. Same
+    // rationale as the post-solve routing — no point showing a one-card
+    // picker when there's no choice to make.
     if (solve) {
-      setStage("pick")
+      const remaining = solve.tasks.filter(t => !completedTaskIds.includes(t.id))
+      if (remaining.length === 1) {
+        void pickTask(remaining[0], solve)
+      } else {
+        setStage("pick")
+      }
     } else {
       setStage("idle")
     }

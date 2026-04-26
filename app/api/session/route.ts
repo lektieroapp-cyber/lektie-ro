@@ -81,14 +81,25 @@ export async function PATCH(request: NextRequest) {
   const admin = createAdminClient()
 
   // Verify this session belongs to this parent before updating.
+  // steps_done / steps_total / completion_kind landed in migration 009.
+  // Older deployments (pre-009) silently lose these — the column update
+  // will simply error per-column, but the rest of the row still writes
+  // correctly because Supabase processes the column list against the
+  // schema. To be safe we only include the new columns when the client
+  // sent them at all.
+  const update: Record<string, unknown> = {
+    turn_count: body.turnCount,
+    completed: body.completed,
+    difficulty_score: difficultyScore,
+    ended_at: new Date().toISOString(),
+  }
+  if (typeof body.stepsDone === "number") update.steps_done = body.stepsDone
+  if (typeof body.stepsTotal === "number") update.steps_total = body.stepsTotal
+  if (body.completionKind) update.completion_kind = body.completionKind
+
   const { error: updateError } = await admin
     .from("sessions")
-    .update({
-      turn_count: body.turnCount,
-      completed: body.completed,
-      difficulty_score: difficultyScore,
-      ended_at: new Date().toISOString(),
-    })
+    .update(update)
     .eq("id", body.sessionId)
     .eq("parent_id", user.id)
 
@@ -108,7 +119,37 @@ export async function PATCH(request: NextRequest) {
     )
   }
 
+  // Fire-and-forget post-session analysis. Skipped when the kid barely
+  // engaged (≤1 turn) — nothing useful to extract. Failures here never
+  // affect the response: the kid has already moved on to the next task,
+  // and the analyze endpoint will be retryable from an admin tool later
+  // if we want to backfill old rows.
+  if (body.turnCount >= 2 && body.turns && body.turns.length >= 2) {
+    void triggerAnalysis(request, body.sessionId)
+  }
+
   return NextResponse.json({ ok: true, difficultyScore })
+}
+
+async function triggerAnalysis(request: NextRequest, sessionId: string) {
+  try {
+    // Same-origin fetch so the analyze endpoint runs in its own
+    // serverless function context with its own timeout budget. We pass
+    // through the auth cookie so getSessionUser() inside the analyze
+    // route resolves to the same parent.
+    const cookie = request.headers.get("cookie") ?? ""
+    const url = new URL("/api/session/analyze", request.url)
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({ sessionId }),
+    })
+  } catch (err) {
+    console.error("[session PATCH] analyze trigger failed:", (err as Error).message)
+  }
 }
 
 /**

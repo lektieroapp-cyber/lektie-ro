@@ -656,6 +656,13 @@ export function HintChat({
         }),
       })
       const mocked = res.headers.get("X-Mocked") === "1"
+      if (!res.ok) {
+        // Server returned an error (e.g. 502 from /api/hint when Azure
+        // failed). Don't try to stream the JSON body as Dani's reply —
+        // commit a friendly Danish error turn so the kid sees something
+        // actionable instead of raw error JSON.
+        throw new Error(`hint http ${res.status}`)
+      }
       const reader = res.body?.getReader()
       if (!reader) throw new Error("no stream")
       const decoder = new TextDecoder()
@@ -735,6 +742,16 @@ export function HintChat({
       if (gateTimer !== null) window.clearTimeout(gateTimer)
       setPartial("")
       logDevEvent("ai-error", `Hint fejlede: ${(err as Error).message}`)
+      // Surface the failure to the kid — without this the chat just hangs
+      // silently after the typing dots and they can't tell whether to wait
+      // or retry. A Dani-styled apology keeps the conversation coherent.
+      setTurns(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Hov, noget gik galt. Prøv at sende dit svar igen.",
+        },
+      ])
     } finally {
       setStreaming(false)
       if (voiceAgent) {
@@ -994,6 +1011,22 @@ export function HintChat({
     }
   }
 
+  // Posts a Dani message into the chat history AND speaks it through the
+  // normal TTS pipeline. Used for "I didn't understand" micro-prompts that
+  // used to render as a red error banner the kid had to dismiss — feels
+  // more natural to the kid as a continuous turn from Dani than a UI error.
+  // speakText() handles mic auto-restart in voiceAgent mode after onended,
+  // so callers don't need to schedule their own startRecording timeout.
+  function sayDani(text: string) {
+    setVoiceError(null)
+    setTurns(prev => [...prev, { role: "assistant", content: text }])
+    // Mark the new turn as already spoken so the auto-speak useEffect does
+    // not double up — speakText below handles playback. turnsRef lags one
+    // render so +1 lands on the new length post-setTurns.
+    spokenUpToRef.current = turnsRef.current.length + 1
+    void speakText(text)
+  }
+
   function toggleVoice() {
     setVoiceOn(prev => {
       const next = !prev
@@ -1068,10 +1101,7 @@ export function HintChat({
         }
       })
       if (reason === "empty") {
-        setVoiceError("Jeg hørte ingen lyd. Prøv at tale lidt højere 🎙")
-        if (voiceAgent && !atLimit && !completed) {
-          window.setTimeout(() => void startRecording(), 400)
-        }
+        sayDani("Det forstod jeg ikke. Prøv igen?")
         return
       }
       if (stats && stats.speechMs < 250 && reason !== "manual") {
@@ -1079,10 +1109,7 @@ export function HintChat({
           speechMs: stats.speechMs,
           peakRms: stats.peakRms.toFixed(3),
         })
-        setVoiceError("Jeg hørte kun baggrundsstøj. Sig det igen 🎙")
-        if (voiceAgent && !atLimit && !completed) {
-          window.setTimeout(() => void startRecording(), 400)
-        }
+        sayDani("Det forstod jeg ikke. Prøv igen?")
         return
       }
       await sendRecording(blob, durMs)
@@ -1207,6 +1234,50 @@ export function HintChat({
     setMicLevel(0)
   }
 
+  async function cleanTranscript(input: {
+    rawTranscript: string
+    alternatives?: Array<{ text: string; confidence?: number }>
+  }): Promise<string> {
+    const raw = input.rawTranscript.trim()
+    if (!raw) return raw
+    try {
+      const res = await fetch("/api/stt-clean", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rawTranscript: raw,
+          alternatives: input.alternatives ?? [],
+          taskText: task.text,
+          subject: solve.subject,
+          // Last few turns give the cleanup model context for the in-flight
+          // dialogue (so "to" → "tolv" when the previous turn was about a
+          // counting question, etc.). Cap at 4 to keep the prompt small.
+          recentTurns: turnsRef.current.slice(-4),
+        }),
+      })
+      if (!res.ok) return raw
+      const json = (await res.json()) as {
+        cleaned?: string
+        changed?: boolean
+        reason?: string
+      }
+      const cleaned = (json.cleaned ?? "").trim() || raw
+      if (json.changed && cleaned !== raw) {
+        logDevEvent("info", "STT clean", {
+          raw,
+          cleaned,
+          reason: json.reason ?? "—",
+        })
+      }
+      return cleaned
+    } catch (err) {
+      // Cleanup is best-effort — never block the conversation. Log and
+      // fall through with the raw transcript.
+      logDevEvent("ai-error", `STT clean fejlede: ${(err as Error).message}`)
+      return raw
+    }
+  }
+
   async function sendRecording(blob: Blob, durMs: number) {
     setTranscribing(true)
     const sttStart = performance.now()
@@ -1266,11 +1337,7 @@ export function HintChat({
         setLastRecording(prev =>
           prev ? { ...prev, sttStatus: 200, sttMs, transcript: "(tomt)" } : prev
         )
-        logDevEvent("ai-error", "voiceError: STT tom — 'Jeg kunne ikke forstå det'")
-        setVoiceError("Jeg kunne ikke forstå det. Prøv igen 🎙")
-        if (voiceAgent && !atLimit && !completed) {
-          window.setTimeout(() => void startRecording(), 400)
-        }
+        sayDani("Det forstod jeg ikke. Prøv igen?")
         return
       }
       // When the STT ran in multi-locale mode, log both the candidate list
@@ -1297,16 +1364,27 @@ export function HintChat({
         audioSec: durMs / 1000,
         ms: sttMs,
       })
+      // Context-aware cleanup pass on the raw STT before sending it to
+      // /api/hint or pasting it in the input. Azure REST recognition
+      // can't take phrase hints, so we do the cleanup downstream with a
+      // tiny LLM call that knows the task + recent turns. Catches the
+      // common kid-STT mishears: number words, English vocabulary, kid-
+      // pronounced terminology, names from the homework photo. Falls back
+      // to the raw transcript on any error so the conversation never stalls.
+      const finalText = await cleanTranscript({
+        rawTranscript: text,
+        alternatives,
+      })
       setLastRecording(prev =>
-        prev ? { ...prev, sttStatus: 200, sttMs, transcript: text } : prev
+        prev ? { ...prev, sttStatus: 200, sttMs, transcript: finalText } : prev
       )
       if (voiceAgent) {
         // Voice-agent: close the loop automatically. No text input involved.
-        await submitAnswer(text)
+        await submitAnswer(finalText)
       } else {
         // Manual voice toggle on text mode: paste transcript into the field so
         // the kid can review + edit before tapping Send.
-        setInput(prev => (prev ? `${prev} ${text}` : text))
+        setInput(prev => (prev ? `${prev} ${finalText}` : finalText))
       }
     } catch (err) {
       logDevEvent("ai-error", `STT exception: ${(err as Error).message}`)

@@ -341,6 +341,7 @@ export function VoiceTaskChoice({
 
 function buildQuestion(tasks: Task[]): string {
   const countWord = numberWord(tasks.length)
+  const noun = tasks.length === 1 ? "opgave" : "opgaver"
   const parts = tasks.map((t, i) => {
     const label = ordinalWord(i) ?? `nummer ${i + 1}`
     // Same derivation as TaskPicker so voice speaks exactly what the card
@@ -348,7 +349,7 @@ function buildQuestion(tasks: Task[]): string {
     const title = t.title || shortFallback(t.text)
     return `${label}: ${title}`
   })
-  return `Jeg fandt ${countWord} opgaver. ${parts.join(". ")}. Hvilken vil du starte med?`
+  return `Jeg fandt ${countWord} ${noun}. ${parts.join(". ")}. Hvilken vil du starte med?`
 }
 
 function numberWord(n: number): string {

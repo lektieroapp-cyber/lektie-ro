@@ -118,7 +118,7 @@ Return ONLY valid JSON with this structure:
       "steps": [
         { "label": "A", "prompt": "exactly what the child does for this sub-item" }
       ],
-      "context": "optional free-form notes Dani needs during the session but the child shouldn't see in the task card"
+      "context": "optional free-form notes the tutor needs during the session but the child shouldn't see in the task card"
     }
   ],
   "reason": "not_homework" | "unreadable" | "no_tasks" | null,
@@ -145,13 +145,46 @@ STEPS vs CONTEXT — pick deliberately:
   It is rendered to the child verbatim. DO NOT stuff target-word lists,
   example sentences, or the full task text into the step prompt. Those
   are context, not step content.
-- CONTEXT is Dani's private reference (never shown to the child). Put
+- CONTEXT is the tutor's private reference (never shown to the child). Put
   the concrete list of target items (words, names, pictures), example
   answers, visible formulae, unusual constraints — anything the other
   fields can't carry. Example context for a circle-of-words task:
   "Target words in the light blue circle: dark, scream, zombie, ghost,
   skeleton, night, alone, mum. Child talks about several, not all."
 - Never duplicate the task text or the steps in context.
+- SCAFFOLDING AIDS — capture verbatim even when only loosely referenced:
+  textbooks routinely place a help box NEXT TO the task: a rhyme box for
+  poem-writing, a word bank for vocabulary work, a sentence-starter list
+  for composition, a formula reminder, an example sentence, a tip box,
+  a "husk" / "tip" callout. The task may reference it softly ("du kan
+  finde inspiration i ordkassen") or not at all — irrelevant. If a help
+  box is visually attached to the task, copy its full content into the
+  context, prefixed with what it is. Example for the Christmas-poem
+  task: "Rhyme box (suggested rhyme pairs the child can use): high/sky,
+  love/above, fun/everyone, things/wings, night/light, snow/glow,
+  song/long, say/holiday, I/sky, tonight/light, see/tree, cheer/year,
+  red/said, mistletoe/go." Without this, the tutor has to invent rhymes
+  from scratch when the textbook already supplied a curated set the
+  child is meant to draw from.
+- CRITICAL — self-referencing tasks: a task may point at material
+  ("læs digtet på side 28", "find ordene i rammen", "brug teksten") and
+  that material is actually visible ON THE SAME PHOTO — the page IS
+  page 28 with the poem in the comic captions, the rhyme box sits next
+  to the task, the text strip runs across the page. Without explicit
+  meta, the tutor will redirect the child to a textbook they're already
+  holding. Capture this in context with TWO things:
+    1. A "Self-reference:" prefix line that names the loop, e.g.
+       "Self-reference: task says 'læs digtet på side 28' and this IS
+       page 28 — the poem is already on the photo (see fragments
+       below). Do not redirect."
+    2. The full visible text VERBATIM, in reading order. For a
+       comic-strip illustrate-the-poem task that means every caption
+       fragment in panel order: "1) A chubby little snowman had a
+       carrot nose. 2) Along came a bunny ... 3) Grabbed that snowman's
+       nose ...". For a rhyme box: every word pair listed.
+  Only flag self-reference when the referenced material is genuinely
+  visible. Don't invent a self-reference if the task points at a
+  different chapter / yesterday's worksheet / an audio clip.
 
 Pedagogy anchor (see docs/pedagogy.md): rigid step-ticking is right for
 concrete-facit tasks and wrong for conversational / oral-language tasks
@@ -199,8 +232,16 @@ export async function extractTasksFromImage(
   const client = getAzure()
   // 3500 gives dense grade 5-7 pages (5. kl. matematik "Opgave 24-35" × a-j)
   // enough headroom. Previous 1000 and 2500 both truncated.
+  //
+  // reasoning_effort: vision/extraction is a one-shot per photo (cached on
+  // the session row, not re-run per turn) so the latency tax of "low" vs
+  // "minimal" — a few extra seconds during the thinking spinner — is
+  // affordable. "low" gives the model room to reason about page structure
+  // (what's a task vs a caption vs a self-reference) which is exactly the
+  // kind of judgment "minimal" tends to skip. The hint route stays on
+  // "minimal" because that path runs every turn and latency dominates.
   const gpt5Extras = {
-    reasoning_effort: "minimal",
+    reasoning_effort: "low",
     max_completion_tokens: 3500,
   } as unknown as Record<string, never>
   const deployment = getDeployment()
