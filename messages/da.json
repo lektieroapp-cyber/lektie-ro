@@ -54,7 +54,7 @@
     "titleLine1": "Ro om lektierne.",
     "titleLine2": "Plads til ",
     "titleItalic": "familien.",
-    "subtitle": "AI-lektiehjælp til danske folkeskoleelever. Vi guider barnet trin for trin, uden at give facit.",
+    "subtitle": "Lektiehjælp til danske folkeskoleelever. Vi guider barnet trin for trin, uden at give facit.",
     "values": {
       "one": "Nærvær",
       "two": "Ro",
@@ -101,7 +101,7 @@
       "items": {
         "learning": {
           "title": "Læring på egne præmisser",
-          "body": "AI'en tilpasser sig barnets interesser (f.eks. Minecraft eller heste)."
+          "body": "Systemet tilpasser sig barnets interesser (f.eks. Minecraft eller heste)."
         },
         "safety": {
           "title": "Tryghed",
@@ -143,7 +143,7 @@
       "cta": "Vælg Enkelt",
       "features": [
         "1 barn",
-        "AI-vejledning uden facit",
+        "Vejledning uden facit",
         "Forældre-dashboard",
         "7 dages gratis prøveperiode"
       ]

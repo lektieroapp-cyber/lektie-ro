@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import Link from "next/link"
 import { type Locale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
@@ -96,7 +97,7 @@ export function Hero({ locale }: { locale: Locale }) {
           {m.hero.subtitle}
         </p>
 
-        {/* Promise chips — mint, mint-deep-on-mint-soft, ink-soft dots */}
+        {/* Promise chips — uniform style, mint-deep glyphs per value */}
         <div
           style={{
             display: "flex",
@@ -105,15 +106,9 @@ export function Hero({ locale }: { locale: Locale }) {
             flexWrap: "wrap",
           }}
         >
-          <Chip label={m.hero.values.one} dotColor={COLORS.mint} />
-          <Chip
-            label={m.hero.values.two}
-            dotColor={COLORS.mintDeep}
-            bg={COLORS.mintSoft}
-            border={COLORS.mintEdge}
-            textColor={COLORS.mintDeep}
-          />
-          <Chip label={m.hero.values.three} dotColor={COLORS.ink2} />
+          <Chip label={m.hero.values.one} icon={<HeartIcon />} />
+          <Chip label={m.hero.values.two} icon={<LeafIcon />} />
+          <Chip label={m.hero.values.three} icon={<SparkIcon />} />
         </div>
 
         <a
@@ -271,16 +266,10 @@ export function Hero({ locale }: { locale: Locale }) {
 
 function Chip({
   label,
-  dotColor,
-  bg = "#fff",
-  border = "rgba(31,45,26,0.08)",
-  textColor,
+  icon,
 }: {
   label: string
-  dotColor: string
-  bg?: string
-  border?: string
-  textColor?: string
+  icon: ReactNode
 }) {
   return (
     <span
@@ -288,26 +277,80 @@ function Chip({
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
-        padding: "8px 14px",
+        padding: "9px 16px 9px 12px",
         borderRadius: 999,
-        background: bg,
-        border: `1.5px solid ${border}`,
-        fontWeight: 700,
-        fontSize: 13,
-        color: textColor ?? COLORS.ink2,
-        boxShadow: bg === "#fff" ? "0 2px 6px rgba(31,45,26,0.04)" : "none",
+        background: "#fff",
+        border: `1px solid ${COLORS.mintEdge}`,
+        fontWeight: 600,
+        fontSize: 13.5,
+        letterSpacing: "-0.1px",
+        color: COLORS.ink,
+        boxShadow: "0 1px 2px rgba(31,45,26,0.04), 0 4px 12px rgba(31,45,26,0.04)",
       }}
     >
       <span
         aria-hidden
         style={{
-          width: 8,
-          height: 8,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 22,
+          height: 22,
           borderRadius: 999,
-          background: dotColor,
+          background: COLORS.mintSoft,
+          color: COLORS.mintDeep,
         }}
-      />
+      >
+        {icon}
+      </span>
       {label}
     </span>
+  )
+}
+
+function HeartIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M7 12s-4.5-2.7-4.5-6a2.5 2.5 0 0 1 4.5-1.5A2.5 2.5 0 0 1 11.5 6c0 3.3-4.5 6-4.5 6z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function LeafIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M11.5 2.5c0 5-3 8-7 8 0-5 3-8 7-8z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4.5 10.5L2.5 12.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function SparkIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M7 1.5v3M7 9.5v3M1.5 7h3M9.5 7h3M3.1 3.1l2.1 2.1M8.8 8.8l2.1 2.1M10.9 3.1L8.8 5.2M5.2 8.8L3.1 10.9"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
