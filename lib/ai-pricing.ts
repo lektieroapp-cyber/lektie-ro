@@ -102,16 +102,27 @@ export function costPerSessionUsd(turnsPerSession: number, modelId: ModelId): nu
 
 /**
  * Estimate the running cost for a user given their session + turn counts.
- * Uses gpt-5-mini pricing by default (our prod model).
+ * Uses gpt-5-mini pricing by default (our prod model) and includes voice
+ * (STT + TTS) on top of the LLM bill — voice mode is on by default in
+ * prod, so an LLM-only number was undercounting by 30-50% per session.
+ *
+ * The earlier signature stayed (modelId optional, voiceProvider optional)
+ * so existing callers don't break — they'll just get a higher, more
+ * realistic cost now that voice is accounted for.
  */
 export function estimateUserCostDkk(
   sessionCount: number,
   totalTurns: number,
   modelId: ModelId = "gpt-5-mini",
+  voiceProvider: VoiceProviderId = "azure",
 ): { usd: number; dkk: number } {
   if (sessionCount === 0) return { usd: 0, dkk: 0 }
   const avgTurns = totalTurns > 0 ? totalTurns / sessionCount : 4
-  const usd = sessionCount * costPerSessionUsd(avgTurns, modelId)
+  const llmUsd = sessionCount * costPerSessionUsd(avgTurns, modelId)
+  // Voice cost scales with TOTAL turns across all sessions, not avg —
+  // every assistant turn produces TTS, every user turn produces STT.
+  const voiceUsd = computeVoiceCost(voiceProvider, totalTurns).usd
+  const usd = llmUsd + voiceUsd
   return { usd, dkk: usd * USD_TO_DKK }
 }
 

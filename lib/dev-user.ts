@@ -34,14 +34,25 @@ export const DEV_BYPASS_AUTH =
   process.env.NODE_ENV === "development" &&
   process.env.DEV_BYPASS_AUTH === "true"
 
-// One-time boot log so you can verify the server actually saw the env var.
-// Only prints server-side, never in the browser.
-if (typeof window === "undefined") {
+// Boot log — only fires when bypass is actually ENABLED (the case worth
+// shouting about in the terminal). The previous version logged on every
+// import, which under Turbopack means once per route segment per request,
+// which floods the dev terminal with redundant "bypass disabled" lines.
+// Globalthis flag keeps it to one line per server process even if the
+// module gets re-evaluated.
+declare global {
+  // eslint-disable-next-line no-var
+  var __lr_dev_user_boot_logged: boolean | undefined
+}
+if (
+  typeof window === "undefined" &&
+  DEV_BYPASS_AUTH &&
+  !globalThis.__lr_dev_user_boot_logged
+) {
+  globalThis.__lr_dev_user_boot_logged = true
   console.log(
-    `[dev-user] NODE_ENV=${process.env.NODE_ENV} ` +
-      `VERCEL_ENV=${process.env.VERCEL_ENV ?? "(unset)"} ` +
-      `DEV_BYPASS_AUTH="${process.env.DEV_BYPASS_AUTH}" ` +
-      `→ bypass ${DEV_BYPASS_AUTH ? "ENABLED" : "disabled"}`
+    `[dev-user] DEV_BYPASS_AUTH=true (NODE_ENV=${process.env.NODE_ENV}, ` +
+      `VERCEL_ENV=${process.env.VERCEL_ENV ?? "(unset)"}) → bypass ENABLED`
   )
 }
 

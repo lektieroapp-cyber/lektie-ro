@@ -237,7 +237,8 @@ export function Tavle({
             const list = grouped[s]
             const total = list.length
             const done = list.filter(t => t.status === "done").length
-            const open = total - done
+            const inProgress = list.filter(t => t.status === "in_progress").length
+            const pending = list.filter(t => t.status === "pending").length
             const pct = total === 0 ? 0 : Math.round((done / total) * 100)
             const def = SUBJECT_DEF[s]
             const countLabel =
@@ -248,6 +249,26 @@ export function Tavle({
                       ? messages.subjectOpgaverSingular
                       : messages.subjectOpgaverPlural
                   }`
+            // Status sub-label under the progress bar. The previous
+            // "open = total - done" lumped pending + in_progress under
+            // "ikke startet", which read wrong when the kid was already
+            // working on the task. Prefer "I gang" when anything is in
+            // progress, fall back to "ikke startet" only when nothing
+            // has been touched yet.
+            const subLabel =
+              inProgress > 0
+                ? `${inProgress} ${
+                    inProgress === 1
+                      ? messages.subjectOpgaverSingular
+                      : messages.subjectOpgaverPlural
+                  } ${messages.tabInProgress.toLowerCase()}`
+                : pending > 0
+                  ? `${pending} ${
+                      pending === 1
+                        ? messages.subjectOpgaverSingular
+                        : messages.subjectOpgaverPlural
+                    } ${messages.tabPending.toLowerCase()}`
+                  : null
             return (
               <button
                 key={s}
@@ -279,9 +300,9 @@ export function Tavle({
                     style={{ width: `${pct}%`, background: def.bar }}
                   />
                 </div>
-                {open > 0 && (
+                {subLabel && (
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-ink/55">
-                    {open} {open === 1 ? messages.subjectOpgaverSingular : messages.subjectOpgaverPlural} {messages.tabPending.toLowerCase()}
+                    {subLabel}
                   </div>
                 )}
               </button>

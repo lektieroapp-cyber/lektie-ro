@@ -79,7 +79,12 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
               <th className="px-5 py-3 font-medium">Tilmeldt</th>
               <th className="px-5 py-3 font-medium">Sidst aktiv</th>
               <th className="px-5 py-3 font-medium text-right">Sessions</th>
-              <th className="px-5 py-3 font-medium text-right">AI-pris</th>
+              <th
+                className="px-5 py-3 font-medium text-right"
+                title="Estimeret kost-til-dato i DKK. Inkluderer både LLM (vision + Socratic hints, gpt-5-mini priser) og voice (Azure Speech STT + TTS) baseret på faktiske session- og tur-tællinger. Antager voice-mode er på."
+              >
+                AI-pris
+              </th>
               <th className="px-5 py-3 font-medium"></th>
             </tr>
           </thead>

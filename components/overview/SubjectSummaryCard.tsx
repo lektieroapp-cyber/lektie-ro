@@ -31,6 +31,7 @@ export function SubjectSummaryCard({
   total,
   countLabel,
   href,
+  pctOverride,
 }: {
   subjectLabel: string
   icon: React.ReactNode
@@ -39,8 +40,15 @@ export function SubjectSummaryCard({
   total: number
   countLabel: string
   href?: string
+  /** Step-level progress percentage for the bar (0-100). When passed,
+   *  overrides the default `done/total` (task counts) calculation so the
+   *  bar can reflect granular work — e.g. "0/1 opgave" + 17% bar when
+   *  the kid has done 4 of 23 steps on the only task. Falls back to
+   *  task-count math when unset. */
+  pctOverride?: number | null
 }) {
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100)
+  const taskPct = total === 0 ? 0 : Math.round((done / total) * 100)
+  const pct = pctOverride != null ? Math.max(0, Math.min(100, pctOverride)) : taskPct
   const baseClass =
     "flex h-full min-h-[17rem] flex-col items-center justify-between rounded-card bg-white p-5 text-center"
   const interactive = href
