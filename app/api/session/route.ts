@@ -3,7 +3,33 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getSessionUser } from "@/lib/auth/session"
 import { markTaskInProgress, markTaskDone } from "@/lib/tasks"
 
+// Sessions older than this on the same task get rolled forward into the
+// new session attempt — same task, same kid, picked up where they left
+// off. Picked at 60 minutes because that covers "kid walked away for a
+// snack" without merging "kid finished yesterday and came back today".
+// Bigger than the natural homework break, smaller than a school day.
+const RESUME_WINDOW_MIN = 60
+
 // POST — create a new session row when the child picks a mode.
+//
+// Two pile-up problems get solved atomically here, both keyed on
+// `taskId`, both cheap because they only fire when the kid actually
+// opens a task (no scheduled job, no scan on every dashboard read):
+//
+//   1. Resume — if there's an in-progress session for this task that's
+//      less than RESUME_WINDOW_MIN minutes old, return its id instead
+//      of creating a new row. The kid walked away for a few minutes;
+//      we don't need a fresh "I gang" entry for the same work.
+//
+//   2. Auto-abandon — when we DO create a new session for this task,
+//      sweep any prior in-progress sessions older than the resume
+//      window into `completion_kind: "abandoned"` so they stop showing
+//      as "I gang" forever on the parent dashboard. One UPDATE,
+//      bounded by `task_id`, no full-table scan.
+//
+// Both branches require `task_id`. Sessions without a task (legacy
+// upload flow) skip straight to insert — no consolidation possible
+// without a stable identity to match on.
 export async function POST(request: NextRequest) {
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 })
@@ -33,6 +59,49 @@ export async function POST(request: NextRequest) {
 
   if (!child) {
     return NextResponse.json({ error: "child not found" }, { status: 404 })
+  }
+
+  if (body.taskId) {
+    const cutoff = new Date(Date.now() - RESUME_WINDOW_MIN * 60_000).toISOString()
+    // Resume the most recent live session for this task, if there is one
+    // within the window. Newest first so a quick reopen always lands on
+    // the freshest row, in case the table somehow has more than one
+    // unfinished session for this task (older clients pre-this-change).
+    const { data: resumable } = await admin
+      .from("sessions")
+      .select("id")
+      .eq("parent_id", user.id)
+      .eq("task_id", body.taskId)
+      .eq("completed", false)
+      .is("completion_kind", null)
+      .gte("created_at", cutoff)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (resumable?.id) {
+      // Idempotent — if the task is already in_progress this is a no-op.
+      void markTaskInProgress(user.id, body.taskId).catch(err => {
+        console.error("[session POST] markTaskInProgress failed:", (err as Error).message)
+      })
+      return NextResponse.json({ sessionId: resumable.id, resumed: true })
+    }
+
+    // Nothing live to resume → close any older in-progress sessions for
+    // this task before creating the new one. Bounded by task_id + open
+    // status, so this UPDATE touches at most a handful of rows even on
+    // a noisy account. `last_active_at` left untouched so duration math
+    // stays accurate.
+    const now = new Date().toISOString()
+    await admin
+      .from("sessions")
+      .update({
+        completion_kind: "abandoned",
+        ended_at: now,
+      })
+      .eq("parent_id", user.id)
+      .eq("task_id", body.taskId)
+      .eq("completed", false)
+      .is("completion_kind", null)
   }
 
   const { data, error } = await admin
@@ -101,11 +170,16 @@ export async function PATCH(request: NextRequest) {
   // correctly because Supabase processes the column list against the
   // schema. To be safe we only include the new columns when the client
   // sent them at all.
+  const now = new Date().toISOString()
   const update: Record<string, unknown> = {
     turn_count: body.turnCount,
     completed: body.completed,
     difficulty_score: difficultyScore,
-    ended_at: new Date().toISOString(),
+    ended_at: now,
+    // Mirror ended_at into last_active_at so the duration calculation on
+    // the parent overview lands on the same value whether the session
+    // ended via Færdig (this PATCH) or fell through to a progress save.
+    last_active_at: now,
   }
   if (typeof body.stepsDone === "number") update.steps_done = body.stepsDone
   if (typeof body.stepsTotal === "number") update.steps_total = body.stepsTotal

@@ -35,8 +35,16 @@ export default async function ParentLayout({
     !!activeChild && shouldUseLargerText(activeChild.accommodations, activeChild.grade)
 
   return (
+    // `fixed inset-x-0 top-0` pins the shell to the viewport without
+    // contributing to body height. Without this, body height = shell
+    // height, so any sibling that body picks up (Next.js dev portal,
+    // toast root, anything injected at body level) adds up and we get
+    // a body scrollbar on top of the inner main scroll — the "double
+    // scroll" symptom on Forældre Ro. Fixed positioning sidesteps that
+    // entirely. Height stays driven by `--lr-app-h` so the keyboard
+    // handling in VisualViewportSync still works.
     <div
-      className="flex flex-col overflow-hidden bg-blue-tint/30 md:flex-row"
+      className="fixed inset-x-0 top-0 flex flex-col overflow-hidden bg-blue-tint/30 md:flex-row"
       style={{ height: "var(--lr-app-h, 100svh)" }}
       data-reading-mode={readingLarge ? "large" : undefined}
     >
