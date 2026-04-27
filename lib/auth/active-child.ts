@@ -9,6 +9,7 @@ export type ActiveChild = {
   avatar_emoji: string | null
   companion_type: string | null
   accommodations: string[] | null
+  english_tutoring_language: string | null
 }
 
 /**
@@ -28,7 +29,7 @@ export const getActiveChild = cache(async (parentId: string): Promise<{
 
   const { data } = await createAdminClient()
     .from("children")
-    .select("id, name, grade, avatar_emoji, companion_type, accommodations")
+    .select("id, name, grade, avatar_emoji, companion_type, accommodations, english_tutoring_language")
     .eq("id", activeChildId)
     .eq("parent_id", parentId)
     .single()

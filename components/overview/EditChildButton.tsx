@@ -10,6 +10,11 @@ import {
   type CompanionType,
 } from "@/components/mascot/types"
 import { ACCOMMODATIONS, type Accommodation, isAccommodation } from "@/lib/accommodations"
+import {
+  isEnglishTutoringLanguage,
+  resolveEnglishTutoringLanguage,
+  type EnglishTutoringLanguage,
+} from "@/lib/english-tutoring"
 
 const VALID_COMPANIONS = new Set<string>(COMPANIONS.map(c => c.type))
 function toCompanion(value: string | null): CompanionType {
@@ -24,6 +29,7 @@ type Child = {
   special_needs: string | null
   companion_type: string | null
   accommodations: string[] | null
+  english_tutoring_language: string | null
 }
 
 type Messages = {
@@ -42,6 +48,10 @@ type Messages = {
   editAccDyslexiaBody: string
   editAccAdhd: string
   editAccAdhdBody: string
+  editEnglishLanguage: string
+  editEnglishLanguageHint: string
+  editEnglishLanguageDanish: string
+  editEnglishLanguageEnglish: string
   editSave: string
   editSaving: string
   editCancel: string
@@ -106,6 +116,20 @@ function EditChildModal({
   const [avatarOpen, setAvatarOpen] = useState(false)
   const initialAccommodations = (child.accommodations ?? []).filter(isAccommodation)
   const [accommodations, setAccommodations] = useState<Accommodation[]>(initialAccommodations)
+  // Stored value can be "auto" (default for never-set rows), "danish", or
+  // "english". The dropdown only exposes danish/english — auto is a data
+  // sentinel meaning "use the grade-based default", not a user choice. When
+  // unset, pre-select whatever auto would resolve to so the parent sees the
+  // current effective default and can override it.
+  const storedEnglishLang: EnglishTutoringLanguage =
+    isEnglishTutoringLanguage(child.english_tutoring_language)
+      ? child.english_tutoring_language
+      : "auto"
+  const [englishLanguage, setEnglishLanguage] = useState<"danish" | "english">(
+    storedEnglishLang === "auto"
+      ? resolveEnglishTutoringLanguage("auto", child.grade)
+      : storedEnglishLang,
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const companionMeta = companionByType(companion)
@@ -156,6 +180,7 @@ function EditChildModal({
           special_needs: specialNeeds.trim() || null,
           companion_type: companion,
           accommodations,
+          english_tutoring_language: englishLanguage,
         }),
       })
       if (!res.ok) {
@@ -275,6 +300,22 @@ function EditChildModal({
               />
             </div>
           </fieldset>
+          {/* Engelsk tutoring language. Always shown (no grade gate) so
+              parents can flip it any time. Default pre-selection comes
+              from grade — Danish for grade ≤ 4, English from grade 5
+              onward — matching Danish curriculum practice. */}
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-ink/80">
+            {messages.editEnglishLanguage}
+            <select
+              value={englishLanguage}
+              onChange={e => setEnglishLanguage(e.target.value as "danish" | "english")}
+              className="rounded-btn border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-mint-deep focus:outline-none focus:ring-2 focus:ring-mint-deep/20"
+            >
+              <option value="danish">{messages.editEnglishLanguageDanish}</option>
+              <option value="english">{messages.editEnglishLanguageEnglish}</option>
+            </select>
+            <span className="text-xs text-ink/55">{messages.editEnglishLanguageHint}</span>
+          </label>
           <label className="flex flex-col gap-1.5 text-sm font-medium text-ink/80">
             {messages.editSpecialNeeds}
             <textarea

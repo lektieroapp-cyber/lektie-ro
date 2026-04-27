@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DEV_BYPASS_AUTH, DEV_USER, ensureDevUserExists } from "@/lib/dev-user"
 import { ACCOMMODATIONS } from "@/lib/accommodations"
+import { ENGLISH_TUTORING_LANGUAGES } from "@/lib/english-tutoring"
 
 const COMPANION_TYPES = [
   "lion", "fox", "owl", "panda", "octopus", "robot",
@@ -20,6 +21,7 @@ const patchSchema = z.object({
   // Structured accommodation flags. Validated against the known set
   // here so a typo or unknown value never lands in the DB.
   accommodations: z.array(z.enum(ACCOMMODATIONS)).max(8).optional(),
+  english_tutoring_language: z.enum(ENGLISH_TUTORING_LANGUAGES).optional(),
 })
 
 async function getParentId(): Promise<string | null> {
@@ -50,7 +52,7 @@ export async function PATCH(
     .update(parsed.data)
     .eq("id", id)
     .eq("parent_id", parentId)
-    .select("id, name, grade, avatar_emoji, interests, special_needs, companion_type, accommodations")
+    .select("id, name, grade, avatar_emoji, interests, special_needs, companion_type, accommodations, english_tutoring_language")
     .single()
 
   if (error) {

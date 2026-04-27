@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation"
 import { AvatarButton, AvatarPickerModal } from "./AvatarPicker"
 import { COMPANIONS, DEFAULT_COMPANION, type CompanionType } from "@/components/mascot/types"
 import { Select } from "@/components/ui/Select"
+import { type Accommodation, isAccommodation } from "@/lib/accommodations"
+import {
+  isEnglishTutoringLanguage,
+  resolveEnglishTutoringLanguage,
+} from "@/lib/english-tutoring"
 
 type Child = {
   id: string
@@ -14,6 +19,8 @@ type Child = {
   companion_type: string | null
   interests: string | null
   special_needs: string | null
+  accommodations: string[] | null
+  english_tutoring_language: string | null
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error" | "deleting"
@@ -33,7 +40,26 @@ export function EditChildCard({ child }: { child: Child }) {
   const [grade, setGrade] = useState<number>(child.grade)
   const [interests, setInterests] = useState(child.interests ?? "")
   const [specialNeeds, setSpecialNeeds] = useState(child.special_needs ?? "")
+  const initialAccommodations = (child.accommodations ?? []).filter(isAccommodation)
+  const [accommodations, setAccommodations] = useState<Accommodation[]>(initialAccommodations)
+  // english_tutoring_language: stored as auto/danish/english but the UI
+  // collapses to danish/english with the grade-based default pre-selected
+  // when nothing is saved yet. Matches EditChildButton's modal behaviour.
+  const storedEnglishLang = isEnglishTutoringLanguage(child.english_tutoring_language)
+    ? child.english_tutoring_language
+    : "auto"
+  const [englishLanguage, setEnglishLanguage] = useState<"danish" | "english">(
+    storedEnglishLang === "auto"
+      ? resolveEnglishTutoringLanguage("auto", child.grade)
+      : storedEnglishLang,
+  )
   const [status, setStatus] = useState<SaveStatus>("idle")
+
+  function toggleAccommodation(value: Accommodation) {
+    setAccommodations(prev =>
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value],
+    )
+  }
 
   // Prevent the first effect run (initial state hydration) from triggering save.
   const firstRun = useRef(true)
@@ -52,6 +78,8 @@ export function EditChildCard({ child }: { child: Child }) {
           companion_type: companion,
           interests: interests.trim() || null,
           special_needs: specialNeeds.trim() || null,
+          accommodations,
+          english_tutoring_language: englishLanguage,
         }),
       })
       if (!res.ok) {
@@ -80,7 +108,7 @@ export function EditChildCard({ child }: { child: Child }) {
     const t = window.setTimeout(persist, SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companion, name, grade, interests, specialNeeds])
+  }, [companion, name, grade, interests, specialNeeds, accommodations, englishLanguage])
 
   async function remove() {
     if (!confirm(`Slet ${child.name}? Dette kan ikke fortrydes.`)) return
@@ -152,6 +180,41 @@ export function EditChildCard({ child }: { child: Child }) {
         />
       </Field>
 
+      <Field label="Tilpasninger">
+        <p className="-mt-0.5 mb-1 text-[12px] text-muted">
+          Vælg det der gør lektierne nemmere for dit barn.
+        </p>
+        <div className="flex flex-col gap-2">
+          <AccommodationToggle
+            checked={accommodations.includes("dyslexia")}
+            onChange={() => toggleAccommodation("dyslexia")}
+            title="Ordblindhed"
+            body="Større, tydeligere tekst overalt."
+          />
+          <AccommodationToggle
+            checked={accommodations.includes("adhd")}
+            onChange={() => toggleAccommodation("adhd")}
+            title="ADHD"
+            body="Reserveret til fremtidige tilpasninger."
+          />
+        </div>
+      </Field>
+
+      <Field label="Sprog ved engelsk-lektier">
+        <Select<"danish" | "english">
+          value={englishLanguage}
+          onChange={v => setEnglishLanguage(v)}
+          ariaLabel="Sprog ved engelsk-lektier"
+          options={[
+            { value: "danish", label: "Dansk" },
+            { value: "english", label: "Engelsk" },
+          ]}
+        />
+        <p className="mt-1 text-[12px] text-muted">
+          Hvilket sprog Dani skal tale når dit barn har engelsk for. Standard sættes ud fra klassetrin (op til 4. klasse er dansk, fra 5. klasse er engelsk).
+        </p>
+      </Field>
+
       <Field label="Særlige hensyn">
         <textarea
           value={specialNeeds}
@@ -193,6 +256,51 @@ function Field({
       </label>
       {children}
     </div>
+  )
+}
+
+function AccommodationToggle({
+  checked,
+  onChange,
+  title,
+  body,
+}: {
+  checked: boolean
+  onChange: () => void
+  title: string
+  body: string
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-btn border p-3 text-left transition ${
+        checked
+          ? "border-mint-deep bg-mint-soft"
+          : "border-ink/10 bg-white hover:bg-canvas/50"
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+          checked ? "border-mint-deep bg-mint-deep text-white" : "border-ink/25 bg-white"
+        }`}
+      >
+        {checked && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-semibold text-ink">{title}</span>
+        <span className="mt-0.5 block text-[11px] text-ink/60">{body}</span>
+      </span>
+      <input
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={onChange}
+      />
+    </label>
   )
 }
 
