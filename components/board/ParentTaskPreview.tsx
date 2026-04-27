@@ -38,6 +38,9 @@ type Messages = {
   statusPending: string
   statusInProgress: string
   statusDone: string
+  progressLabel: string
+  progressFraction: string
+  progressNoneYet: string
 }
 
 const STATUS_INFO: Record<TaskStatus, { bg: string; fg: string }> = {
@@ -73,6 +76,32 @@ export function ParentTaskPreview({
       : status === "in_progress" ? messages.statusInProgress
       : status === "done" ? messages.statusDone
       : status
+
+  // Best-effort cumulative progress across all sessions for this task.
+  // We don't have per-step labels on each session row (just counts), so the
+  // best we can show without an extra query is the highest fraction any
+  // single session reached. A fully completed session pins the bar at 100%.
+  // For tasks with no curated steps, falls back to "completed at all" as a
+  // binary signal.
+  const progress = (() => {
+    if (sessions.length === 0) return null
+    const stepsTotal = task.steps?.length ?? 0
+    if (stepsTotal > 0) {
+      let bestDone = 0
+      for (const s of sessions) {
+        if (s.completed) return { done: stepsTotal, total: stepsTotal, completed: true }
+        if (typeof s.steps_done === "number") bestDone = Math.max(bestDone, s.steps_done)
+      }
+      return { done: Math.min(bestDone, stepsTotal), total: stepsTotal, completed: false }
+    }
+    // No step list → just reflect whether anything finished.
+    const anyCompleted = sessions.some(s => s.completed)
+    return { done: anyCompleted ? 1 : 0, total: 1, completed: anyCompleted }
+  })()
+  const progressPct =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((progress.done / progress.total) * 100))
+      : 0
 
   async function dismiss() {
     if (!confirm(messages.dismissConfirm)) return
@@ -134,6 +163,32 @@ export function ParentTaskPreview({
             >
               {task.title || shorten(task.text, 90)}
             </h2>
+            {/* At-a-glance progress strip — fed by the highest steps_done
+                from any session linked to this task. Hides itself when
+                there are no sessions yet (progress=null) so a brand-new
+                task doesn't have a "0%" bar suggesting failure. */}
+            {progress && (
+              <div className="mt-3 flex items-center gap-3">
+                <div className="h-2 flex-1 max-w-[18rem] overflow-hidden rounded-full bg-ink/8">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${progressPct}%`,
+                      background: progress.completed ? "#5C9D6E" : "#D6B850",
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-semibold tabular-nums text-ink/70">
+                  {progress.done === 0 && !progress.completed
+                    ? messages.progressNoneYet
+                    : task.steps && task.steps.length > 0
+                      ? messages.progressFraction
+                          .replace("{done}", String(progress.done))
+                          .replace("{total}", String(progress.total))
+                      : `${progressPct}%`}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {/* Try-it-yourself moved up here next to dismiss/delete so the
@@ -185,16 +240,40 @@ export function ParentTaskPreview({
       {task.steps && task.steps.length > 0 && (
         <CollapsibleCard label={messages.stepsLabel}>
           <ol className="flex flex-col gap-1.5 pl-1 text-sm text-ink/80">
-            {task.steps.map(s => (
-              <li key={s.label} className="flex items-start gap-2">
-                <span
-                  className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/8 text-[11px] font-semibold text-ink/65"
-                >
-                  {s.label}
-                </span>
-                <span>{s.prompt}</span>
-              </li>
-            ))}
+            {task.steps.map((s, i) => {
+              // Approximation: we know the kid completed `progress.done`
+              // steps total, but not which specific labels — sessions
+              // store steps_done as a count, not a per-label set. The
+              // safest visual is to mark the first N as done since the
+              // step list is presented in order; if the kid jumps around
+              // this overshoots/undershoots a few rows, but the running
+              // total at the top of the page is always accurate.
+              const isDone = !!progress && i < progress.done
+              return (
+                <li key={s.label} className="flex items-start gap-2">
+                  <span
+                    aria-hidden
+                    className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                      isDone
+                        ? "bg-mint-deep text-white"
+                        : "bg-ink/8 text-ink/65"
+                    }`}
+                    title={isDone ? "Klaret" : undefined}
+                  >
+                    {isDone ? (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="5 12 10 17 19 7" />
+                      </svg>
+                    ) : (
+                      s.label
+                    )}
+                  </span>
+                  <span className={isDone ? "text-ink/55 line-through" : undefined}>
+                    {s.prompt}
+                  </span>
+                </li>
+              )
+            })}
           </ol>
         </CollapsibleCard>
       )}

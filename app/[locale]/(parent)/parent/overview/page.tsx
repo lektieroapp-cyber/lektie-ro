@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getSessionUser } from "@/lib/auth/session"
 import { localePath } from "@/lib/i18n/routes"
 import { RangeSelector } from "@/components/parent/RangeSelector"
+import { ChildSelector } from "@/components/parent/ChildSelector"
 import { isRangeKey, type RangeKey } from "@/components/parent/range"
 import {
   StatCard,
@@ -40,6 +41,7 @@ type Child = {
   special_needs: string | null
   companion_type: string | null
   accommodations: string[] | null
+  english_tutoring_language: string | null
 }
 
 type Session = {
@@ -52,6 +54,8 @@ type Session = {
   completed: boolean
   difficulty_score: number | null
   created_at: string
+  ended_at: string | null
+  last_active_at: string | null
   steps_done: number | null
   steps_total: number | null
   completion_kind: string | null
@@ -96,6 +100,141 @@ const SUBJECT_GLYPH: Record<string, React.ReactNode> = {
   tysk: <DictionaryGlyph />,
 }
 
+// Subject background tints for the recent-sessions strip — match the
+// SUBJECT_DEF tints used in the Tavle subject grid so the visual
+// identity is consistent across the two surfaces.
+const SUBJECT_TINT: Record<string, string> = {
+  matematik: "#FBEFD7",
+  dansk: "#E1EEDD",
+  engelsk: "#E8DEF1",
+  tysk: "#F4DBD1",
+}
+
+// What actually happened in the session — drives the status pill on
+// the recent-sessions strip. Done > partial > abandoned > in-progress.
+type SessionOutcome = "done" | "partial" | "abandoned" | "inprogress"
+type RecentSessionLite = {
+  completed: boolean
+  steps_done: number | null
+  steps_total: number | null
+  completion_kind: string | null
+  ended_at: string | null
+  last_active_at: string | null
+}
+// Sessions stuck "I gang" with no activity for this long are treated as
+// abandoned even when the abandoned-PATCH never landed (pre-fix rows, or
+// devices that never fired pagehide reliably — iOS background suspension
+// can swallow it). 30 minutes is generous: a kid who's been quiet that
+// long isn't coming back to this session.
+const STALE_INPROGRESS_MS = 30 * 60_000
+function sessionOutcome(s: RecentSessionLite): SessionOutcome {
+  if (s.completed) return "done"
+  if (s.ended_at) {
+    if (s.completion_kind === "abandoned") return "abandoned"
+    if ((s.steps_done ?? 0) > 0) return "partial"
+    return "abandoned"
+  }
+  // No ended_at yet — could be genuinely active OR a ghost row the close
+  // beacon never reached. Use last_active_at to disambiguate.
+  const ref = s.last_active_at ?? null
+  if (ref) {
+    const inactiveMs = Date.now() - new Date(ref).getTime()
+    if (Number.isFinite(inactiveMs) && inactiveMs > STALE_INPROGRESS_MS) {
+      return (s.steps_done ?? 0) > 0 ? "partial" : "abandoned"
+    }
+  }
+  return "inprogress"
+}
+const OUTCOME_INFO: Record<SessionOutcome, { tone: string; label: string }> = {
+  done:       { tone: "mint",       label: "Færdig" },
+  partial:    { tone: "ink",        label: "Delvist løst" },
+  abandoned:  { tone: "muted",      label: "Afbrudt" },
+  inprogress: { tone: "inprogress", label: "I gang" },
+}
+
+// Time-on-task = (last_active_at OR ended_at) − created_at.
+// Pre-013 rows without last_active_at fall back to ended_at, then to
+// "kid never actually did anything" → null so the chip hides. We deliberately
+// do NOT use `now()` for in-progress rows: that's wall-clock time since the
+// session opened, which over-reports engagement for kids who walked away
+// after a few minutes ("Aktiv i 39 min" when they engaged for 4).
+//
+// Returns null on unusable data so the chip just hides instead of showing
+// "0 min" on rows where the kid hasn't engaged at all.
+function formatDuration(
+  startIso: string,
+  endIso: string | null,
+  lastActiveIso: string | null,
+): string | null {
+  const startMs = new Date(startIso).getTime()
+  if (!Number.isFinite(startMs)) return null
+  // Effective end: prefer ended_at (session closed), then last_active_at
+  // (still open but we know when the kid last engaged). Without either,
+  // we have no honest duration to show.
+  const endIsoEffective = endIso ?? lastActiveIso
+  if (!endIsoEffective) return null
+  const endMs = new Date(endIsoEffective).getTime()
+  if (!Number.isFinite(endMs) || endMs < startMs) return null
+  const ms = endMs - startMs
+  const totalMin = Math.round(ms / 60_000)
+  // Kid opened the session but never produced a turn — `last_active_at`
+  // sits at created_at and the diff rounds to 0. Hide rather than render
+  // a misleading "1 min".
+  if (totalMin < 1) return null
+  const text =
+    totalMin < 60
+      ? `${totalMin} min`
+      : totalMin % 60 === 0
+        ? `${Math.floor(totalMin / 60)} t`
+        : `${Math.floor(totalMin / 60)} t ${totalMin % 60} min`
+  return endIso ? text : `Aktiv i ${text}`
+}
+
+// Steps progress label. Prefers explicit steps_done/total (set by the
+// session-finish path on tasks with curated step lists). Falls back to
+// raw turn count for older sessions or tasks without steps.
+function formatStepsLabel(
+  done: number | null,
+  total: number | null,
+  turnCount: number,
+): string | null {
+  if (total != null && total > 0) {
+    return `${done ?? 0} af ${total} trin`
+  }
+  if (turnCount > 0) {
+    return `${turnCount} svar`
+  }
+  return null
+}
+
+function shorten(text: string | null, max: number): string | null {
+  if (!text) return null
+  const clean = text.replace(/\s+/g, " ").trim()
+  if (clean.length <= max) return clean
+  return clean.slice(0, max).trimEnd() + "…"
+}
+
+function capitalize(s: string): string {
+  return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s
+}
+
+function ClockGlyph() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+function CheckGlyph() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="5 12 10 17 19 7" />
+    </svg>
+  )
+}
+
 const CANONICAL_SUBJECTS = ["dansk", "engelsk", "matematik"] as const
 
 // ─── Range plumbing ──────────────────────────────────────────────────────────
@@ -128,7 +267,7 @@ export default async function ParentOverview({
   searchParams,
 }: {
   params: Promise<{ locale: string }>
-  searchParams: Promise<{ range?: string; page?: string }>
+  searchParams: Promise<{ range?: string; page?: string; childId?: string }>
 }) {
   const { locale } = await params
   if (!isLocale(locale)) notFound()
@@ -139,6 +278,10 @@ export default async function ParentOverview({
   const pageRaw = parseInt(sp.page ?? "1", 10)
   const requestedPage = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
   const { cutoff, limit, days } = rangeToWindow(range)
+  // Per-child filter from `?childId=`. Validated against the parent's
+  // children below — an unknown id falls back to "all kids" so a stale
+  // bookmark can't surface another family's data.
+  const requestedChildId = sp.childId ?? null
 
   const user = (await getSessionUser())!
   const admin = createAdminClient()
@@ -146,44 +289,69 @@ export default async function ParentOverview({
   // Children.
   const { data: childrenData } = await admin
     .from("children")
-    .select("id, name, grade, avatar_emoji, interests, special_needs, companion_type, accommodations")
+    .select("id, name, grade, avatar_emoji, interests, special_needs, companion_type, accommodations, english_tutoring_language")
     .eq("parent_id", user.id)
     .order("created_at", { ascending: true })
-  const children: Child[] = childrenData ?? []
-  if (children.length === 0) {
+  const allChildren: Child[] = childrenData ?? []
+  if (allChildren.length === 0) {
     redirect(localePath(locale, "parentOnboarding"))
   }
 
-  // Sessions in the active window.
-  const baseBuilder = admin
+  // Resolve the active child filter. With a single child we always render
+  // their view (and hide the picker entirely); with multiple kids we honour
+  // ?childId= when it matches one we own.
+  const selectedChildId =
+    allChildren.length === 1
+      ? allChildren[0].id
+      : requestedChildId && allChildren.some(c => c.id === requestedChildId)
+        ? requestedChildId
+        : null
+
+  // `children` drives the per-child summary section below. When a kid is
+  // selected we collapse it to just that one card; otherwise it's the full
+  // list. `allChildren` stays around for the recent-sessions name lookup
+  // and for the picker dropdown.
+  const children: Child[] = selectedChildId
+    ? allChildren.filter(c => c.id === selectedChildId)
+    : allChildren
+
+  // Sessions in the active window. Includes the migration-009 session-
+  // insight columns (steps_done/total, completion_kind, ended_at) so the
+  // recent-sessions strip can show actual progress + duration instead of
+  // just an in-progress pill.
+  let baseBuilder = admin
     .from("sessions")
-    .select("id, child_id, subject, grade, problem_text, turn_count, completed, difficulty_score, created_at")
+    .select(
+      "id, child_id, subject, grade, problem_text, turn_count, completed, difficulty_score, created_at, ended_at, last_active_at, steps_done, steps_total, completion_kind",
+    )
     .eq("parent_id", user.id)
     .order("created_at", { ascending: false })
     .limit(limit)
+  if (selectedChildId) baseBuilder = baseBuilder.eq("child_id", selectedChildId)
   const baseQuery = cutoff ? baseBuilder.gte("created_at", cutoff) : baseBuilder
   const { data: baseData } = await baseQuery
   const sessions: Session[] = (baseData ?? []).map(b => ({
     ...b,
-    steps_done: null,
-    steps_total: null,
-    completion_kind: null,
     concepts_solid: null,
     concepts_struggled: null,
   }))
 
   // Previous-period sessions for delta. Same window length, shifted back.
+  // Honour the same child filter so the delta reflects the same kid's
+  // baseline, not the whole family's.
   let prevTotal = 0
   if (cutoff && days) {
     const day = 86_400_000
     const prevCutoff = new Date(Date.now() - 2 * days * day).toISOString()
     const prevEnd = cutoff
-    const { count } = await admin
+    let prevBuilder = admin
       .from("sessions")
       .select("id", { count: "exact", head: true })
       .eq("parent_id", user.id)
       .gte("created_at", prevCutoff)
       .lt("created_at", prevEnd)
+    if (selectedChildId) prevBuilder = prevBuilder.eq("child_id", selectedChildId)
+    const { count } = await prevBuilder
     prevTotal = count ?? 0
   }
 
@@ -199,6 +367,61 @@ export default async function ParentOverview({
     const arr = sessionsByChild.get(s.child_id) ?? []
     arr.push(s)
     sessionsByChild.set(s.child_id, arr)
+  }
+
+  // Per-child task counts. The summary cards on each child row label themselves
+  // "X/Y opgaver" — that has to be tasks (Tavle items) NOT sessions, otherwise
+  // every retry of the same task inflates the number and "0/7" reads as "the
+  // kid has 7 unfinished tasks" when really there's 1 in_progress + 6 sessions
+  // against it. Pull from public.tasks, scope to the parent + child filter,
+  // exclude dismissed (matches Tavle's `fetchAllTasksForChild` semantics).
+  let tasksBuilder = admin
+    .from("tasks")
+    .select("id, child_id, subject, status, task_steps")
+    .eq("parent_id", user.id)
+    .eq("approved_by_parent", true)
+    .neq("status", "dismissed")
+  if (selectedChildId) tasksBuilder = tasksBuilder.eq("child_id", selectedChildId)
+  const { data: taskRows } = await tasksBuilder
+  type TaskRowLite = {
+    id: string
+    child_id: string
+    subject: string
+    status: string
+    task_steps: Array<{ label: string; prompt: string }> | null
+  }
+  const tasksByChild = new Map<string, TaskRowLite[]>()
+  for (const t of (taskRows ?? []) as TaskRowLite[]) {
+    const arr = tasksByChild.get(t.child_id) ?? []
+    arr.push(t)
+    tasksByChild.set(t.child_id, arr)
+  }
+
+  // Per-task best step progress, used by the per-subject bars below to
+  // show granular step-level work rather than just "X tasks done". Falls
+  // back gracefully on tasks with no sessions yet (bestDone stays 0).
+  const taskStepProgress = new Map<string, number>()
+  // Need task_id on sessions to bucket — pull a lean second pass that
+  // only reads the columns we want. Keeps the main session query (which
+  // drives stats / recent strip) untouched.
+  let sessionStepsBuilder = admin
+    .from("sessions")
+    .select("task_id, steps_done, completed")
+    .eq("parent_id", user.id)
+    .not("task_id", "is", null)
+  if (selectedChildId) sessionStepsBuilder = sessionStepsBuilder.eq("child_id", selectedChildId)
+  const { data: sessionStepsRows } = await sessionStepsBuilder
+  for (const s of (sessionStepsRows ?? []) as Array<{
+    task_id: string | null
+    steps_done: number | null
+    completed: boolean
+  }>) {
+    if (!s.task_id) continue
+    const prev = taskStepProgress.get(s.task_id) ?? 0
+    const candidate = s.completed
+      ? Number.MAX_SAFE_INTEGER // pinned to "all" until we cap by task length below
+      : (s.steps_done ?? 0)
+    if (candidate > prev) taskStepProgress.set(s.task_id, candidate)
   }
 
   const formatGrade = (n: number) =>
@@ -240,7 +463,21 @@ export default async function ParentOverview({
           </h1>
           <p className="text-base text-muted max-w-xl">{m.overview.subtitle}</p>
         </div>
-        <RangeSelector current={range} />
+        {/* Filters live in a single horizontal cluster so they share an
+            eyeline. ChildSelector hides itself when there's only one kid
+            (nothing to filter) — the whole concept disappears for
+            single-child families. */}
+        <div className="flex flex-wrap items-end gap-3">
+          {allChildren.length > 1 && (
+            <ChildSelector
+              children={allChildren.map(c => ({ id: c.id, name: c.name }))}
+              current={selectedChildId}
+              allLabel={m.overview.childPickerAll}
+              label={m.overview.childPickerLabel}
+            />
+          )}
+          <RangeSelector current={range} />
+        </div>
       </header>
 
       {/* Stats — icon + label + big number + sublabel */}
@@ -274,43 +511,75 @@ export default async function ParentOverview({
         <div className="mt-4 flex flex-col gap-6">
           {children.map(c => {
             const childSessions = sessionsByChild.get(c.id) ?? []
-            const childCompleted = childSessions.filter(s => s.completed).length
+            // Top-right "X/Y klaret" fraction = approved tasks the kid has
+            // marked done vs total approved tasks. Uses tasks (Tavle items)
+            // as the denominator so the number on this card matches what
+            // the kid sees on their board.
+            const childTasks = tasksByChild.get(c.id) ?? []
+            const childTaskTotal = childTasks.length
+            const childTaskDone = childTasks.filter(t => t.status === "done").length
             const childPct =
-              childSessions.length > 0
-                ? Math.round((childCompleted / childSessions.length) * 100)
+              childTaskTotal > 0
+                ? Math.round((childTaskDone / childTaskTotal) * 100)
                 : 0
 
-            // Per-subject buckets (all canonical subjects always rendered so
-            // the row width stays stable even if one is empty).
-            const bySubject = new Map<string, Session[]>()
+            // Per-subject buckets — sessions still drive average difficulty
+            // (one task can have many sessions, each with its own score),
+            // but the visible "X/Y opgaver" count is task-based so it
+            // matches the Tavle.
+            const sessionsBySubject = new Map<string, Session[]>()
             for (const s of childSessions) {
-              const arr = bySubject.get(s.subject) ?? []
+              const arr = sessionsBySubject.get(s.subject) ?? []
               arr.push(s)
-              bySubject.set(s.subject, arr)
+              sessionsBySubject.set(s.subject, arr)
+            }
+            const tasksBySubject = new Map<string, typeof childTasks>()
+            for (const t of childTasks) {
+              const arr = tasksBySubject.get(t.subject) ?? []
+              arr.push(t)
+              tasksBySubject.set(t.subject, arr)
             }
             const subjectSummaries = CANONICAL_SUBJECTS.map(subj => {
-              const ss = bySubject.get(subj) ?? []
-              const done = ss.filter(s => s.completed).length
+              const ss = sessionsBySubject.get(subj) ?? []
+              const tt = tasksBySubject.get(subj) ?? []
+              const taskTotal = tt.length
+              const taskDone = tt.filter(t => t.status === "done").length
               const avgDiff =
                 ss.length === 0
                   ? 0
                   : ss.reduce((sum, x) => sum + (x.difficulty_score ?? 2), 0) /
                     ss.length
               const countLabel =
-                ss.length === 0
+                taskTotal === 0
                   ? m.overview.subjectOpgaverNone
-                  : `${done}/${ss.length} ${
-                      ss.length === 1
+                  : `${taskDone}/${taskTotal} ${
+                      taskTotal === 1
                         ? m.overview.subjectOpgaverSingular
                         : m.overview.subjectOpgaverPlural
                     }`
+              // Aggregate step-level progress across all tasks in this
+              // subject. Drives the bar so a kid who's done 4 of 23 steps
+              // on the only task shows ~17% — not 0% just because no
+              // task is fully `done` yet.
+              let totalSteps = 0
+              let doneSteps = 0
+              for (const task of tt) {
+                const stepCount = task.task_steps?.length ?? 0
+                if (stepCount === 0) continue
+                totalSteps += stepCount
+                const best = taskStepProgress.get(task.id) ?? 0
+                doneSteps += Math.min(best, stepCount)
+              }
+              const stepPct =
+                totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : null
               return {
                 subj,
                 ss,
-                done,
-                total: ss.length,
+                done: taskDone,
+                total: taskTotal,
                 avgDiff,
                 countLabel,
+                stepPct,
               }
             })
 
@@ -334,6 +603,7 @@ export default async function ParentOverview({
                         special_needs: c.special_needs,
                         companion_type: c.companion_type,
                         accommodations: c.accommodations,
+                        english_tutoring_language: c.english_tutoring_language,
                       }}
                       messages={{
                         editChild: m.overview.editChild,
@@ -351,6 +621,10 @@ export default async function ParentOverview({
                         editAccDyslexiaBody: m.overview.editAccDyslexiaBody,
                         editAccAdhd: m.overview.editAccAdhd,
                         editAccAdhdBody: m.overview.editAccAdhdBody,
+                        editEnglishLanguage: m.overview.editEnglishLanguage,
+                        editEnglishLanguageHint: m.overview.editEnglishLanguageHint,
+                        editEnglishLanguageDanish: m.overview.editEnglishLanguageDanish,
+                        editEnglishLanguageEnglish: m.overview.editEnglishLanguageEnglish,
                         editSave: m.overview.editSave,
                         editSaving: m.overview.editSaving,
                         editCancel: m.overview.editCancel,
@@ -376,8 +650,8 @@ export default async function ParentOverview({
                     <div className="flex flex-col items-end leading-tight">
                       <span className="text-sm font-medium text-ink tabular-nums">
                         {m.overview.childProgressFraction
-                          .replace("{done}", String(childCompleted))
-                          .replace("{total}", String(childSessions.length))}
+                          .replace("{done}", String(childTaskDone))
+                          .replace("{total}", String(childTaskTotal))}
                       </span>
                       <span className="text-xs text-muted tabular-nums">{childPct}%</span>
                     </div>
@@ -420,7 +694,7 @@ export default async function ParentOverview({
 
                 {/* Subject summary cards — md:col-span-7 split into 3 */}
                 <div className="grid gap-3 md:col-span-7 md:grid-cols-3">
-                  {subjectSummaries.map(({ subj, done, total, countLabel }) => (
+                  {subjectSummaries.map(({ subj, done, total, countLabel, stepPct }) => (
                     <SubjectSummaryCard
                       key={subj}
                       subjectLabel={m.tavle.subjects[subj] ?? subj}
@@ -429,6 +703,7 @@ export default async function ParentOverview({
                       done={done}
                       total={total}
                       countLabel={countLabel}
+                      pctOverride={stepPct}
                       href={`${localePath(locale, "parentDashboard")}?childId=${c.id}&subject=${subj}`}
                     />
                   ))}
@@ -449,6 +724,7 @@ export default async function ParentOverview({
         const buildPageHref = (p: number) => {
           const qs = new URLSearchParams()
           if (range !== "30d") qs.set("range", range)
+          if (selectedChildId) qs.set("childId", selectedChildId)
           if (p !== 1) qs.set("page", String(p))
           const s = qs.toString()
           return s ? `?${s}` : "?"
@@ -467,40 +743,87 @@ export default async function ParentOverview({
               <>
                 <div className="mt-4 flex flex-col gap-2">
                   {slice.map(s => {
-                    const child = children.find(c => c.id === s.child_id)
-                    const inProgress = !s.completed
-                    const diff = s.difficulty_score ? DIFFICULTY_LABEL[s.difficulty_score] : null
-                    const statusLabel = inProgress
-                      ? m.overview.statusInProgress
-                      : diff?.label ?? "-"
-                    const statusTone = inProgress
-                      ? "inprogress"
-                      : diff?.tone ?? "muted"
+                    // Use the unfiltered child list for name lookup so the
+                    // recent-sessions row still resolves a name even when
+                    // the visible `children` array is narrowed to one kid.
+                    const child = allChildren.find(c => c.id === s.child_id)
+                    const subjectLabel = capitalize(s.subject)
+                    const subjectTone = SUBJECT_TONE[s.subject] ?? "ink"
+                    const subjectGlyph = SUBJECT_GLYPH[s.subject] ?? null
+                    const subjectTint = SUBJECT_TINT[s.subject] ?? "#EDE2CD"
+
+                    // Outcome: was the kid's effort productive? Drives the
+                    // status pill. Done > partial > abandoned > in-progress.
+                    const outcome = sessionOutcome(s)
+                    const statusInfo = OUTCOME_INFO[outcome]
+                    // Title prefers the curated task title via problem_text;
+                    // fall back to a short subject/grade label so we never
+                    // render an empty row.
+                    const title =
+                      shorten(s.problem_text, 70) ??
+                      `${subjectLabel} · ${s.grade}. klasse`
+                    const duration = formatDuration(s.created_at, s.ended_at, s.last_active_at)
+                    const stepsLabel = formatStepsLabel(
+                      s.steps_done,
+                      s.steps_total,
+                      s.turn_count,
+                    )
                     return (
                       <div
                         key={s.id}
-                        className="flex items-center gap-4 rounded-card bg-white px-5 py-3.5"
+                        className="flex items-center gap-4 rounded-card bg-white px-4 py-3 sm:px-5 sm:py-4"
                         style={{ boxShadow: "var(--shadow-card)" }}
                       >
+                        {/* Subject glyph in tinted square — replaces the
+                            generic companion avatar so the parent sees
+                            the SUBJECT at a glance, which is what they're
+                            scanning for. */}
                         <span
-                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-tint"
                           aria-hidden
+                          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                          style={{ background: subjectTint }}
                         >
-                          <Companion type={toCompanion(child?.companion_type ?? null)} size={32} />
+                          {subjectGlyph}
                         </span>
+
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-ink">
-                            {s.problem_text ?? `${s.subject} · ${s.grade}. klasse`}
+                          {/* Subject + child + date on top — meta line. */}
+                          <p className="text-xs text-muted">
+                            <span className="font-semibold text-ink/75">{subjectLabel}</span>
+                            {child?.name ? <> · {child.name}</> : null}
+                            <> · {formatDate(s.created_at)}</>
                           </p>
-                          <p className="text-xs text-muted capitalize">
-                            {child?.name} · {s.subject}
+                          {/* Task title second — the actual thing they
+                              worked on. Truncated so long task texts
+                              don't push the meta off-screen. */}
+                          <p className="mt-0.5 truncate text-sm font-medium text-ink">
+                            {title}
                           </p>
+                          {/* Inline progress chips: duration + steps.
+                              These two numbers answer "how much work did
+                              the kid actually do?" without the parent
+                              having to drill into the task. */}
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
+                            {duration && (
+                              <span className="inline-flex items-center gap-1">
+                                <ClockGlyph /> {duration}
+                              </span>
+                            )}
+                            {stepsLabel && (
+                              <span className="inline-flex items-center gap-1">
+                                <CheckGlyph /> {stepsLabel}
+                              </span>
+                            )}
+                          </div>
+                          {/* Subject-tone bar serves no functional role
+                              — kept the visual identity hook in case we
+                              wire deep-links later. */}
+                          <span className="sr-only">{subjectTone}</span>
                         </div>
+
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          <StatusPill tone={statusTone} label={statusLabel} />
-                          <span className="text-[11px] text-muted">{formatDate(s.created_at)}</span>
+                          <StatusPill tone={statusInfo.tone} label={statusInfo.label} />
                         </div>
-                        <span aria-hidden className="text-ink/30">›</span>
                       </div>
                     )
                   })}
