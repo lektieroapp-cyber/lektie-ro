@@ -23,9 +23,12 @@ type Props = {
   childGrade: number | null
   /** Where to send the kid when they tap "Færdig" or close the session. */
   boardHref: string
+  /** Resolved engelsk-tutoring preference ("danish" or "english"). Forwarded
+   *  to HintChat so the /api/tts call can swap voices accordingly. */
+  englishTutoringLanguage?: "danish" | "english" | null
 }
 
-export function TaskHintShell({ task, subject, childId, childGrade, boardHref }: Props) {
+export function TaskHintShell({ task, subject, childId, childGrade, boardHref, englishTutoringLanguage = null }: Props) {
   const router = useRouter()
   const [conversationMode, setConversationMode] = useState<ConversationMode>(() => {
     if (!VOICE_ENABLED) return "text"
@@ -147,6 +150,7 @@ export function TaskHintShell({ task, subject, childId, childGrade, boardHref }:
           onFinishSession={back}
           completed={completed}
           conversationMode={conversationMode}
+          englishTutoringLanguage={englishTutoringLanguage}
         />
       </div>
     </div>

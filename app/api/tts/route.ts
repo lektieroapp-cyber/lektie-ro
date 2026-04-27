@@ -2,10 +2,12 @@ import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import {
   ENGELSK_AZURE_VOICE,
+  ENGELSK_PRIMARY_AZURE_VOICE,
   getTtsProvider,
   isVoiceProviderReady,
   type VoiceProviderId,
 } from "@/lib/voice"
+import type { TtsQuoteMode } from "@/lib/voice/provider"
 import { getVoiceMode, normaliseProvider } from "@/lib/voice-mode"
 import { getSessionUser } from "@/lib/auth/session"
 import { DEV_BYPASS_AUTH } from "@/lib/dev-user"
@@ -26,6 +28,11 @@ const bodySchema = z.object({
   // (the standard Danish voices ignore <lang> SSML switches). Ignored when
   // an explicit `voice` override is also passed.
   subject: z.string().min(1).max(40).optional(),
+  // Per-child engelsk-tutoring preference resolved server-side from the
+  // child profile. "english" → use the English-led primary voice with
+  // inverted quote-wrap so quoted Danish words sound Danish. "danish"
+  // (or omitted) → today's Danish-led hybrid behaviour.
+  tutoringLanguage: z.enum(["danish", "english"]).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -54,20 +61,26 @@ export async function POST(request: NextRequest) {
 
   // Voice resolution priority (first match wins):
   //   1. explicit `voice` override from the request body (admin tester)
-  //   2. engelsk-subject override → multilingual voice for correct English
-  //      pronunciation of quoted words
-  //   3. provider's configured default voice (Christel for Azure)
-  const wantsEngelskOverride =
+  //   2. engelsk + tutoringLanguage="english" → English-led primary voice
+  //      (Andrew multilingual) with quoteMode="english-base" so quoted
+  //      Danish words still get Danish phonemes via <lang> switch
+  //   3. engelsk + default tutoring language → Danish-led hybrid voice
+  //   4. provider's configured default voice (Christel for Azure)
+  const isEngelskSubject =
     providerId === "azure" &&
     !parsed.data.voice &&
     parsed.data.subject?.toLowerCase() === "engelsk"
+  const wantsEnglishLed = isEngelskSubject && parsed.data.tutoringLanguage === "english"
   const voice =
     parsed.data.voice ??
-    (wantsEngelskOverride
-      ? ENGELSK_AZURE_VOICE
-      : providerId === "elevenlabs"
-        ? mode.elevenLabsVoiceId
-        : mode.azureVoice)
+    (wantsEnglishLed
+      ? ENGELSK_PRIMARY_AZURE_VOICE
+      : isEngelskSubject
+        ? ENGELSK_AZURE_VOICE
+        : providerId === "elevenlabs"
+          ? mode.elevenLabsVoiceId
+          : mode.azureVoice)
+  const quoteMode: TtsQuoteMode = wantsEnglishLed ? "english-base" : "danish-base"
 
   if (!voice) {
     return NextResponse.json(
@@ -80,6 +93,7 @@ export async function POST(request: NextRequest) {
     const result = await getTtsProvider(providerId).synthesize({
       text: parsed.data.text,
       voice,
+      quoteMode,
     })
     return new NextResponse(result.audio, {
       status: 200,

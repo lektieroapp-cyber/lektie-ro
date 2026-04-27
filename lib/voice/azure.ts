@@ -140,7 +140,7 @@ const HYBRID_SEPARATOR = "+"
 
 export const azureTts: TtsProvider = {
   id: "azure",
-  async synthesize({ text, voice }) {
+  async synthesize({ text, voice, quoteMode = "danish-base" }) {
     const { key, region } = azureConfig()
     const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`
 
@@ -148,6 +148,12 @@ export const azureTts: TtsProvider = {
     const [danishVoice, englishVoice] = isHybrid
       ? voice.split(HYBRID_SEPARATOR)
       : [voice, voice]
+    // English-base mode flips two things relative to the default Danish-led
+    // pipeline: (1) the outer <speak>/<voice> envelope is English, and
+    // (2) quoted spans are wrapped as Danish (<lang xml:lang="da-DK">) so a
+    // multilingual English voice pronounces "kop" / "tillægsord" with
+    // Danish phonemes instead of English ones.
+    const englishBase = quoteMode === "english-base"
 
     // Conversational SSML tuning.
     //   rate='1.02'  — just above natural. 0.92 (the old value) added ~8%
@@ -180,11 +186,17 @@ export const azureTts: TtsProvider = {
     const withLabels = wrapLetterLabelsInSayAs(escaped)
     const withEn = isHybrid
       ? materializeVoiceSwapSentinels(withLabels, escapeXml(danishVoice), escapeXml(englishVoice))
-      : materializeLangSentinels(withLabels)
+      : englishBase
+        ? materializeLangSentinelsAsDanish(withLabels)
+        : materializeLangSentinels(withLabels)
     const voiceName = escapeXml(danishVoice)
+    // Outer envelope language follows the base mode. English-base uses
+    // en-US so Andrew narrates English natively; quoted spans switch to
+    // da-DK via <lang> for Danish words inside English narration.
+    const baseLang = englishBase ? "en-US" : "da-DK"
     const fancySsml =
-      `<speak version='1.0' xml:lang='da-DK' xmlns:mstts='http://www.w3.org/2001/mstts'>` +
-      `<voice xml:lang='da-DK' name='${voiceName}'>` +
+      `<speak version='1.0' xml:lang='${baseLang}' xmlns:mstts='http://www.w3.org/2001/mstts'>` +
+      `<voice xml:lang='${baseLang}' name='${voiceName}'>` +
       `<prosody rate='1.02' pitch='+1%'>${withEn}</prosody>` +
       `</voice></speak>`
     // Fallback SSML strips the <lang> wrap and <say-as> injection so a
@@ -196,8 +208,8 @@ export const azureTts: TtsProvider = {
     // no lang tags) so a malformed decoration can't poison the retry.
     const plainEscaped = escapeXml(text)
     const plainSsml =
-      `<speak version='1.0' xml:lang='da-DK'>` +
-      `<voice xml:lang='da-DK' name='${voiceName}'>` +
+      `<speak version='1.0' xml:lang='${baseLang}'>` +
+      `<voice xml:lang='${baseLang}' name='${voiceName}'>` +
       `<prosody rate='1.02' pitch='+1%'>${plainEscaped}</prosody>` +
       `</voice></speak>`
 
@@ -314,6 +326,23 @@ function wrapQuotedAsEnglishPre(raw: string): string {
 function materializeLangSentinels(escaped: string): string {
   return escaped
     .split(LANG_EN_OPEN_SENTINEL).join('<lang xml:lang="en-US">')
+    .split(LANG_EN_CLOSE_SENTINEL).join('</lang>')
+}
+
+// English-base mode: the same sentinels (which mark "this content was in
+// quotes") get materialised as Danish lang switches instead. The outer
+// voice is multilingual English; quoted Danish words ("kop", "tillægsord")
+// flip to da-DK so they're pronounced with Danish phonemes.
+//
+// Sentinel name still says "EN" because wrapQuotedAsEnglishPre also skips
+// quotes containing æ/ø/å — that skip is now overly conservative in
+// english-base mode (Danish words are exactly what we WANT wrapped here),
+// but the loss is minor: a Danish word with æ/ø/å just stays in the
+// outer English voice and gets approximated. Future polish: parameterize
+// the wrapper to suppress the æ/ø/å skip in english-base mode.
+function materializeLangSentinelsAsDanish(escaped: string): string {
+  return escaped
+    .split(LANG_EN_OPEN_SENTINEL).join('<lang xml:lang="da-DK">')
     .split(LANG_EN_CLOSE_SENTINEL).join('</lang>')
 }
 

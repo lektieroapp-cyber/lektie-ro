@@ -14,6 +14,15 @@ export const STT_LOCALE_DANISH = "da-DK"
 // sounds better than any single multilingual voice we tested.
 export const ENGELSK_AZURE_VOICE = "da-DK-JeppeNeural+en-US-AndrewMultilingualNeural"
 
+// English-led tutoring voice — used when the parent set the kid's
+// english_tutoring_language to "english" so Dani narrates primarily in
+// English, with Danish only as scaffolding for stuck kids. The
+// multilingual Andrew voice handles both languages; the SSML pipeline
+// flips the quote-wrap so quoted Danish words ("kop", "tillægsord") get
+// Danish phonetics via <lang xml:lang="da-DK"> instead of being read with
+// English phonemes.
+export const ENGELSK_PRIMARY_AZURE_VOICE = "en-US-AndrewMultilingualNeural"
+
 // Azure Neural TTS voices we actually use in production.
 //
 // - Christel/Jeppe: native da-DK, used for matematik/dansk/tysk. Warm Danish

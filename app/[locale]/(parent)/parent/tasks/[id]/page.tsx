@@ -10,6 +10,10 @@ import { getSessionUser } from "@/lib/auth/session"
 import { getActiveChild } from "@/lib/auth/active-child"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchTaskById, rowToTask } from "@/lib/tasks"
+import {
+  isEnglishTutoringLanguage,
+  resolveEnglishTutoringLanguage,
+} from "@/lib/english-tutoring"
 
 const VALID_COMPANIONS = new Set<string>(COMPANIONS.map(c => c.type))
 
@@ -109,6 +113,9 @@ export default async function TaskPage({
             statusPending: m.tavle.statusPending,
             statusInProgress: m.tavle.statusInProgress,
             statusDone: m.tavle.statusDone,
+            progressLabel: m.tavle.previewProgressLabel,
+            progressFraction: m.tavle.previewProgressFraction,
+            progressNoneYet: m.tavle.previewProgressNoneYet,
           }}
         />
       </div>
@@ -127,6 +134,16 @@ export default async function TaskPage({
   // selv" → pass the task's child so sessions still link correctly.
   const sessionChildId = activeChildId ?? row.childId
 
+  // Resolve the kid's engelsk-tutoring preference (auto/danish/english)
+  // against their grade so the TTS pipeline gets a concrete value to
+  // pick a voice from. Only meaningful for engelsk subject — passed on
+  // every task so the prop shape stays uniform.
+  const rawEnglishLang = activeChild?.english_tutoring_language ?? null
+  const englishTutoringLanguage = resolveEnglishTutoringLanguage(
+    isEnglishTutoringLanguage(rawEnglishLang) ? rawEnglishLang : "auto",
+    childGrade,
+  )
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <CompanionProvider initial={initialCompanion} childId={sessionChildId}>
@@ -136,6 +153,7 @@ export default async function TaskPage({
           childId={sessionChildId}
           childGrade={childGrade}
           boardHref={backHref}
+          englishTutoringLanguage={englishTutoringLanguage}
         />
       </CompanionProvider>
     </div>

@@ -65,6 +65,9 @@ export const elevenStt: SttProvider = {
 
 export const elevenTts: TtsProvider = {
   id: "elevenlabs",
+  // ElevenLabs currently has no equivalent to Azure's quoteMode (it uses
+  // a single voice without SSML language switching), so the param is
+  // accepted to keep the provider interface uniform but ignored here.
   async synthesize({ text, voice }) {
     const key = elevenKey()
     const model = process.env.ELEVENLABS_TTS_MODEL ?? "eleven_flash_v2_5"
