@@ -67,6 +67,13 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Defensive: any absolutely-positioned decoration that leaks past the
+     viewport (e.g. the hero lion at right: -280) gets clipped instead of
+     producing a horizontal scrollbar that drags the navbar + body text
+     off-screen on mobile. `clip` is preferred over `hidden` because it
+     doesn't make the body a scroll container — sticky positioning still
+     pins to the viewport. */
+  overflow-x: clip;
 }
 
 button {
@@ -198,6 +205,104 @@ select.lr-select::-ms-expand {
   50% { transform: translateY(-12px) rotate(-3deg); }
 }
 
+/* ─── Hero responsive layout ─────────────────────────────────────────────
+   Hoisted out of an injected `<style>` tag in Hero.tsx so the rules are a
+   hard guarantee, not dependent on how Next.js 16 / React 19 handle inline
+   `<style>` in Server Components. Selectors are intentionally specific
+   (`section.hero-grid`, `.hero-grid .hero-title`) to outweigh the inline
+   styles on those elements without having to lean on `!important` for
+   every property — and `!important` is still applied to the layout-shape
+   props (grid-template-columns, padding) where overriding inline is
+   strictly required.
+
+   Breakpoint sits at 1100px instead of the more common 900px because the
+   right-column phone (260px wide) plus the absolute lion (560px, hanging
+   280px past the section right edge) only have room to look correct from
+   roughly 1240px upward. Anything narrower benefits from stacking the
+   columns so the lion lands below the phone in normal flow rather than
+   getting hard-clipped by the body's overflow-x: clip. */
+@media (max-width: 1100px) {
+  section.hero-grid {
+    grid-template-columns: 1fr !important;
+    padding: 48px 24px 72px !important;
+    /* Larger gap pushes the phone wrap further down below the CTA + perks
+       row so it has its own breathing room and reads as a separate
+       visual unit, not glued to the perks. */
+    gap: 48px !important;
+    text-align: center;
+  }
+  section.hero-grid > div { min-width: 0; }
+  .hero-grid .hero-title {
+    font-size: clamp(32px, 6vw, 52px) !important;
+    margin-top: 16px !important;
+    letter-spacing: -1px !important;
+  }
+  .hero-grid .hero-subtitle {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .hero-arrow,
+  .hero-decor {
+    display: none !important;
+  }
+  .hero-grid .hero-right {
+    min-height: 0 !important;
+    /* Small nudge so the phone has a touch of breathing room above it
+       without feeling disconnected from the perks row. */
+    padding-top: 16px !important;
+  }
+  /* Lion drops below the phone, shifted toward the right edge of the
+     column with a slight overhang past it — mirrors the desktop layout
+     where the lion sits to the right of the phone rather than dead
+     centre. `margin-right: -8px` lets it bleed a few pixels into the
+     section padding so it doesn't look penned in by the column. The
+     positive top margin (48px) sits the lion well below the phone with
+     clear breathing room — earlier values overlapped or hugged the
+     phone too tightly on real-device mobile views. */
+  .hero-grid .hero-lion-wrap {
+    position: relative !important;
+    /* `left: calc(50% + 40px)` plus `translateX(-50%)` puts the wrap
+       40px right of dead-centre. Doing the offset on `left` instead of
+       inside `translateX(calc(...))` avoids browser quirks where calc
+       inside a transform-function with a % unit silently fails. */
+    left: calc(50% + 40px) !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 1000px !important;
+    max-width: none !important;
+    transform: translateX(-50%) !important;
+    margin: 96px 0 0 0 !important;
+  }
+  /* Centre the email + perks row when the column stacks. */
+  .hero-grid .hero-cta-wrap {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .hero-grid .hero-perks {
+    justify-content: center !important;
+    gap: 14px 18px !important;
+  }
+}
+/* Narrow phones: tighten further so nothing rides the viewport edge. */
+@media (max-width: 480px) {
+  section.hero-grid {
+    padding: 28px 16px 48px !important;
+    gap: 36px !important;
+  }
+  .hero-grid .hero-title {
+    font-size: clamp(26px, 8vw, 36px) !important;
+    line-height: 1.06 !important;
+    letter-spacing: -0.6px !important;
+  }
+  .hero-grid .hero-subtitle {
+    font-size: 16px !important;
+  }
+  .hero-grid .hero-lion-wrap {
+    width: 800px !important;
+    margin: 56px 0 0 0 !important;
+  }
+}
+
 /* Promise-band glowing bulb */
 @keyframes bulbGlow {
   0%, 100% { box-shadow: 0 0 40px rgba(242,199,90,0.5), 0 0 80px rgba(242,199,90,0.3); }
@@ -222,3 +327,29 @@ select.lr-select::-ms-expand {
   0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
   30% { opacity: 1; transform: translateY(-2px); }
 }
+
+
+/* ─── Reading-mode (data-reading-mode="large") ─────────────────────────────
+   Auto-on for grade ≤ 2 and parent-flagged dyslexia (see
+   lib/accommodations.ts). Bumps the kid-facing text up so the homework
+   surfaces are easier to read. We target the big text surfaces directly
+   so the rest of the chrome (sidebar, badges, debug tooling) stays
+   compact. */
+
+/* Task page — Hint chat AI bubbles + the big task title. */
+[data-reading-mode="large"] .reading-task-title {
+  font-size: 1.25em !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.005em;
+}
+[data-reading-mode="large"] .reading-body {
+  font-size: 1.15em !important;
+  line-height: 1.65 !important;
+  letter-spacing: 0.01em;
+}
+[data-reading-mode="large"] .reading-numeric {
+  /* Math + ratio displays: a touch heavier so digits stand out. */
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+}
+

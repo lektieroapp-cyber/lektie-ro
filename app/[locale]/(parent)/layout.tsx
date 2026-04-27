@@ -5,6 +5,7 @@ import { isLocale } from "@/lib/i18n/config"
 import { DEV_BYPASS_AUTH, DEV_PROFILE, DEV_USER, getDevEnsureStatus } from "@/lib/dev-user"
 import { getSessionUser } from "@/lib/auth/session"
 import { getActiveChild } from "@/lib/auth/active-child"
+import { shouldUseLargerText } from "@/lib/accommodations"
 
 export default async function ParentLayout({
   children,
@@ -26,10 +27,18 @@ export default async function ParentLayout({
   const isAdmin = user.role === "admin"
   const { activeChild } = await getActiveChild(user.id)
 
+  // Reading-mode: turns on automatically for grade ≤ 2 (still building
+  // reading fluency) or when the parent has flagged dyslexia. Drives
+  // the .reading-large CSS rules in app/globals.css to scale up text on
+  // kid-facing surfaces. Parent-mode (no active child) never gets it.
+  const readingLarge =
+    !!activeChild && shouldUseLargerText(activeChild.accommodations, activeChild.grade)
+
   return (
     <div
       className="flex flex-col overflow-hidden bg-blue-tint/30 md:flex-row"
       style={{ height: "var(--lr-app-h, 100svh)" }}
+      data-reading-mode={readingLarge ? "large" : undefined}
     >
       <VisualViewportSync />
       <Sidebar locale={locale} isAdmin={isAdmin} email={user.email ?? ""} activeChild={activeChild} />

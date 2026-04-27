@@ -3,6 +3,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DEV_BYPASS_AUTH, DEV_USER, ensureDevUserExists } from "@/lib/dev-user"
+import { ACCOMMODATIONS } from "@/lib/accommodations"
 
 const COMPANION_TYPES = [
   "lion", "fox", "owl", "panda", "octopus", "robot",
@@ -16,6 +17,9 @@ const patchSchema = z.object({
   interests: z.string().trim().max(200).nullable().optional(),
   special_needs: z.string().trim().max(300).nullable().optional(),
   companion_type: z.enum(COMPANION_TYPES).nullable().optional(),
+  // Structured accommodation flags. Validated against the known set
+  // here so a typo or unknown value never lands in the DB.
+  accommodations: z.array(z.enum(ACCOMMODATIONS)).max(8).optional(),
 })
 
 async function getParentId(): Promise<string | null> {
@@ -46,7 +50,7 @@ export async function PATCH(
     .update(parsed.data)
     .eq("id", id)
     .eq("parent_id", parentId)
-    .select("id, name, grade, avatar_emoji, interests, special_needs, companion_type")
+    .select("id, name, grade, avatar_emoji, interests, special_needs, companion_type, accommodations")
     .single()
 
   if (error) {
