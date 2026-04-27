@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getSessionUser } from "@/lib/auth/session"
+import { markTaskInProgress, markTaskDone } from "@/lib/tasks"
 
 // POST — create a new session row when the child picks a mode.
 export async function POST(request: NextRequest) {
@@ -14,6 +15,10 @@ export async function POST(request: NextRequest) {
     problemText?: string
     problemType?: string
     imagePath?: string
+    /** Optional — when present, links the session to a Tavle task and bumps
+     *  the task to in_progress. Used by the new board flow; the legacy
+     *  upload-then-pick flow omits it. */
+    taskId?: string
   }
 
   const admin = createAdminClient()
@@ -40,6 +45,7 @@ export async function POST(request: NextRequest) {
       problem_text: body.problemText ?? null,
       problem_type: body.problemType ?? null,
       image_path: body.imagePath ?? null,
+      task_id: body.taskId ?? null,
     })
     .select("id")
     .single()
@@ -47,6 +53,14 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error("[session POST]", error.message)
     return NextResponse.json({ error: "db error" }, { status: 500 })
+  }
+
+  if (body.taskId) {
+    // Bump the task only if it was still pending. Idempotent — safe to call
+    // even when the task is already in_progress.
+    void markTaskInProgress(user.id, body.taskId).catch(err => {
+      console.error("[session POST] markTaskInProgress failed:", (err as Error).message)
+    })
   }
 
   return NextResponse.json({ sessionId: data.id })
@@ -97,15 +111,31 @@ export async function PATCH(request: NextRequest) {
   if (typeof body.stepsTotal === "number") update.steps_total = body.stepsTotal
   if (body.completionKind) update.completion_kind = body.completionKind
 
-  const { error: updateError } = await admin
+  const { data: updated, error: updateError } = await admin
     .from("sessions")
     .update(update)
     .eq("id", body.sessionId)
     .eq("parent_id", user.id)
+    .select("task_id")
+    .maybeSingle()
 
   if (updateError) {
     console.error("[session PATCH]", updateError.message)
     return NextResponse.json({ error: "db error" }, { status: 500 })
+  }
+
+  // If this session was linked to a Tavle task and the kid genuinely
+  // finished it, mark the task done so it falls off the active board.
+  // Partial / abandoned states leave the task in_progress so the board
+  // shows "Kan fortsættes" next time.
+  const finished = body.completionKind
+    ? body.completionKind === "completed"
+    : body.completed
+  const linkedTaskId = (updated as { task_id?: string } | null)?.task_id ?? null
+  if (linkedTaskId && finished) {
+    void markTaskDone(user.id, linkedTaskId).catch(err => {
+      console.error("[session PATCH] markTaskDone failed:", (err as Error).message)
+    })
   }
 
   // Persist individual turns when provided.
