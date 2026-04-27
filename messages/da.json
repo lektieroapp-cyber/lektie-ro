@@ -84,49 +84,67 @@
     "existingLink": "Fortsæt her"
   },
   "promise": {
-    "title": "Vi giver aldrig facit",
-    "titleItalic": "vi viser vejen",
+    "title": "Dit barn lærer selv,",
+    "titleItalic": "uden at få svaret",
     "body": "Vi guider barnet gennem {highlight}, så de selv når svaret. Det skaber ægte læring og selvtillid, ikke afhængighed af en app.",
     "highlight": "løsningsmetoden",
     "demoBadge": "Live eksempel",
-    "demoTabs": {
-      "math": "Matematik",
-      "dansk": "Dansk",
-      "eng": "Engelsk"
+    "badges": {
+      "adapt": {
+        "title": "Tilpasset niveau",
+        "body": "Tilpasses barnets interesser og niveau."
+      },
+      "feedback": {
+        "title": "Venlig feedback",
+        "body": "Motiverer og guider uden at give svaret."
+      },
+      "safe": {
+        "title": "Trygt & motiverende",
+        "body": "Skaber ro, forståelse og selvtillid."
+      }
     }
   },
   "benefits": {
+    "footerPerks": [
+      "7 dages gratis prøve",
+      "Ingen binding",
+      "GDPR, EU-data"
+    ],
     "child": {
       "title": "Til Barnet",
+      "subtitle": "Vi gør læring sjov, tryg og overskuelig, så barnet får lyst til at lære og tro på sig selv.",
+      "pill": "Bygget til at skabe lyst til at lære",
       "items": {
         "learning": {
           "title": "Læring på egne præmisser",
-          "body": "Systemet tilpasser sig barnets interesser (f.eks. Minecraft eller heste)."
+          "body": "Tilpasset barnets interesser og niveau."
         },
         "safety": {
-          "title": "Tryghed",
-          "body": "Ingen \"røde streger\" eller pres – kun støttende vejledning."
+          "title": "Tryghed & selvtillid",
+          "body": "Ingen \"røde streger\", kun støttende vejledning."
         },
         "mastery": {
-          "title": "Mestring",
-          "body": "Hjælp til at bryde store opgaver ned i små, overskuelige bidder uden at få svaret serveret."
+          "title": "Mestrer trin for trin",
+          "body": "Små skridt og overskuelige opgaver giver succes."
         }
       }
     },
     "parent": {
       "title": "Til Forældrene",
+      "subtitle": "Vi giver dig overblik og ro i maven, med indsigt, tryghed og faglighed.",
+      "pill": "Viden du kan stole på, ro du kan mærke",
       "items": {
         "peace": {
           "title": "Slut med konflikter",
-          "body": "Vi tager os af det faglige \"pus\", så I kan være familie."
+          "body": "Lektier bliver nemmere og mere harmoniske."
         },
         "insight": {
           "title": "Indsigt uden stress",
-          "body": "Følg med i barnets fremskridt via jeres eget dashboard."
+          "body": "Se fremskridt og styrker med et enkelt dashboard."
         },
         "pedagogy": {
-          "title": "Pædagogisk sikkerhed",
-          "body": "Viden om at barnet lærer hvordan man løser opgaven, fremfor blot at snyde."
+          "title": "Pædagogisk tryghed",
+          "body": "Metode og indhold er fagligt funderet."
         }
       }
     }
@@ -152,7 +170,6 @@
       "name": "Familie",
       "price": "289 kr.",
       "interval": "/md",
-      "badge": "MEST POPULÆR",
       "body": "Op til 4 børn. Den ultimative løsning til den store familie.",
       "cta": "Vælg Familie",
       "features": [
@@ -215,11 +232,157 @@
     "adminSection": "Administration",
     "adminBadge": "KUN ADMIN",
     "nav": {
-      "dashboard": "Lav lektier",
+      "dashboard": "Tavle",
+      "newTask": "Ny lektie",
+      "addToBoard": "Tilføj opgave",
       "overview": "Forældre Ro",
       "settings": "Indstillinger",
       "admin": "Admin"
     }
+  },
+  "tavle": {
+    "title": "Tavle",
+    "subtitleKid": "Dine opgaver og lektier samlet ét sted.",
+    "subtitleParent": "Dine opgaver og lektier samlet ét sted.",
+    "childPickerAll": "Alle børn",
+    "childPickerLabel": "Vis tavle for",
+    "previewBack": "Tilbage til tavlen",
+    "previewSubjectLabel": "Fag",
+    "previewChildLabel": "Til",
+    "previewStatusLabel": "Status",
+    "previewCreatedLabel": "Oprettet",
+    "previewTextLabel": "Opgavetekst",
+    "previewGoalLabel": "Mål",
+    "previewStepsLabel": "Trin",
+    "previewSessionsLabel": "Sessioner",
+    "previewSessionsEmpty": "Barnet har ikke arbejdet på opgaven endnu.",
+    "previewDismiss": "Fjern fra tavlen",
+    "previewDismissConfirm": "Er du sikker på at du vil fjerne opgaven?",
+    "previewDelete": "Slet helt",
+    "previewDeleteConfirm": "Slet opgaven helt? Sessionshistorikken bevares.",
+    "previewTryItYourself": "Prøv selv",
+    "previewTryItHint": "Test hvordan AI'en guider barnet.",
+    "subjectOpgaverPlural": "opgaver",
+    "subjectOpgaverSingular": "opgave",
+    "subjectOpgaverNone": "Ingen opgaver",
+    "detailBack": "Tilbage",
+    "detailTotal": "{n} opgaver i alt",
+    "detailTotalOne": "1 opgave i alt",
+    "detailDoneOf": "{done}/{total} færdige",
+    "tabAll": "Alle",
+    "tabPending": "Ikke startet",
+    "tabInProgress": "I gang",
+    "tabDone": "Færdige",
+    "statusPending": "Ikke startet",
+    "statusInProgress": "I gang",
+    "statusDone": "Færdig",
+    "addTaskCta": "Tilføj opgave",
+    "mascotTitle": "Du er i gang!",
+    "mascotBody": "Bliv ved, du gør det super godt!",
+    "mascotCta": "Se din fremgang",
+    "mascotEmptyTitle": "Tavlen er klar",
+    "mascotEmptyBody": "Tilføj din første opgave for at komme i gang.",
+    "mascotEmptyKidWaitTitle": "Tavlen er tom",
+    "mascotEmptyKidWaitBody": "Bed mor eller far om at lægge en opgave på tavlen.",
+    "emptyHeroTitle": "Din tavle er tom",
+    "emptyHeroBody": "Tilføj dit første fag eller opgave, så du kan komme godt i gang.",
+    "emptyHeroBodyKidWait": "Bed mor eller far om at lægge en opgave på tavlen.",
+    "subjectTaglineDansk": "Sprog og læsning",
+    "subjectTaglineMatematik": "Tal og regning",
+    "subjectTaglineEngelsk": "Words and more",
+    "emptyTipTitle": "Tip til en god start",
+    "emptyTipBody": "Vælg et fag herover og lav jeres første opgave sammen.",
+    "emptyAddTaskTitle": "Tilføj opgave",
+    "emptyAddTaskBody": "Opret en opgave, du gerne vil løse.",
+    "subjects": {
+      "matematik": "Matematik",
+      "dansk": "Dansk",
+      "engelsk": "Engelsk",
+      "tysk": "Tysk"
+    },
+    "subjectOpenCount": "{n} igangværende",
+    "subjectOpenCountOne": "1 opgave",
+    "subjectEmpty": "Ingen opgaver",
+    "back": "Tilbage til tavlen",
+    "emptyKidTitle": "Ingen opgaver lige nu",
+    "emptyKidBody": "Tag et billede af lektien for at komme i gang.",
+    "emptyKidCta": "Start lektier",
+    "emptyKidWaitTitle": "Ingen opgaver endnu",
+    "emptyKidWaitBody": "Bed mor eller far om at lægge en opgave på tavlen.",
+    "emptyParentTitle": "Tavlen er tom",
+    "emptyParentBody": "Tilføj en opgave så barnet kan gå i gang.",
+    "emptyParentCta": "Tilføj opgave",
+    "progress": {
+      "notStarted": "Ikke startet",
+      "inProgress": "Kan fortsættes"
+    },
+    "task": {
+      "open": "Åbn opgave",
+      "dismiss": "Fjern",
+      "dismissConfirm": "Er du sikker på at du vil fjerne opgaven?"
+    },
+    "noChild": "Vælg et barn for at se tavlen.",
+    "pickChild": "Vælg barn"
+  },
+  "addToBoard": {
+    "title": "Tilføj opgave",
+    "subtitle": "Tag et billede af lektien. Vi finder opgaverne for dig.",
+    "backToBoard": "Tilbage",
+    "subjectLabel": "Hvilket fag?",
+    "selectChildLabel": "Til hvilket barn?",
+    "noChildren": "Du skal tilføje et barn først.",
+    "addChildCta": "Tilføj barn",
+    "addPhotoCta": "Tag billede",
+    "addAnotherPhotoCta": "Tilføj billede",
+    "photoUploading": "Sender …",
+    "photoThinking": "Læser …",
+    "photoFailed": "Fejl",
+    "photoTaskCount": "{n} opgaver",
+    "photoTaskCountOne": "1 opgave",
+    "photoNoTasks": "Ingen opgaver fundet",
+    "reviewTitle": "Opgaver fundet",
+    "reviewSubtitle": "{n} valgt",
+    "reviewSubtitleOne": "1 valgt",
+    "approve": "Godkend",
+    "approved": "Godkendt",
+    "dismiss": "Fjern",
+    "undoDismiss": "Tag med igen",
+    "approveAll": "Godkend alle",
+    "commit": "Tilføj {n} opgaver",
+    "commitOne": "Tilføj 1 opgave",
+    "committing": "Tilføjer …",
+    "cancel": "Annullér",
+    "errorVision": "Noget gik galt. Prøv igen.",
+    "errorChild": "Vælg et barn først.",
+    "errorEmpty": "Vælg mindst én opgave."
+  },
+  "newTask": {
+    "title": "Start lektier",
+    "subtitle": "Tag et billede af lektien og kom i gang.",
+    "subtitleCurate": "Tag et billede af lektien. Godkend opgaverne, så lægger vi dem på tavlen.",
+    "savingTitle": "Lægger på tavlen …",
+    "savingBody": "Et øjeblik. Så kan du gå i gang.",
+    "uploadCta": "Tag billede",
+    "selectChildLabel": "Hvem er opgaven til?",
+    "selectChildPlaceholder": "Vælg barn",
+    "noChildren": "Du skal tilføje et barn før du kan oprette opgaver.",
+    "addChildCta": "Tilføj barn",
+    "thinkingTitle": "Læser opgaven …",
+    "thinkingBody": "Et øjeblik. Vi finder opgaver og deltrin.",
+    "reviewTitle": "Godkend opgaver",
+    "reviewSubtitle": "Vi fandt {n} opgave(r). Godkend dem du vil lægge på tavlen.",
+    "reviewSubject": "Fag",
+    "approve": "Godkend",
+    "approving": "Godkender …",
+    "approved": "Lagt på tavlen",
+    "dismiss": "Spring over",
+    "approveAll": "Godkend alle",
+    "anotherPhoto": "Tag et nyt billede",
+    "doneToBoard": "Gå til tavlen",
+    "errorVision": "Kunne ikke læse billedet. Prøv igen med et tydeligere billede.",
+    "errorUpload": "Billedet kunne ikke uploades. Prøv igen.",
+    "errorSubject": "Vælg et fag til opgaven.",
+    "errorChild": "Vælg et barn først."
   },
   "parent": {
     "greetingWave": "",
@@ -272,11 +435,20 @@
     "title": "Forældre Ro",
     "subtitle": "Her får du overblik over barnets lektiesessioner og fremskridt.",
     "statsSessionsLabel": "Sessioner i alt",
-    "statsStreakLabel": "Aktive dage i streg",
+    "statsSessionsDeltaPositive": "+{n} fra forrige periode",
+    "statsSessionsDeltaNegative": "{n} fra forrige periode",
+    "statsSessionsDeltaSame": "Samme som forrige periode",
+    "statsStreakLabel": "Aktive dage i træk",
+    "statsStreakSubGood": "Godt gået!",
+    "statsStreakSubGetGoing": "Kom i gang i dag",
     "statsLastActiveLabel": "Sidste session",
     "statsLastActiveEmpty": "Ingen endnu",
+    "statsLastActiveAgoDays": "For {n} dage siden",
+    "statsLastActiveAgoToday": "I dag",
+    "statsLastActiveAgoYesterday": "I går",
     "recentTitle": "Seneste sessioner",
     "recentEmpty": "Når barnet har løst sin første opgave, dukker den op her.",
+    "statusInProgress": "I gang",
     "subjectsTitle": "Fag barnet har arbejdet med",
     "subjectsEmpty": "Ingen fagdata endnu.",
     "childrenTitle": "Dine børn",
@@ -285,6 +457,39 @@
     "addFirstChildBody": "For at LektieRo kan tilpasse vejledningen til dit barns klassetrin, interesser og behov, har vi brug for lidt info.",
     "gradeLabel": "{n}. klasse",
     "gradeKindergarten": "0. klasse",
+    "childProgressFraction": "{done}/{total} klaret",
+    "childProgressPercent": "{n}%",
+    "subjectDifficultyLabel": "Sværhedsgrad pr. fag",
+    "subjectInterestsLabel": "Interesser:",
+    "subjectHensynLabel": "Hensyn:",
+    "subjectOpgaverPlural": "opgaver",
+    "subjectOpgaverSingular": "opgave",
+    "subjectOpgaverNone": "Ingen opgaver endnu",
+    "editChild": "Rediger barn",
+    "editTitle": "Rediger {name}",
+    "editName": "Navn",
+    "editGrade": "Klassetrin",
+    "editInterests": "Interesser",
+    "editInterestsPlaceholder": "F.eks. Minecraft, fodbold",
+    "editSpecialNeeds": "Særlige hensyn",
+    "editSpecialNeedsPlaceholder": "F.eks. ordblindhed, ADHD",
+    "editAvatar": "Makker",
+    "editAccommodations": "Tilpasninger",
+    "editAccommodationsHint": "Vælg det der gør lektierne nemmere for dit barn.",
+    "editAccDyslexia": "Ordblindhed",
+    "editAccDyslexiaBody": "Større, tydeligere tekst overalt.",
+    "editAccAdhd": "ADHD",
+    "editAccAdhdBody": "Reserveret til fremtidige tilpasninger.",
+    "editSave": "Gem",
+    "editSaving": "Gemmer …",
+    "editCancel": "Annullér",
+    "editError": "Noget gik galt. Prøv igen.",
+    "tipTitle": "Små skridt hver dag gør en stor forskel",
+    "tipBody": "Bliv ved med at heppe – det betyder mere, end du tror.",
+    "tipCta": "Se tips & råd",
+    "pagerPrev": "Forrige",
+    "pagerNext": "Næste",
+    "pagerOf": "Side {page} af {total}",
     "adminLink": "Gå til admin"
   },
   "admin": {

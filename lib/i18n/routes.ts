@@ -20,6 +20,9 @@ const SHARED_SLUGS = {
   parentOverview: "parent/overview",
   parentSettings: "parent/settings",
   parentOnboarding: "parent/onboarding",
+  parentNewTask: "parent/new-task",
+  parentAddToBoard: "parent/add-to-board",
+  parentTasks: "parent/tasks",
   admin: "admin",
 } as const
 

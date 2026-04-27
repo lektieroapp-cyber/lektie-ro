@@ -1,57 +1,91 @@
 import { notFound } from "next/navigation"
-import { CompanionProvider } from "@/components/mascot/CompanionContext"
-import { COMPANIONS, type CompanionType } from "@/components/mascot/types"
-import { SessionFlow } from "@/components/session/SessionFlow"
+import { Tavle } from "@/components/board/Tavle"
 import { isLocale } from "@/lib/i18n/config"
+import { localePath } from "@/lib/i18n/routes"
+import { getMessages } from "@/lib/i18n/getMessages"
 import { getSessionUser } from "@/lib/auth/session"
 import { getActiveChild } from "@/lib/auth/active-child"
-
-const VALID_TYPES = new Set<string>(COMPANIONS.map(c => c.type))
+import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  fetchAllTasksForChild,
+  fetchAllTasksForParent,
+  isTaskSubject,
+  type TaskSubject,
+} from "@/lib/tasks"
 
 export default async function ParentDashboard({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>
+  searchParams: Promise<{ childId?: string; subject?: string }>
 }) {
   const { locale } = await params
   if (!isLocale(locale)) notFound()
 
-  // Proxy handles all redirects (unauthed, no cookie, no children).
-  // Both getSessionUser and getActiveChild are cached per-request —
-  // shared with layout, zero extra DB calls.
   const user = (await getSessionUser())!
   const { activeChildId, activeChild } = await getActiveChild(user.id)
+  const sp = await searchParams
+  const m = getMessages(locale)
 
-  // Kid greeting — use the selected child's name. Never fall back to the
-  // parent's display name / email prefix (that's where "Hej smidstrupdaniel!"
-  // was sneaking in). If no active child, pass null → ScanPanel shows a
-  // generic greeting.
-  const childName = activeChild?.name?.split(" ")[0] ?? null
-  const childEmoji = activeChild?.avatar_emoji ?? null
-  // Grade is the single source of truth from the child profile. If the
-  // child has no grade set, leave it null — don't guess from the photo.
-  const childGrade = activeChild?.grade ?? null
+  const isKid = !!activeChild
 
-  // Companion comes from the child's row (migration 007). Null → consumers
-  // fall back to DEFAULT_COMPANION (Dani the lion).
-  const rawChildCompanion = activeChild?.companion_type
-  const initialCompanion: CompanionType | null =
-    rawChildCompanion && VALID_TYPES.has(rawChildCompanion)
-      ? (rawChildCompanion as CompanionType)
+  // All children for the parent — drives the top-right kid dropdown in the
+  // Tavle. Kid mode skips this query (kid sees only their own anyway).
+  const admin = createAdminClient()
+  let allChildren: { id: string; name: string }[] = []
+  if (!isKid) {
+    const { data } = await admin
+      .from("children")
+      .select("id, name")
+      .eq("parent_id", user.id)
+      .order("created_at", { ascending: true })
+    allChildren = ((data ?? []) as { id: string; name: string }[]).map(c => ({
+      ...c,
+      name: c.name.split(" ")[0],
+    }))
+  }
+
+  // Optional URL filters (set by the dropdown's router.replace and by
+  // Forældre Ro deep-links). Both ignored in kid mode.
+  const filterChildId =
+    !isKid && sp.childId && allChildren.some(c => c.id === sp.childId)
+      ? sp.childId
       : null
+  const initialSubject: TaskSubject | null =
+    sp.subject && isTaskSubject(sp.subject) ? sp.subject : null
+
+  let tasks = isKid
+    ? await fetchAllTasksForChild(user.id, activeChildId!)
+    : await fetchAllTasksForParent(user.id)
+  if (filterChildId) {
+    tasks = tasks.filter(t => t.childId === filterChildId)
+  }
+
+  // childId → first name map for the in-task badges in parent mode.
+  let childNames: Record<string, string> | undefined
+  if (!isKid) {
+    childNames = Object.fromEntries(allChildren.map(c => [c.id, c.name]))
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 w-full max-w-2xl flex-1 flex-col self-center lg:max-w-3xl">
-        <CompanionProvider initial={initialCompanion} childId={activeChildId}>
-          <SessionFlow
-            isAdmin={user.role === "admin"}
-            activeChildId={activeChildId}
-            childName={childName}
-            childEmoji={childEmoji}
-            childGrade={childGrade}
-          />
-        </CompanionProvider>
+      <div className="flex min-h-0 w-full flex-1 flex-col">
+        <Tavle
+          locale={locale}
+          mode={isKid ? "kid" : "parent"}
+          tasks={tasks}
+          childNames={childNames}
+          children={allChildren}
+          selectedChildId={filterChildId}
+          initialSubject={initialSubject}
+          newTaskHref={
+            isKid
+              ? localePath(locale, "parentNewTask")
+              : localePath(locale, "parentAddToBoard")
+          }
+          messages={m.tavle}
+        />
       </div>
     </div>
   )

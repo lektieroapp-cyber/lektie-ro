@@ -9,14 +9,23 @@ import { AccountMenu } from "./AccountMenu"
 type ActiveChild = {
   id: string
   name: string
+  grade: number | null
   avatar_emoji: string | null
   companion_type: string | null
 }
 
 const HomeIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-    <circle cx="12" cy="13" r="4" />
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <line x1="3" y1="9" x2="21" y2="9" />
+    <line x1="9" y1="13" x2="9" y2="20" />
+  </svg>
+)
+
+const PlusIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
   </svg>
 )
 
@@ -52,9 +61,15 @@ export function Sidebar({
 
   const profilesHref = localePath(locale, "parentProfiles")
 
-  // Child mode: only the homework dashboard. Parent mode: dashboard + overview.
+  // Kid mode: Tavle + Ny lektie (every grade — we trust the kid to start
+  // their own homework). Parent mode: Tavle + Forældre Ro. Adding tasks to
+  // the board for the parent lives inside the Tavle itself (the "+ Læg på
+  // tavlen" pill in the header).
   const userItems = isChildMode
-    ? [{ href: localePath(locale, "parentDashboard"), icon: HomeIcon, label: m.app.nav.dashboard }]
+    ? [
+        { href: localePath(locale, "parentDashboard"), icon: HomeIcon, label: m.app.nav.dashboard },
+        { href: localePath(locale, "parentNewTask"), icon: PlusIcon, label: m.app.nav.newTask },
+      ]
     : [
         { href: localePath(locale, "parentDashboard"), icon: HomeIcon, label: m.app.nav.dashboard },
         { href: localePath(locale, "parentOverview"), icon: OverviewIcon, label: m.app.nav.overview },

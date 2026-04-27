@@ -128,7 +128,17 @@ Return ONLY valid JSON with this structure:
 TASK STRUCTURE — PRINCIPLE:
 A page typically has 1–4 task GROUPS. A group = one overarching instruction
 plus its sub-items. Groups are the unit; individual sub-items are steps.
-Cap at 8 groups per page and ~20 steps per group.
+
+EXTRACT EVERYTHING YOU CAN READ. Hard limits are: 12 groups per page, 30
+steps per group. These are MAXES, not targets — the right number is
+"every distinct sub-item visible on the page". A page with 26 a-items
+must return 26 steps; a page with 6 must return 6. Stopping at a round
+20 because it "looks like enough" is a hard failure: you've truncated
+the parent's homework and they'll have to add the rest by hand.
+
+If the page genuinely has more than 30 sub-items, return the first 30
+in image order and add a short note in detectionNotes ("Side har flere
+end 30 deltrin — kun de første medtaget"). Don't silently stop.
 
 STEPS vs CONTEXT — pick deliberately:
 - STEPS are discrete sub-problems with definite answers (math a/b/c,
@@ -221,7 +231,40 @@ FIELD RULES:
     unreadable:   text is too blurry / distorted
     no_tasks:     school-looking material but no actual tasks
 - "detectionNotes": short Danish note, only for subjectConfidence ≠ high.
-- Output NOTHING except JSON. No markdown, no comments.`
+- Output NOTHING except JSON. No markdown, no comments.
+
+ANTI-PATTERNS — refuse to do these even if it means returning fewer items:
+
+1. NEVER emit placeholder/enumerated steps that don't reflect what the
+   page actually says. Concrete forbidden shapes:
+     • prompts like "Lav opgave 1", "Opgave 2", "Trin 3", "Spørgsmål 4"
+       — these are NOT step content, they're just numbering with no
+       instruction. They mean you didn't read the page.
+     • prompts that are identical across steps except for a number.
+     • generic verbs with no object: "Løs opgaven", "Svar på spørgsmålet",
+       "Læs teksten" — every step prompt MUST include the concrete words,
+       numbers, or items the child actually has to work with on this
+       specific page.
+     • sequential 1..N labels with empty or near-empty prompts.
+
+2. If you can read the task GROUP but cannot precisely read the sub-items
+   (handwriting, blurry, page corner cut), return the group as a single
+   task with steps:[] and put a short note in detectionNotes ("Sub-items
+   var svære at læse") — DO NOT invent numbered placeholders.
+
+3. The number of steps you emit must equal the number of distinct
+   sub-items you can actually see and transcribe. Returning 20 fake
+   steps because the cap allows it is a hard failure. Returning 6 real
+   steps when the page has 6 sub-items is correct. Returning 0 steps
+   when sub-items are unreadable is correct.
+
+4. Each step.prompt must be unique content drawn from the image. If two
+   steps would have the same prompt, you collapsed two image-items into
+   one — re-read or omit one.
+
+If the page is dense and you can only confidently extract some sub-items,
+return ONLY those. Quality > quantity. The tutor downstream can ask the
+child about the rest if needed.`
 
 // Core vision call. Accepts a data URL (data:image/jpeg;base64,...) and
 // returns a normalised VisionResult. Throws on Azure failure — caller
@@ -240,9 +283,12 @@ export async function extractTasksFromImage(
   // (what's a task vs a caption vs a self-reference) which is exactly the
   // kind of judgment "minimal" tends to skip. The hint route stays on
   // "minimal" because that path runs every turn and latency dominates.
+  // 5500 gives dense grade 5-7 pages with many sub-items (a-j, plus
+  // multiple opgaver) enough headroom. Previous 3500 truncated the JSON
+  // mid-array on tightly packed pages and we'd silently drop the tail.
   const gpt5Extras = {
     reasoning_effort: "low",
-    max_completion_tokens: 3500,
+    max_completion_tokens: 5500,
   } as unknown as Record<string, never>
   const deployment = getDeployment()
   const completion = await client.chat.completions.create({
@@ -291,12 +337,18 @@ export async function extractTasksFromImage(
     detectionNotes?: string | null
   }
 
+  // Caps: 12 main groups per page, 30 sub-steps per group. Dense Danish
+  // workbook pages routinely pack 6-10 numbered exercises and grammar
+  // / word-list chapters can spawn 25-30 a-items. The parent UI flags
+  // when steps hit STEP_CAP exactly so they can verify nothing was
+  // truncated.
+  const placeholderHits: string[] = []
   const tasks: VisionTask[] = (parsed.tasks ?? [])
     .filter(t => typeof t.text === "string" && t.text.trim().length > 0)
-    .slice(0, 8)
+    .slice(0, 12)
     .map((t, i) => {
       const rawSteps = Array.isArray(t.steps) ? t.steps : []
-      const steps = rawSteps
+      let steps = rawSteps
         .filter(
           s =>
             typeof s.label === "string" &&
@@ -304,11 +356,31 @@ export async function extractTasksFromImage(
             typeof s.prompt === "string" &&
             s.prompt.trim().length > 0
         )
-        .slice(0, 20)
+        .slice(0, STEP_CAP)
         .map(s => ({
           label: s.label!.trim().slice(0, 24),
           prompt: s.prompt!.trim().slice(0, 200),
         }))
+      // Anti-placeholder guard. The model occasionally falls back to
+      // "Lav opgave 1", "Opgave 2", "Spørgsmål 3" enumerations when it
+      // can't (or didn't) read the actual sub-items. Drop steps that
+      // look like generic enumerations rather than real instructions.
+      // We also drop the whole steps array when MORE than half look
+      // placeholder-y — partial pollution usually means the model
+      // gave up part-way and we'd rather the tutor see no steps than
+      // fake ones.
+      if (steps.length > 0) {
+        const flagged = steps.filter(s => isPlaceholderStep(s.prompt))
+        if (flagged.length > 0) {
+          placeholderHits.push(`task ${i + 1}: ${flagged.length}/${steps.length} placeholder`)
+        }
+        if (flagged.length * 2 > steps.length) {
+          // Majority is junk → drop them all. Better empty than wrong.
+          steps = []
+        } else if (flagged.length > 0) {
+          steps = steps.filter(s => !isPlaceholderStep(s.prompt))
+        }
+      }
       const goal =
         typeof t.goal === "string" && t.goal.trim().length > 0
           ? t.goal.trim().slice(0, 180)
@@ -338,11 +410,20 @@ export async function extractTasksFromImage(
   const subject = normaliseSubject(parsed.subject ?? null)
   const subjectConfidence = normaliseConfidence(parsed.subjectConfidence)
   const reason = normaliseReason(parsed.reason)
-  const detectionNotes =
+  // Surface placeholder cleanup in detectionNotes so the parent (and
+  // admin debug panel) sees that the extractor scrubbed junk steps.
+  const baseNotes =
     typeof parsed.detectionNotes === "string" &&
     parsed.detectionNotes.trim().length > 0
       ? parsed.detectionNotes.trim().slice(0, 160)
       : null
+  const placeholderNote =
+    placeholderHits.length > 0
+      ? `Filtrerede pladsholder-trin (${placeholderHits.join(", ")})`
+      : null
+  const detectionNotes = [baseNotes, placeholderNote]
+    .filter(Boolean)
+    .join(" · ") || null
 
   return {
     subject,
@@ -352,4 +433,25 @@ export async function extractTasksFromImage(
     detectionNotes,
     usage,
   }
+}
+
+/** Public so the client can detect "cap hit" and warn the parent. */
+export const STEP_CAP = 30
+
+// Catches the "Lav opgave 1", "Opgave 2", "Spørgsmål 3", "Trin 4" and
+// "1.", "2.", etc. patterns the model falls back to when it didn't
+// actually read the page contents. The check runs against the prompt
+// (not the label) — labels like "A", "B", "1", "2" are legitimate task
+// labelling; placeholder content is the failure mode.
+const PLACEHOLDER_PROMPT_RE =
+  /^(?:lav\s+|løs\s+|svar\s+på\s+|læs\s+)?(?:opgave|spørgsmål|trin|punkt|del|item|task|nummer|nr\.?)\s*\d+\.?\s*$/i
+const PURE_NUMBER_RE = /^\s*(?:nr\.?\s*)?\d+\.?\s*$/i
+
+function isPlaceholderStep(prompt: string): boolean {
+  const t = prompt.trim()
+  if (t.length === 0) return true
+  if (t.length <= 4) return true
+  if (PLACEHOLDER_PROMPT_RE.test(t)) return true
+  if (PURE_NUMBER_RE.test(t)) return true
+  return false
 }
