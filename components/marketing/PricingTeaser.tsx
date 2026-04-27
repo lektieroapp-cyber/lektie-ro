@@ -14,7 +14,6 @@ function Plan({
   body,
   features,
   highlighted,
-  badge,
 }: {
   name: string
   price: string
@@ -22,7 +21,6 @@ function Plan({
   body: string
   features: string[]
   highlighted?: boolean
-  badge?: string
 }) {
   return (
     <div
@@ -31,11 +29,6 @@ function Plan({
       }`}
       style={{ boxShadow: "var(--shadow-card)" }}
     >
-      {badge && (
-        <span className="absolute left-1/2 -top-3 -translate-x-1/2 rounded-chip bg-mint-deep px-3 py-1 text-xs font-bold tracking-wide text-white uppercase">
-          {badge}
-        </span>
-      )}
       <h3
         className={`text-xl font-semibold ${
           highlighted ? "text-mint-deep" : "text-ink"
@@ -75,7 +68,7 @@ export function PricingTeaser({ locale }: { locale: Locale }) {
 
   return (
     <section className="bg-canvas">
-      <div className="mx-auto flex max-w-5xl flex-col items-center px-5 py-20 md:px-6 md:py-28 lg:py-32 text-center">
+      <div className="mx-auto flex max-w-5xl flex-col items-center px-5 pt-10 pb-20 md:px-6 md:pt-14 md:pb-24 lg:pt-16 lg:pb-28 text-center">
         <h2
           className="text-3xl md:text-4xl lg:text-5xl font-bold text-ink"
           style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
@@ -97,7 +90,6 @@ export function PricingTeaser({ locale }: { locale: Locale }) {
             body={m.pricing.family.body}
             features={m.pricing.family.features}
             highlighted
-            badge={m.pricing.family.badge}
           />
         </div>
         <p className="mt-8 max-w-md text-xs text-muted">{m.pricing.note}</p>

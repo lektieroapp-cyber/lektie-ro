@@ -161,52 +161,99 @@ export function PhoneMockup() {
               />
             ))}
           </div>
+          {/* Second turn — Dani's follow-up after the kid's voice answer.
+              Re-uses the same bubble visual as the first turn so the chat
+              flow reads as one ongoing conversation. */}
           <div
             style={{
-              fontSize: 11,
-              color: "#556048",
-              padding: "0 4px",
+              background: "#E4F2EB",
+              padding: "10px 12px",
+              borderRadius: "14px 14px 14px 4px",
+              fontSize: 11.5,
+              color: "#1F2D1A",
               lineHeight: 1.4,
+              alignSelf: "stretch",
             }}
           >
-            Ti-rammen er fuld, og der er <b>3 tilbage</b>. Hvad bliver det i alt?
+            <b>Godt set!</b> Nu har du de 10 og 3 tilbage. Hvad bliver resultatet?
           </div>
 
-          {/* Buttons pinned to bottom — mint CTA with ink text (v3 contrast rule). */}
-          <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
+          {/* Voice input bar pinned to bottom — mic on the left, live waveform
+              in the middle, mint send arrow on the right. Mirrors the kid
+              voice-mode UI so the marketing phone reads as the real product. */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: "auto",
+              padding: "6px 6px 6px 4px",
+            }}
+          >
             <div
               style={{
-                flex: 1,
-                height: 40,
+                width: 36,
+                height: 36,
                 borderRadius: 999,
+                background: "#EDE2CD",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 12,
-                fontWeight: 700,
-                background: "#fff",
-                color: "#1F2D1A",
-                border: "1.5px solid rgba(31,45,26,0.12)",
+                color: "#556048",
+                flexShrink: 0,
               }}
             >
-              Prøv selv
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="9" y="3" width="6" height="12" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0" strokeLinecap="round" />
+                <path d="M12 18v3" strokeLinecap="round" />
+                <path d="M9 21h6" strokeLinecap="round" />
+              </svg>
             </div>
             <div
               style={{
                 flex: 1,
-                height: 40,
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
+                height: 36,
+                padding: "0 12px",
+                background: "#fff",
                 borderRadius: 999,
+                border: "1px solid rgba(31,45,26,0.06)",
+              }}
+              aria-hidden
+            >
+              {[6, 10, 14, 18, 22, 18, 14, 10, 14, 18, 14, 10, 6].map((h, i) => (
+                <span
+                  key={i}
+                  style={{
+                    display: "inline-block",
+                    width: 2.5,
+                    height: h,
+                    borderRadius: 2,
+                    background: "#7ACBA2",
+                  }}
+                />
+              ))}
+            </div>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 999,
+                background: "#7ACBA2",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 12,
-                fontWeight: 800,
-                background: "#7ACBA2",
-                color: "#1F2D1A",
-                boxShadow: "0 4px 12px -4px rgba(79,142,107,0.35)",
+                color: "#fff",
+                flexShrink: 0,
+                boxShadow: "0 4px 12px -4px rgba(79,142,107,0.45)",
               }}
             >
-              Tjek svar
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
             </div>
           </div>
         </div>

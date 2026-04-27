@@ -1,8 +1,6 @@
-import type { ReactNode } from "react"
-import Link from "next/link"
+import Image from "next/image"
 import { type Locale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
-import { localePath } from "@/lib/i18n/routes"
 import { PhoneMockup } from "./PhoneMockup"
 import { WaitlistForm } from "./WaitlistForm"
 
@@ -23,24 +21,26 @@ const COLORS = {
 
 export function Hero({ locale }: { locale: Locale }) {
   const m = getMessages(locale)
-  const perks: string[] = m.hero.perks ?? []
+  // Three perks read as a horizontal row of mint-deep checks under the CTA.
+  // Take the first three so the row never wraps awkwardly on the design width.
+  const perks: string[] = (m.hero.perks ?? []).slice(0, 3)
 
   return (
     <section
       style={{
-        maxWidth: 1200,
+        maxWidth: 1240,
         margin: "0 auto",
-        padding: "80px 32px 120px",
+        padding: "72px 32px 112px",
         position: "relative",
         display: "grid",
-        gridTemplateColumns: "1.15fr 1fr",
-        gap: 64,
+        gridTemplateColumns: "1.05fr 1fr",
+        gap: 56,
         alignItems: "center",
       }}
       className="hero-grid"
     >
       {/* ─── Left column ─────────────────────────────────────────── */}
-      <div>
+      <div style={{ position: "relative" }}>
         <span
           style={{
             display: "inline-flex",
@@ -87,269 +87,231 @@ export function Hero({ locale }: { locale: Locale }) {
         </h1>
 
         <p
+          className="hero-subtitle"
           style={{
             fontSize: 18,
             color: COLORS.ink2,
-            maxWidth: 440,
+            maxWidth: 480,
             lineHeight: 1.55,
+            margin: "0 0 28px",
           }}
         >
           {m.hero.subtitle}
         </p>
 
-        {/* Promise chips — uniform style, mint-deep glyphs per value */}
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            marginTop: 28,
-            flexWrap: "wrap",
-          }}
-        >
-          <Chip label={m.hero.values.one} icon={<HeartIcon />} />
-          <Chip label={m.hero.values.two} icon={<LeafIcon />} />
-          <Chip label={m.hero.values.three} icon={<SparkIcon />} />
-        </div>
-
-        <a
-          href="#how"
-          style={{
-            marginTop: 32,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            fontWeight: 600,
-            color: COLORS.ink2,
-            fontSize: 14,
-            textDecoration: "none",
-          }}
-        >
-          {m.hero.learnMore}
-          <svg width="14" height="14" viewBox="0 0 14 14">
-            <path
-              d="M3 5l4 4 4-4"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </a>
-      </div>
-
-      {/* ─── Right column: phone + signup ───────────────────────── */}
-      <div className="hero-right" style={{ position: "relative" }}>
-        <PhoneMockup />
-
-        <div
-          id="venteliste"
-          className="hero-signup"
-          style={{
-            background: "#fff",
-            borderRadius: 24,
-            padding: 28,
-            boxShadow:
-              "0 30px 60px -20px rgba(31,45,26,0.18), 0 0 0 1px rgba(31,45,26,0.04)",
-            position: "relative",
-            marginLeft: 40,
-          }}
-        >
-          <h3
+        {/* Inline waitlist pill — email field + mint-deep CTA inside one
+            rounded shell. Replaces the separate signup card from the v2
+            layout so the primary action sits with the message. */}
+        <div className="hero-cta-wrap" style={{ position: "relative", maxWidth: 480 }}>
+          <WaitlistForm locale={locale} variant="inline" />
+          {/* Hand-drawn arrow nudges the eye into the CTA. The curve
+              sweeps in from the upper-right and lands at the "Skriv mig
+              op" button — arrowhead points down-left at the button so the
+              user reads it as "tap here", not as a flourish leading away.
+              Hidden below the breakpoint where the columns stack. */}
+          <span
+            aria-hidden
+            className="hero-arrow"
             style={{
-              fontFamily: "var(--font-fraunces), Georgia, serif",
-              fontSize: 26,
-              fontWeight: 700,
-              color: COLORS.ink,
-              letterSpacing: "-0.5px",
-              marginBottom: 6,
-            }}
-          >
-            {m.waitlist.title}
-          </h3>
-          <p
-            style={{
-              fontSize: 13.5,
+              position: "absolute",
+              right: -74,
+              // Pulled up so the arrowhead (at SVG y=50) lands on the
+              // vertical center of the "Skriv mig op" button instead of
+              // below it. Curve extends a bit above the card top, which
+              // reads fine against the cream background.
+              top: -23,
               color: COLORS.ink2,
-              marginBottom: 18,
-              lineHeight: 1.5,
+              opacity: 0.55,
             }}
           >
-            {m.waitlist.subtitle}
-          </p>
+            <svg width="64" height="60" viewBox="0 0 64 60" fill="none">
+              {/* Curve start (top-right) → end (bottom-left at 4,50) */}
+              <path
+                d="M56 8 C 36 28 24 50 4 50"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                fill="none"
+              />
+              {/* Arrowhead at (4, 50) pointing down-and-left at the CTA */}
+              <path
+                d="M 12 44 L 4 50 L 10 56"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </svg>
+          </span>
+        </div>
 
-          <WaitlistForm locale={locale} />
-
-          {/* Perks grid — mint-deep checks */}
-          {perks.length > 0 && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                marginTop: 16,
-              }}
-            >
-              {perks.map(label => (
-                <div
-                  key={label}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 12,
-                    color: COLORS.ink2,
-                    fontWeight: 600,
-                  }}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    style={{ color: COLORS.mintDeep, flexShrink: 0 }}
-                  >
-                    <path
-                      d="M2 7l3 3 7-7"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  {label}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p
+        {/* Perk row — three mint-deep checks under the CTA. */}
+        {perks.length > 0 && (
+          <div
+            className="hero-perks"
             style={{
-              textAlign: "center",
-              fontSize: 12.5,
-              color: COLORS.ink3,
-              marginTop: 14,
+              display: "flex",
+              gap: 22,
+              marginTop: 22,
+              flexWrap: "wrap",
             }}
           >
-            {m.waitlist.existingHint}{" "}
-            <Link
-              href={localePath(locale, "login")}
-              style={{ color: COLORS.mintDeep, fontWeight: 700 }}
-            >
-              {m.waitlist.existingLink}
-            </Link>
-          </p>
+            {perks.map(label => (
+              <span
+                key={label}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 13.5,
+                  color: COLORS.ink2,
+                  fontWeight: 600,
+                }}
+              >
+                <CheckCircle />
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Right column: phone + lion + plant ────────────────── */}
+      <div className="hero-right" style={{ position: "relative", minHeight: 620 }}>
+        {/* Sparkle + paper-note decorations float behind the phone. The
+            lion + plant cluster sits to the right of the phone, anchored
+            to the bottom of the right column. The .hero-decor class lets
+            the mobile media query hide them in one rule so they don't
+            overflow the narrow viewport. */}
+        <Sparkle className="hero-decor" style={{ position: "absolute", top: 20, left: -10, opacity: 0.55 }} />
+        <Sparkle small className="hero-decor" style={{ position: "absolute", top: 120, right: 30, opacity: 0.55 }} />
+        <PaperPlane className="hero-decor" style={{ position: "absolute", top: 60, right: -10, opacity: 0.6 }} />
+        <PaperNote className="hero-decor" style={{ position: "absolute", top: 100, left: -28, opacity: 0.7 }} />
+        <DottedSwoosh className="hero-decor" style={{ position: "absolute", top: 180, right: 0, opacity: 0.5 }} />
+
+        <div className="hero-phone-wrap" style={{ display: "flex", justifyContent: "center", position: "relative", zIndex: 1 }}>
+          <PhoneMockup />
+        </div>
+
+        <div
+          className="hero-lion-wrap"
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: -280,
+            bottom: -48,
+            width: 560,
+            zIndex: 2,
+            pointerEvents: "none",
+          }}
+        >
+          <Image
+            src="/hero_lion.webp"
+            alt=""
+            width={1536}
+            height={1024}
+            priority
+            sizes="560px"
+            style={{ width: "100%", height: "auto", display: "block" }}
+          />
         </div>
       </div>
 
-      <style>{`
-        @media (max-width: 900px) {
-          .hero-grid {
-            grid-template-columns: 1fr !important;
-            padding: 48px 24px 80px !important;
-            gap: 48px !important;
-          }
-          .hero-signup {
-            margin-left: 0 !important;
-          }
-          .hero-right {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 24px;
-          }
-        }
-      `}</style>
     </section>
   )
 }
 
-function Chip({
-  label,
-  icon,
-}: {
-  label: string
-  icon: ReactNode
-}) {
+function CheckCircle() {
   return (
     <span
+      aria-hidden
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 8,
-        padding: "9px 16px 9px 12px",
+        justifyContent: "center",
+        width: 18,
+        height: 18,
         borderRadius: 999,
-        background: "#fff",
-        border: `1px solid ${COLORS.mintEdge}`,
-        fontWeight: 600,
-        fontSize: 13.5,
-        letterSpacing: "-0.1px",
-        color: COLORS.ink,
-        boxShadow: "0 1px 2px rgba(31,45,26,0.04), 0 4px 12px rgba(31,45,26,0.04)",
+        border: `1.5px solid ${COLORS.mintEdge}`,
+        color: COLORS.mintDeep,
+        flexShrink: 0,
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 22,
-          height: 22,
-          borderRadius: 999,
-          background: COLORS.mintSoft,
-          color: COLORS.mintDeep,
-        }}
-      >
-        {icon}
-      </span>
-      {label}
+      <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+        <path
+          d="M2 7l3 3 7-7"
+          stroke="currentColor"
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </span>
   )
 }
 
-function HeartIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-      <path
-        d="M7 12s-4.5-2.7-4.5-6a2.5 2.5 0 0 1 4.5-1.5A2.5 2.5 0 0 1 11.5 6c0 3.3-4.5 6-4.5 6z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
+type DecorProps = {
+  style?: React.CSSProperties
+  className?: string
 }
 
-function LeafIcon() {
+function Sparkle({ small, style, className }: DecorProps & { small?: boolean }) {
+  const size = small ? 14 : 18
   return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" style={style} className={className} aria-hidden>
       <path
-        d="M11.5 2.5c0 5-3 8-7 8 0-5 3-8 7-8z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M4.5 10.5L2.5 12.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
+        d="M9 1v6M9 11v6M1 9h6M11 9h6"
+        stroke={COLORS.ink3}
+        strokeWidth="1.4"
         strokeLinecap="round"
       />
     </svg>
   )
 }
 
-function SparkIcon() {
+function PaperPlane({ style, className }: DecorProps) {
   return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style={style} className={className} aria-hidden>
       <path
-        d="M7 1.5v3M7 9.5v3M1.5 7h3M9.5 7h3M3.1 3.1l2.1 2.1M8.8 8.8l2.1 2.1M10.9 3.1L8.8 5.2M5.2 8.8L3.1 10.9"
-        stroke="currentColor"
-        strokeWidth="1.6"
+        d="M4 22 L40 6 L34 38 L24 26 L4 22 Z"
+        stroke={COLORS.ink3}
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        fill={COLORS.cream}
+      />
+      <path d="M24 26 L34 16" stroke={COLORS.ink3} strokeWidth="1.2" />
+    </svg>
+  )
+}
+
+function PaperNote({ style, className }: DecorProps) {
+  return (
+    <svg width="46" height="56" viewBox="0 0 46 56" fill="none" style={style} className={className} aria-hidden>
+      <path
+        d="M5 6 H 32 L 41 15 V 50 H 5 Z"
+        fill="#FFF8EA"
+        stroke={COLORS.ink3}
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path d="M32 6 V 15 H 41" stroke={COLORS.ink3} strokeWidth="1.2" fill="none" />
+      <path d="M11 22 L 35 22 M 11 28 L 35 28 M 11 34 L 30 34" stroke={COLORS.ink3} strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function DottedSwoosh({ style, className }: DecorProps) {
+  return (
+    <svg width="120" height="50" viewBox="0 0 120 50" fill="none" style={style} className={className} aria-hidden>
+      <path
+        d="M2 30 C 30 6 70 6 118 30"
+        stroke={COLORS.ink3}
+        strokeWidth="1.4"
         strokeLinecap="round"
+        strokeDasharray="2 6"
+        fill="none"
       />
     </svg>
   )
