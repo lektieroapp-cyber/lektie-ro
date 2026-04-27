@@ -109,6 +109,7 @@ export function HintChat({
   onRequestNewPhoto,
   completed,
   conversationMode = "text",
+  englishTutoringLanguage = null,
 }: {
   task: Task
   solve: SolveResponse
@@ -125,6 +126,11 @@ export function HintChat({
   completed: boolean
   /** "voice" = full bot-agent loop (auto-TTS + auto-mic). "text" = typed UX. */
   conversationMode?: ConversationMode
+  /** Per-child engelsk-tutoring preference resolved server-side from the
+   *  child profile. Threaded into /api/tts so the route can swap to the
+   *  English-led primary voice when set to "english". null = default
+   *  Danish-led behaviour (used when subject isn't engelsk anyway). */
+  englishTutoringLanguage?: "danish" | "english" | null
 }) {
   // In voice mode we always speak + auto-open the mic. In text mode we
   // respect the manual 🔊 toggle the kid can flip in the bottom bar.
@@ -153,6 +159,11 @@ export function HintChat({
   // Live RMS (0..~0.1) from the VAD — used to draw a real mic level meter so
   // the kid can SEE that audio is being picked up. Zero when not recording.
   const [micLevel, setMicLevel] = useState(0)
+  // Set when the kid hits Færdig with partial step coverage — drives the
+  // styled confirmation modal that asks "stop here and save what you've
+  // done?". Replaces the native window.confirm dialog which was harsh
+  // and didn't match the rest of the kid UI.
+  const [pendingPartial, setPendingPartial] = useState<CompletionStatus | null>(null)
   // Dev-only debug: URL + metadata for the last recorded mic blob so we can
   // play it back and hear what Azure actually received. Only populated on
   // localhost; the panel is rendered by SessionFlow when showDevTools is on.
@@ -259,6 +270,44 @@ export function HintChat({
     return { done, current }
   }, [turns, streaming, partial])
 
+  // Steps the AI has appended via [task append-step …] during this session.
+  // Used for medium/low-certainty tasks where the extractor couldn't read
+  // every sub-item from the photo — the kid identifies them in chat, the
+  // tutor emits the marker, and we register them here so the in-session
+  // checklist + the persisted task both reflect the real shape. Deduped
+  // by label so a re-emission (model echoing the marker on a follow-up
+  // turn) doesn't add duplicates.
+  const appendedSteps = useMemo(() => {
+    type Step = { label: string; prompt: string }
+    // Matches both attribute orderings the model might emit. action= must
+    // be present and equal "append-step" so we don't catch unrelated [task]
+    // markers we add later.
+    const re = /\[task\s+(?=[^\]]*action="append-step")[^\]]*?label="([^"]*)"[^\]]*?prompt="([^"]*)"[^\]]*\]/g
+    const acc: Step[] = []
+    const seen = new Set<string>()
+    // Pre-seed seen with whatever labels the extractor already gave us so
+    // we don't duplicate an existing step the AI re-emits as an "append".
+    for (const s of task.steps ?? []) seen.add(s.label.toLowerCase())
+    const sources = turns
+      .filter(t => t.role === "assistant")
+      .map(t => t.content)
+    if (streaming && partial) sources.push(partial)
+    for (const src of sources) {
+      re.lastIndex = 0
+      let m: RegExpExecArray | null
+      while ((m = re.exec(src)) !== null) {
+        const label = m[1].trim().slice(0, 24)
+        const prompt = m[2].trim().slice(0, 200)
+        if (!label || !prompt) continue
+        const key = label.toLowerCase()
+        if (seen.has(key)) continue
+        seen.add(key)
+        acc.push({ label, prompt })
+      }
+    }
+    return acc
+  }, [turns, streaming, partial, task.steps])
+
   // Effective step list for the checklist. The extractor sometimes gives
   // us only a single step for composition/template tasks — Dani then
   // invents numbered pseudo-steps in the conversation ("1. hjem-type,
@@ -267,11 +316,16 @@ export function HintChat({
   // in the progress markers so the kid actually sees their 1/4, 2/4, 3/4
   // ticks land at the top of the screen.
   const displayedSteps = useMemo(() => {
-    if (task.steps && task.steps.length > 1) return task.steps
+    // Combine extractor-provided steps with anything the AI appended via
+    // [task append-step …] during this session, so the checklist grows
+    // live as the kid identifies sub-items the photo wasn't clear enough
+    // to read.
+    const baseSteps = [...(task.steps ?? []), ...appendedSteps]
+    if (baseSteps.length > 1) return baseSteps
     const numeric = [...stepProgress.done, stepProgress.current]
       .filter((v): v is string => !!v && /^\d+$/.test(v))
       .map(v => parseInt(v, 10))
-    if (numeric.length === 0) return task.steps ?? null
+    if (numeric.length === 0) return baseSteps.length > 0 ? baseSteps : null
     const max = Math.max(...numeric, 4)
     const count = Math.max(max, 4)
     // Empty `prompt` — the extractor didn't give us descriptions, and
@@ -281,7 +335,28 @@ export function HintChat({
       label: String(i + 1),
       prompt: "",
     }))
-  }, [task.steps, stepProgress.done, stepProgress.current])
+  }, [task.steps, appendedSteps, stepProgress.done, stepProgress.current])
+
+  // Persist the appended steps back to the task so the parent dashboard
+  // and any future session for this task see the enriched shape. Fires
+  // after streaming ends and when the appended-steps signature changes.
+  // Best-effort — failures are logged but never block the session.
+  const lastSavedAppendsRef = useRef<string>("")
+  useEffect(() => {
+    if (streaming) return
+    if (appendedSteps.length === 0) return
+    const signature = appendedSteps.map(s => `${s.label}:${s.prompt}`).join("|")
+    if (signature === lastSavedAppendsRef.current) return
+    lastSavedAppendsRef.current = signature
+    const combined = [...(task.steps ?? []), ...appendedSteps]
+    void fetch(`/api/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ steps: combined }),
+    }).catch(err => {
+      logDevEvent("ai-error", `task append failed: ${(err as Error).message}`)
+    })
+  }, [streaming, appendedSteps, task.id, task.steps])
 
   // Open the mic stream once, keep it for the whole voice-agent session.
   // Browsers cache the permission so the prompt only appears on first call.
@@ -330,10 +405,32 @@ export function HintChat({
       try {
         audioElRef.current.pause()
         audioElRef.current.src = ""
+        // load() forces the element to forget the current source and reset
+        // its internal state — without this, the element sometimes resumes
+        // when a queued srcObject lands a tick later.
+        audioElRef.current.load()
       } catch {
         // Non-fatal — we're tearing down anyway.
       }
       audioElRef.current = null
+    }
+    // Sledgehammer: also pause every <audio> the document currently owns.
+    // The pump() loop captures audioElRef in a closure; if the loop has
+    // already advanced and its captured reference doesn't match what's in
+    // the ref now, the chunk it queued plays on. Walking document.audios
+    // catches every element regardless of where the closure put it. Safe
+    // because the only audio elements LektieRo creates live inside the
+    // session shell — there's no music player in the parent surrounds.
+    if (typeof document !== "undefined") {
+      try {
+        for (const el of Array.from(document.querySelectorAll("audio"))) {
+          el.pause()
+          el.src = ""
+          el.load()
+        }
+      } catch {
+        // Non-fatal.
+      }
     }
     // Setting the barge-in flag makes pump() break out of its play loop,
     // drain remaining slots (revoking their object URLs), and resolve
@@ -396,6 +493,87 @@ export function HintChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceAgent])
 
+  // Latest in-flight state, mirrored into a ref so the navigation handlers
+  // below can read fresh values without re-binding listeners on every render.
+  // sendBeacon is fire-and-forget so the closure must compose its payload at
+  // event-time from the most recent state, not whatever was current when
+  // the effect first mounted.
+  const sessionStateRef = useRef({
+    sessionId: solve.sessionId,
+    turnCount: 0,
+    stepsDone: 0,
+    stepsTotal: 0,
+    completed: false,
+  })
+  useEffect(() => {
+    const stepsTotal = displayedSteps?.length ?? 0
+    const stepsDone = displayedSteps
+      ? displayedSteps.filter(s => stepProgress.done.has(s.label)).length
+      : stepProgress.done.has("all") ? 1 : 0
+    sessionStateRef.current = {
+      sessionId: solve.sessionId,
+      turnCount: turns.length,
+      stepsDone,
+      stepsTotal,
+      completed,
+    }
+  }, [solve.sessionId, turns.length, stepProgress.done, displayedSteps, completed])
+
+  // Browser navigation (back/forward, tab close, tab hidden) → stop TTS
+  // immediately AND mark the session as abandoned via sendBeacon so the
+  // parent dashboard sees a real "Afbrudt" status instead of leaving a
+  // ghost "I gang" row that sits unfinalised forever. Skipped when the
+  // kid genuinely completed the task — that path runs the normal PATCH.
+  useEffect(() => {
+    const closeSession = () => {
+      const s = sessionStateRef.current
+      if (!s.sessionId || s.completed) return
+      // sendBeacon is the only reliable way to dispatch during pagehide:
+      // a regular fetch gets cancelled when the page navigates away.
+      // Payload mirrors the /api/session PATCH shape with the abandoned
+      // completion kind so steps_done is preserved and ended_at gets set.
+      const payload = JSON.stringify({
+        sessionId: s.sessionId,
+        turnCount: s.turnCount,
+        completed: false,
+        stepsDone: s.stepsDone,
+        stepsTotal: s.stepsTotal,
+        completionKind: "abandoned",
+      })
+      try {
+        navigator.sendBeacon(
+          "/api/session",
+          new Blob([payload], { type: "application/json" }),
+        )
+      } catch {
+        // sendBeacon throws on some Safari builds when the body is too
+        // large; fall back to a keepalive fetch which usually survives.
+        void fetch("/api/session", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {})
+      }
+    }
+    const stop = () => {
+      stopVoiceOutput()
+      closeSession()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") stop()
+    }
+    window.addEventListener("pagehide", stop)
+    window.addEventListener("popstate", stop)
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      window.removeEventListener("pagehide", stop)
+      window.removeEventListener("popstate", stop)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // When the task is marked done (Opgave løst ✓, Afslut samtale, session
   // limit reached) we need to kill any in-flight TTS audio immediately —
   // otherwise Dani keeps talking over the celebration screen. The celebration
@@ -422,7 +600,11 @@ export function HintChat({
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, subject: solve.subject }),
+        body: JSON.stringify({
+          text,
+          subject: solve.subject,
+          ...(englishTutoringLanguage ? { tutoringLanguage: englishTutoringLanguage } : {}),
+        }),
       })
       if (!res.ok) {
         const detail = await res.text().catch(() => "")
@@ -649,6 +831,7 @@ export function HintChat({
           taskType: task.type ?? null,
           needsPaper: task.needsPaper ?? null,
           taskContext: task.context ?? null,
+          completionCertainty: task.completionCertainty ?? "medium",
           subject: solve.subject,
           turns: nextTurns,
           childId,
@@ -857,6 +1040,40 @@ export function HintChat({
     })
   }, [stepProgress])
 
+  // Incremental progress save — fires after each completed assistant turn
+  // (only when streaming finishes, so we don't write mid-stream churn).
+  // Without this, a kid who solves 3 of 5 steps then closes the browser
+  // loses everything: the main /api/session PATCH only runs when they
+  // press Færdig. The progress endpoint only updates steps_done/turn_count
+  // and explicitly skips already-completed sessions, so it's safe to fire
+  // on every turn. Failures are logged but never block the UI — the worst
+  // case is the parent dashboard lags by one turn.
+  const lastSavedProgressRef = useRef<string>("")
+  useEffect(() => {
+    if (!solve.sessionId) return
+    if (streaming) return
+    const stepsTotal = displayedSteps?.length ?? 0
+    const stepsDone = displayedSteps
+      ? displayedSteps.filter(s => stepProgress.done.has(s.label)).length
+      : stepProgress.done.has("all") ? 1 : 0
+    const signature = `${turns.length}|${stepsDone}|${stepsTotal}`
+    if (signature === lastSavedProgressRef.current) return
+    lastSavedProgressRef.current = signature
+    void fetch("/api/session/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: solve.sessionId,
+        turnCount: turns.length,
+        stepsDone,
+        stepsTotal,
+      }),
+    }).catch(err => {
+      logDevEvent("ai-error", `progress save fejlede: ${(err as Error).message}`)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streaming, turns.length, stepProgress.done, displayedSteps])
+
   // Computes how much of the task was actually solved. "all" in the done-set
   // (Dani explicitly marked the whole task done) is always "completed"
   // regardless of step count. Otherwise count matching labels — if every
@@ -891,12 +1108,20 @@ export function HintChat({
     // have to finish 100% to not lose progress. "Completed" goes through
     // unchallenged (they finished; celebrate). "Abandoned" also goes
     // through — the flow already handled their explicit intent to quit.
+    // Partial path: hand off to the styled modal (rendered below) which
+    // calls finishWith once the kid confirms.
     if (status.kind === "partial" && status.stepsTotal > 0) {
-      const msg =
-        `Du har lavet ${status.stepsDone} ud af ${status.stepsTotal} trin.\n\n` +
-        `Skal vi stoppe her og gemme det du har gjort? (Det er helt OK — du behøver ikke at lave alt.)`
-      if (!window.confirm(msg)) return
+      setPendingPartial(status)
+      return
     }
+    onComplete(turns, status)
+  }
+
+  // Modal-confirm path for partial completion. Lives outside
+  // completeWithStatus so the modal's "Stop her" button can call it
+  // directly with the captured status.
+  function finishWith(status: CompletionStatus) {
+    setPendingPartial(null)
     onComplete(turns, status)
   }
 
@@ -951,7 +1176,11 @@ export function HintChat({
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, subject: solve.subject }),
+        body: JSON.stringify({
+          text,
+          subject: solve.subject,
+          ...(englishTutoringLanguage ? { tutoringLanguage: englishTutoringLanguage } : {}),
+        }),
       })
       if (!res.ok) {
         const detail = await res.text().catch(() => "")
@@ -1737,6 +1966,93 @@ export function HintChat({
           }}
         />
       )}
+      {pendingPartial && (
+        <PartialCompletionModal
+          status={pendingPartial}
+          onCancel={() => setPendingPartial(null)}
+          onConfirm={() => finishWith(pendingPartial)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Friendly confirmation when the kid hits Færdig with only some of the
+ * task's steps ticked off. Replaces the native window.confirm with
+ * something that matches the rest of the kid UI — soft cream card,
+ * Fraunces headline, a clear "stop here, save what you've done" yes/no.
+ *
+ * The cancel button is the prominent one since the more common case is
+ * "I clicked Færdig by accident, let me keep going". The confirm button
+ * is mint-deep so it still reads as the affirmative path, just secondary
+ * in visual weight.
+ */
+function PartialCompletionModal({
+  status,
+  onCancel,
+  onConfirm,
+}: {
+  status: CompletionStatus
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="partial-complete-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <button
+        type="button"
+        aria-label="Luk"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-pointer bg-ink/40 backdrop-blur-sm"
+      />
+      <div
+        className="relative w-full max-w-md rounded-card bg-white p-6 text-center shadow-2xl"
+        style={{ boxShadow: "0 24px 60px -20px rgba(31,45,26,0.35)" }}
+      >
+        <div
+          aria-hidden
+          className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full"
+          style={{ background: "#E4F2EB", color: "#4F8E6B" }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 12l2 2 4-4" />
+            <circle cx="12" cy="12" r="9" />
+          </svg>
+        </div>
+        <h2
+          id="partial-complete-title"
+          className="text-xl font-bold text-ink"
+          style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+        >
+          Du har lavet {status.stepsDone} ud af {status.stepsTotal} trin
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink/65">
+          Skal vi stoppe her og gemme det du har gjort? Det er helt OK, du
+          behøver ikke at lave alt.
+        </p>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-btn border border-ink/15 bg-white px-5 py-2.5 text-sm font-semibold text-ink/75 transition hover:bg-canvas cursor-pointer"
+          >
+            Fortsæt opgaven
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-btn bg-mint-deep px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 cursor-pointer"
+            style={{ boxShadow: "0 4px 12px -4px rgba(79,142,107,0.45)" }}
+          >
+            Stop her og gem
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

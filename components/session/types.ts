@@ -28,6 +28,9 @@ export type Task = {
    *  to the kid). Used for constraints, target answers visible on the page,
    *  or anything the other fields can't carry. */
   context?: string
+  /** Vision extractor's confidence in the completion criteria. Drives how
+   *  rigid the AI tutor is about full coverage. Defaults to "medium". */
+  completionCertainty?: "high" | "medium" | "low"
 }
 
 export type TaskStep = {

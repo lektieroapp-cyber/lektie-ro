@@ -24,6 +24,10 @@ export type TaskRow = {
   sourceImagePath: string | null
   status: TaskStatus
   approvedByParent: boolean
+  /** Vision extractor's confidence in the completion criteria. The tutor
+   *  prompt branches on this — "low" lets the kid signal done with no
+   *  friction; "high" can hold them to all steps. Defaults to "medium". */
+  completionCertainty: "high" | "medium" | "low"
   createdAt: string
   updatedAt: string
   approvedAt: string | null
@@ -48,6 +52,7 @@ type DbRow = {
   source_image_path: string | null
   status: string
   approved_by_parent: boolean
+  completion_certainty: string | null
   created_at: string
   updated_at: string
   approved_at: string | null
@@ -58,7 +63,8 @@ type DbRow = {
 const SELECT_COLS =
   "id, child_id, parent_id, subject, task_title, task_text, task_type, " +
   "task_goal, task_steps, task_context, needs_paper, source_image_path, " +
-  "status, approved_by_parent, created_at, updated_at, approved_at, " +
+  "status, approved_by_parent, completion_certainty, " +
+  "created_at, updated_at, approved_at, " +
   "completed_at, dismissed_at"
 
 function mapRow(r: DbRow): TaskRow {
@@ -77,6 +83,10 @@ function mapRow(r: DbRow): TaskRow {
     sourceImagePath: r.source_image_path,
     status: r.status as TaskStatus,
     approvedByParent: r.approved_by_parent,
+    completionCertainty:
+      r.completion_certainty === "high" || r.completion_certainty === "low"
+        ? r.completion_certainty
+        : "medium",
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     approvedAt: r.approved_at,
@@ -96,6 +106,7 @@ export function rowToTask(row: TaskRow): Task {
     needsPaper: row.needsPaper ?? undefined,
     steps: row.steps ?? undefined,
     context: row.context ?? undefined,
+    completionCertainty: row.completionCertainty,
   }
 }
 
@@ -222,6 +233,7 @@ export type CreateTaskInput = {
   context?: string | null
   needsPaper?: boolean | null
   sourceImagePath?: string | null
+  completionCertainty?: "high" | "medium" | "low"
   /** Default true — board flow inserts already-approved rows. */
   approve?: boolean
 }
@@ -247,6 +259,7 @@ export async function createTask(
       task_context: input.context ?? null,
       needs_paper: input.needsPaper ?? null,
       source_image_path: input.sourceImagePath ?? null,
+      completion_certainty: input.completionCertainty ?? "medium",
       status: "pending",
       approved_by_parent: approve,
       approved_at: approve ? now : null,

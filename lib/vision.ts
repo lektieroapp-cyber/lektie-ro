@@ -23,6 +23,28 @@ export type VisionTask = {
    *  into the hint prompt as an OPAQUE context block — Dani uses it as
    *  reference, never copy-pastes it to the child. */
   context?: string
+  /** Per-step expected answers the extractor inferred (e.g. solving the
+   *  arithmetic, filling in the obvious blank). Used by the dev/admin
+   *  preview panel so a parent can verify the model is reading the task
+   *  correctly BEFORE the kid sits down. Index aligns with `steps` when
+   *  present; otherwise length 1 = whole-task answer. Empty / null when
+   *  the model can't honestly determine an answer (open-ended writing,
+   *  visible-only diagram, etc.). NOT persisted to the DB — preview-only. */
+  expectedAnswers?: string[]
+  /** How confident the extractor is in the completion criteria.
+   *  - "high"   = definite checklist (math a/b/c, grammar with answer key,
+   *               clean fill-in-blanks). Tutor can hold the kid to all
+   *               steps; partial completion gets a confirm prompt.
+   *  - "medium" = enumerable but extractor wasn't sure of every item
+   *               (picture crossword where some images were hard to read).
+   *               Tutor accepts kid's "jeg er færdig" without an audit;
+   *               soft-completes at high coverage.
+   *  - "low"    = open-ended task with no objective finish line (creative
+   *               writing, interview, free conversation). Kid signals
+   *               done = done, no friction, no confirm modal.
+   *  Defaults to "medium" when omitted — the safe middle ground that
+   *  trusts the kid without being too lenient on rigorous tasks. */
+  completionCertainty?: "high" | "medium" | "low"
 }
 
 export type VisionConfidence = "high" | "medium" | "low"
@@ -118,7 +140,9 @@ Return ONLY valid JSON with this structure:
       "steps": [
         { "label": "A", "prompt": "exactly what the child does for this sub-item" }
       ],
-      "context": "optional free-form notes the tutor needs during the session but the child shouldn't see in the task card"
+      "context": "optional free-form notes the tutor needs during the session but the child shouldn't see in the task card",
+      "expectedAnswers": ["per-step answer YOU would write if you were the kid; index-aligned with steps[]; omit / empty array for open-ended creative tasks where there is no single right answer"],
+      "completionCertainty": "high" | "medium" | "low"
     }
   ],
   "reason": "not_homework" | "unreadable" | "no_tasks" | null,
@@ -128,6 +152,34 @@ Return ONLY valid JSON with this structure:
 TASK STRUCTURE — PRINCIPLE:
 A page typically has 1–4 task GROUPS. A group = one overarching instruction
 plus its sub-items. Groups are the unit; individual sub-items are steps.
+
+ONE INSTRUCTION = ONE TASK, even with multiple visual sub-puzzles:
+Worksheets routinely render a single exercise across multiple grids,
+boxes, or sub-prompts. The instruction headline is the source of truth,
+NOT the visual element count. Examples that are ONE task:
+- "Crosswords. A. Write down the words and find the two hidden words."
+  + two crossword grids → ONE task. The instruction says "two hidden
+  words" — that's part of THIS exercise, not two separate exercises.
+- "Match the pictures to the sentences" + a column of pictures and a
+  column of sentences → ONE task.
+- A vocabulary task with rows of "The hidden word is: ___" labels under
+  each grid → those labels are sub-prompts WITHIN the same exercise,
+  not new tasks. Don't promote a fragment like "The hidden word is:" to
+  its own task entry.
+Look for: a numbered or lettered instruction line ("A.", "Opgave 3.",
+"WARM-UP 1") at the start of the visible block. Everything until the
+NEXT such instruction line belongs to the same task.
+
+CONCRETE ANTI-PATTERN you have produced before — DO NOT REPEAT:
+- t1: title "Skriv ordene", text "A. Write down the words and find the
+  two hidden words."
+- t2: title "Find de skjulte", text "Write down the words and find the
+  two hidden words."
+Both have the SAME instruction text, just paraphrased titles. That's
+ONE task split into two by mistake. Right output is a SINGLE task with
+the food-image enumeration as steps PLUS step(s) for the hidden words.
+If you find yourself emitting two task entries with text that paraphrases
+the same instruction line, COLLAPSE them into one before you return.
 
 EXTRACT EVERYTHING YOU CAN READ. Hard limits are: 12 groups per page, 30
 steps per group. These are MAXES, not targets — the right number is
@@ -145,6 +197,21 @@ STEPS vs CONTEXT — pick deliberately:
   grammar fill-ins, dictation rows). Emit them when the child works
   through them ONE AT A TIME and each has a specific correct response.
   Labels are the task's own labels (a, b, c; A, B, 1, 2).
+- PICTURE-BASED items count as steps when each picture has a definite
+  target answer. A vocabulary crossword with 13 food images is 13
+  steps + (optionally) one final step for the hidden-word puzzle —
+  NOT one open task with everything in context. Synthesize numeric
+  labels (1, 2, 3…) when the worksheet doesn't print labels of its
+  own. Step prompts can be the kid-facing question:
+    { "label": "1", "prompt": "Hvad hedder fisken på engelsk?" }
+    { "label": "2", "prompt": "Hvad hedder appelsin på engelsk?" }
+    { "label": "13", "prompt": "Hvad hedder agurk på engelsk?" }
+    { "label": "skjult", "prompt": "Find det første skjulte ord ud fra de røde bogstaver i øverste blok" }
+    { "label": "skjult2", "prompt": "Find det andet skjulte ord ud fra de røde bogstaver i nederste blok" }
+  When you can identify the items in context (which you SHOULD when the
+  pictures are recognisable food/animals/objects), promote that list to
+  steps. Listing 13 items in context but emitting zero steps is exactly
+  the "no completion criterion" failure mode — fix it by enumerating.
 - Do NOT turn every item in a loose / conversational task into its own
   step. "Say a sentence about each word in the circle" is ONE task —
   the child's goal is talking fluently, not ticking off 8 boxes. Same
@@ -211,6 +278,34 @@ FIELD RULES:
   som decimaltal"), not administrative ("Løs opgaverne").
 - "steps[].prompt": precise action for the child, including concrete
   numbers or words from the image.
+- "completionCertainty": how sure you are that you've captured the
+  full set of completion criteria for this task.
+    high   — every sub-item is enumerated as a step, you know what
+             "done" looks like (math a/b/c, grammar fill-in with key,
+             clean dictation rows).
+    medium — task is enumerable but you couldn't read every sub-item
+             (picture crossword, blurry handwriting, partial photo)
+             OR the task has soft completion (1-2 sentences vs 5).
+             Default to medium when in doubt — it tells the tutor to
+             trust the kid's "jeg er færdig" without grilling them.
+    low    — open-ended (creative writing, interview, free composition,
+             conversation about target words). No objective finish line.
+- "expectedAnswers": for each step, the answer YOU would write if you
+  were the kid. Use the visible task content + general knowledge:
+    • Arithmetic: solve it. "12 + 7" → "19".
+    • Fill-in-blank: read the line, identify which word is missing,
+      provide it. "Number ___ is yellow" → "two". "Number one is ___"
+      where the page shows blue/red/yellow as a colour list → "red"
+      (or whichever colour the worksheet pairs with line 1).
+    • Vocabulary: provide the target word. "Translate 'cat' to Danish"
+      → "kat".
+  Index-aligned with steps[]. If steps[] is empty, expectedAnswers can
+  be length 1 (whole-task answer) or omitted. OMIT entirely (or use [])
+  for genuinely open-ended tasks: creative writing, free composition,
+  draw-your-own, interview-a-friend. Never guess wildly — when you
+  honestly can't read the answer, leave that index as an empty string.
+  These are NEVER shown to the kid; they exist so a parent can verify
+  in dev/admin preview that you read the task correctly.
 - "needsPaper": true when the task REQUIRES writing, drawing, measuring,
   colouring, marking a physical diagram, or any hands-on action that
   can't be solved in chat. Examples: measuring lines with a ruler,
@@ -332,6 +427,8 @@ export async function extractTasksFromImage(
       needsPaper?: boolean
       steps?: { label?: string; prompt?: string }[]
       context?: string
+      expectedAnswers?: (string | null | undefined)[]
+      completionCertainty?: string
     }[]
     reason?: string
     detectionNotes?: string | null
@@ -389,12 +486,51 @@ export async function extractTasksFromImage(
         typeof t.title === "string" && t.title.trim().length > 0
           ? t.title.trim().slice(0, 50)
           : deriveShortTitle(t.text!)
+      // Fallback completion step. When the extractor couldn't enumerate
+      // sub-items (small images, cluttered layout, language-dependent
+      // pictures), the task ends up with steps=[] which leaves it WITHOUT
+      // a completion criterion: the parent dashboard renders "0 af 0 trin"
+      // forever, the AI tutor has no [progress] target to mark done, and
+      // the kid has no clear finish line. Synthesize one general step
+      // pulled from the title (or a short-form of the task text) so the
+      // task is still completable as a single unit. Skipped only when we
+      // have no usable text at all.
+      if (steps.length === 0) {
+        const goalLine = goal?.trim()
+        const fallback =
+          (goalLine && goalLine.length > 0 ? goalLine : title || "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 200)
+        if (fallback.length > 0) {
+          steps = [{ label: "1", prompt: fallback }]
+        }
+      }
       const needsPaper =
         typeof t.needsPaper === "boolean" ? t.needsPaper : undefined
       const context =
         typeof t.context === "string" && t.context.trim().length > 0
           ? t.context.trim().slice(0, 600)
           : undefined
+      // expectedAnswers: clean strings, cap each at 120 chars, cap array
+      // length at the resolved step count (or 1 for stepless tasks).
+      // Empty / non-string entries normalise to "" so the index alignment
+      // with steps[] stays intact ("we tried, couldn't read" vs missing).
+      const rawAnswers = Array.isArray(t.expectedAnswers) ? t.expectedAnswers : []
+      const stepCount = steps.length || 1
+      const expectedAnswers = rawAnswers
+        .slice(0, stepCount)
+        .map(a => (typeof a === "string" ? a.trim().slice(0, 120) : ""))
+      const expectedAnswersOut =
+        expectedAnswers.length > 0 && expectedAnswers.some(a => a.length > 0)
+          ? expectedAnswers
+          : undefined
+      const completionCertainty: "high" | "medium" | "low" | undefined =
+        t.completionCertainty === "high" || t.completionCertainty === "low"
+          ? t.completionCertainty
+          : t.completionCertainty === "medium"
+            ? "medium"
+            : undefined
       return {
         id: `t${i + 1}`,
         title,
@@ -404,6 +540,8 @@ export async function extractTasksFromImage(
         ...(needsPaper !== undefined ? { needsPaper } : {}),
         ...(steps.length > 0 ? { steps } : {}),
         ...(context ? { context } : {}),
+        ...(expectedAnswersOut ? { expectedAnswers: expectedAnswersOut } : {}),
+        ...(completionCertainty ? { completionCertainty } : {}),
       }
     })
 

@@ -3,6 +3,10 @@ import { getAIMode } from "@/lib/ai-mode"
 import { getAzure, getDeployment } from "@/lib/azure"
 import { buildChildSystemPrompt } from "@/lib/prompts"
 import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  isEnglishTutoringLanguage,
+  resolveEnglishTutoringLanguage,
+} from "@/lib/english-tutoring"
 
 type Turn = { role: "user" | "assistant"; content: string }
 type Body = {
@@ -22,6 +26,9 @@ type Body = {
   /** Free-form extractor context Dani uses during the session (never
    *  shown to the kid). */
   taskContext?: string | null
+  /** Vision-extractor confidence in completion criteria. Drives the
+   *  certainty block in the system prompt. */
+  completionCertainty?: "high" | "medium" | "low" | null
   /** "voice" = reply will be spoken via TTS, tunes output for spoken delivery. */
   conversationMode?: "text" | "voice"
 }
@@ -35,20 +42,25 @@ export async function POST(request: NextRequest) {
     grade: number
     interests: string | null
     specialNeeds: string | null
+    englishTutoringLanguage: "danish" | "english"
   }
   if (body.childId) {
     const admin = createAdminClient()
     const { data } = await admin
       .from("children")
-      .select("name, grade, interests, special_needs")
+      .select("name, grade, interests, special_needs, english_tutoring_language")
       .eq("id", body.childId)
       .single()
     if (data) {
+      const pref = isEnglishTutoringLanguage(data.english_tutoring_language)
+        ? data.english_tutoring_language
+        : "auto"
       child = {
         name: data.name,
         grade: data.grade,
         interests: data.interests ?? null,
         specialNeeds: data.special_needs ?? null,
+        englishTutoringLanguage: resolveEnglishTutoringLanguage(pref, data.grade),
       }
     }
   }
@@ -67,6 +79,7 @@ export async function POST(request: NextRequest) {
     taskType: body.taskType ?? null,
     needsPaper: body.needsPaper ?? null,
     taskContext: body.taskContext ?? null,
+    completionCertainty: body.completionCertainty ?? "medium",
     child,
     deliveryMode,
   })

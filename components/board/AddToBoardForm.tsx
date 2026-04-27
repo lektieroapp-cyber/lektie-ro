@@ -9,7 +9,7 @@ import {
   BookGlyph,
   DictionaryGlyph,
 } from "@/components/overview/SubjectSummaryCard"
-import type { TaskSubject } from "@/lib/tasks"
+import { isTaskSubject, type TaskSubject } from "@/lib/tasks"
 import { STEP_CAP, type VisionTask } from "@/lib/vision"
 
 const MAX_BYTES = 10 * 1024 * 1024
@@ -142,6 +142,41 @@ export function AddToBoardForm({
   const [dragActive, setDragActive] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const dragDepth = useRef(0)
+  // Set when a photo's vision-detected subject disagrees with the
+  // parent's currently-picked subject. Drives the styled mismatch modal
+  // below — replaces the previous silent override where wrong tasks just
+  // landed on the wrong subject card. Cleared when the parent decides
+  // (switch / keep) or dismisses.
+  const [pendingMismatch, setPendingMismatch] = useState<
+    { photoId: string; detected: TaskSubject } | null
+  >(null)
+
+  // After a photo finishes processing, compare its detected subject to
+  // the parent's pick. If they disagree (and the detection is one of our
+  // known subjects), surface the mismatch modal once. Skipped if a modal
+  // is already open for an earlier photo — second mismatch queues up
+  // visually but doesn't stack two modals.
+  function maybeFlagMismatch(photoId: string, detected: string | null) {
+    if (pendingMismatch) return
+    if (!detected) return
+    const normalized = detected.toLowerCase()
+    if (!isTaskSubject(normalized)) return
+    if (normalized === defaultSubject) return
+    setPendingMismatch({ photoId, detected: normalized })
+  }
+
+  function applyMismatchSwitch() {
+    if (!pendingMismatch) return
+    const next = pendingMismatch.detected
+    setDefaultSubject(next)
+    // Re-tag every task that came out of the photo we flagged. Older
+    // tasks from other photos keep whatever subject they were tagged
+    // with so we don't blow away earlier per-task choices.
+    setTasks(prev =>
+      prev.map(t => (t.photoId === pendingMismatch.photoId ? { ...t, subject: next } : t)),
+    )
+    setPendingMismatch(null)
+  }
 
   const showChildPicker = children.length > 1
 
@@ -261,6 +296,10 @@ export function AddToBoardForm({
           dismissed: false,
         })),
       ])
+      // Surface a confirm modal if vision says the photo belongs to a
+      // different subject than the parent picked — better to ask once
+      // than commit a Matematik worksheet under the Engelsk pile.
+      maybeFlagMismatch(photoId, data.subject)
     } catch (err) {
       console.error(err)
       setPhotos(prev =>
@@ -337,6 +376,9 @@ export function AddToBoardForm({
           dismissed: false,
         })),
       ])
+      // Re-runs can change the detection — flag mismatch again if the
+      // new subject still disagrees with the parent's pick.
+      maybeFlagMismatch(photoId, data.subject)
     } catch (err) {
       console.error(err)
       setPhotos(prev =>
@@ -445,6 +487,7 @@ export function AddToBoardForm({
             context: t.task.context ?? null,
             needsPaper: t.task.needsPaper ?? null,
             sourceImagePath: photo?.path ?? null,
+            completionCertainty: t.task.completionCertainty ?? "medium",
             approve: true,
           }),
         })
@@ -646,6 +689,7 @@ export function AddToBoardForm({
                 onToggleDismiss={() => toggleDismissed(t.localId)}
                 onSubjectChange={s => changeSubject(t.localId, s)}
                 onStepsChange={steps => updateSteps(t.localId, steps)}
+                isAdmin={isAdmin}
                 messages={messages}
               />
             ))}
@@ -697,6 +741,97 @@ export function AddToBoardForm({
           if (fileRef.current) fileRef.current.value = ""
         }}
       />
+      {pendingMismatch && (
+        <SubjectMismatchModal
+          picked={defaultSubject}
+          detected={pendingMismatch.detected}
+          subjectLabels={messages.subjects}
+          onSwitch={applyMismatchSwitch}
+          onKeep={() => setPendingMismatch(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Surfaces a "you picked X but the photo looks like Y" choice when the
+ * vision-detected subject disagrees with the parent's pick. Switching
+ * re-tags every task from the flagged photo; keeping leaves them on the
+ * parent's original pick. Backdrop dismiss = keep.
+ */
+function SubjectMismatchModal({
+  picked,
+  detected,
+  subjectLabels,
+  onSwitch,
+  onKeep,
+}: {
+  picked: TaskSubject
+  detected: TaskSubject
+  subjectLabels: Record<string, string>
+  onSwitch: () => void
+  onKeep: () => void
+}) {
+  const pickedLabel = subjectLabels[picked] ?? picked
+  const detectedLabel = subjectLabels[detected] ?? detected
+  const detectedTint = SUBJECT_TINT[detected]
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="subject-mismatch-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <button
+        type="button"
+        aria-label="Luk"
+        onClick={onKeep}
+        className="absolute inset-0 cursor-pointer bg-ink/40 backdrop-blur-sm"
+      />
+      <div
+        className="relative w-full max-w-md rounded-card bg-white p-6 text-center shadow-2xl"
+        style={{ boxShadow: "0 24px 60px -20px rgba(31,45,26,0.35)" }}
+      >
+        {/* Subject glyph in its own tint — visual cue for what we
+            detected, before the parent reads the body copy. */}
+        <span
+          aria-hidden
+          className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl"
+          style={{ background: detectedTint.tint }}
+        >
+          {detectedTint.glyph}
+        </span>
+        <h2
+          id="subject-mismatch-title"
+          className="text-xl font-bold text-ink"
+          style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+        >
+          Det her ligner {detectedLabel}
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink/65">
+          Du har valgt <b>{pickedLabel}</b>, men billedet ser ud til at være
+          <> </>
+          <b>{detectedLabel}</b>. Vil du skifte fag for denne lektie?
+        </p>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={onKeep}
+            className="rounded-btn border border-ink/15 bg-white px-5 py-2.5 text-sm font-semibold text-ink/75 transition hover:bg-canvas cursor-pointer"
+          >
+            Behold {pickedLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onSwitch}
+            className="rounded-btn bg-mint-deep px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 cursor-pointer"
+            style={{ boxShadow: "0 4px 12px -4px rgba(79,142,107,0.45)" }}
+          >
+            Skift til {detectedLabel}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -771,6 +906,7 @@ function DraftTaskCard({
   onToggleDismiss,
   onSubjectChange,
   onStepsChange,
+  isAdmin = false,
   messages,
 }: {
   draft: DraftTask
@@ -778,6 +914,7 @@ function DraftTaskCard({
   onToggleDismiss: () => void
   onSubjectChange: (s: TaskSubject) => void
   onStepsChange: (steps: { label: string; prompt: string }[]) => void
+  isAdmin?: boolean
   messages: AddToBoardMessages
 }) {
   const t = draft.task
@@ -910,7 +1047,20 @@ function DraftTaskCard({
             )}
           </div>
           {steps.length === 0 ? (
-            <p className="mt-1.5 text-xs italic text-ink/45">Ingen deltrin endnu.</p>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              <p className="text-xs italic text-ink/45">Ingen deltrin endnu.</p>
+              {/* When the extractor couldn't read sub-items (small images,
+                  cluttered layout, handwriting), surface that as a soft
+                  notice so the parent knows it's not a bug. The tutor still
+                  has the full task text + context and will guide the kid
+                  through the exercise even without a curated step list. */}
+              {t.context && (
+                <p className="text-xs text-ink/55">
+                  Tutoren vil guide barnet gennem opgaven ud fra opgaveteksten.
+                  Tilføj selv deltrin hvis du vil.
+                </p>
+              )}
+            </div>
           ) : (
             <ol className="mt-2 flex flex-col gap-1.5">
               {steps.map((s, idx) => (
@@ -974,6 +1124,34 @@ function DraftTaskCard({
           </button>
         </div>
 
+        {/* Forventet svar — admin/dev preview so the parent can sanity-check
+            that the vision model read the task correctly BEFORE the kid
+            sits down. Never persisted; never shown to the kid. Only renders
+            when the extractor returned at least one non-empty answer
+            (open-ended creative tasks legitimately have none). */}
+        {isAdmin && t.expectedAnswers && t.expectedAnswers.some(a => a.trim().length > 0) && (
+          <ExpectedAnswers steps={steps} answers={t.expectedAnswers} />
+        )}
+
+        {/* Tutor context — admin/dev preview of the opaque notes the
+            extractor captured for Dani (target words from the page,
+            unreadable-region explanations, hidden-answer locations).
+            This is what the AI tutor will use during the session; the
+            kid never sees it. Showing it here lets the parent verify
+            the tutor has enough to work with even when steps are empty. */}
+        {isAdmin && t.context && (
+          <div className="rounded-card border border-dashed border-ink/15 bg-canvas/50 px-3 py-2.5 text-[12px]">
+            <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/55">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+              Tutor-kontekst (kun for dig)
+            </div>
+            <p className="whitespace-pre-line text-ink/80">{t.context}</p>
+          </div>
+        )}
+
         {/* Original task text — collapsed behind a disclosure button so
             the dense paragraph with fill-in blanks doesn't dominate. */}
         {hasOriginalText && (
@@ -1009,6 +1187,49 @@ function DraftTaskCard({
         )}
       </div>
     </li>
+  )
+}
+
+function ExpectedAnswers({
+  steps,
+  answers,
+}: {
+  steps: { label: string; prompt: string }[]
+  answers: string[]
+}) {
+  // When there are no curated steps, the answer array is length-1 with a
+  // whole-task answer. Render as a single line in that case.
+  const hasSteps = steps.length > 0
+  return (
+    <div
+      className="rounded-card border border-dashed border-mint-edge bg-mint-soft/40 px-3 py-2.5 text-[12px]"
+    >
+      <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-mint-deep/85">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Forventet svar (kun for dig)
+      </div>
+      {hasSteps ? (
+        <ul className="flex flex-col gap-1">
+          {steps.map((s, i) => {
+            const a = answers[i]?.trim() ?? ""
+            return (
+              <li key={s.label + i} className="flex items-baseline gap-2">
+                <span className="inline-flex h-4 min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-white/70 px-1.5 text-[10px] font-bold text-mint-deep">
+                  {s.label}
+                </span>
+                <span className={a ? "text-ink/90" : "italic text-ink/45"}>
+                  {a || "—"}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className="text-ink/90">{answers[0]?.trim() || "—"}</p>
+      )}
+    </div>
   )
 }
 
