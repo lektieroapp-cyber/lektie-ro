@@ -1967,6 +1967,7 @@ function DaniMessage({
         <Companion type={type ?? DEFAULT_COMPANION} mood="happy" size={44} />
       </div>
       <div
+        className="reading-body"
         style={{
           background: K.skySoft,
           borderRadius: "4px 18px 18px 18px",

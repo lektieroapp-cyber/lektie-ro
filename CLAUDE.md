@@ -431,6 +431,17 @@ Child screens (Step 2+): camera (full-screen viewfinder, big snap button) → th
 - URL slugs stay English across all locales for SEO consistency: `/da/pricing`, `/da/privacy`, `/da/terms`. Content is localised via `messages/{locale}.json`; URLs are not. Override in `routeSlugs` only if a locale truly needs a different slug.
 - Danish strings live in `messages/da.json` — **never hardcode user-facing copy in JSX**, go through the `t()` helper or import the messages file.
 
+### Copy rules (hard — applies to every user-facing string)
+
+These mirror the AI's output rules in `lib/prompts.ts:BASE_RULES` so kid-facing
+chat and the surrounding chrome read in the same voice. Same rules in code: it's
+disorienting when the AI reply uses commas + periods but the UI around it leans
+on em-dashes.
+
+- **No em-dashes (`—`).** Anywhere a user can read them: `messages/da.json`, JSX text, button labels, placeholders, error strings, email templates. Use a period or a comma. "Et øjeblik. Vi finder opgaver." not "Et øjeblik — vi finder opgaver." En-dashes (`–`) are fine in pre-existing brand copy where Danish typography uses them as a parenthetical pause; don't add new ones either.
+- **No semicolons or colons in prose.** Same reason — they push reading age up and don't match the AI's spoken-feel voice. Colons in headings ("Mål: …") are fine because they're labels, not prose.
+- Code comments are exempt. The rule is about what users see, not what we read.
+
 ---
 
 ## Environment variables

@@ -102,7 +102,7 @@ export function ScanPanel({
   const greeting = childName ? `Hej ${childName}!` : "Klar til lektier?"
   const subhead =
     completedCount > 0
-      ? `${completedCount} ${completedCount === 1 ? "opgave" : "opgaver"} klaret i dag — godt gået!`
+      ? `${completedCount} ${completedCount === 1 ? "opgave" : "opgaver"} klaret i dag. Godt gået!`
       : "Klar til at løse noget sjovt i dag?"
 
   return (
@@ -145,10 +145,12 @@ export function ScanPanel({
             flag is on (parent passes an onChange handler). Kid can flip it
             before the photo is taken so the whole session follows one style. */}
         {onConversationModeChange && conversationMode && (
-          <ConversationModeToggle
-            value={conversationMode}
-            onChange={onConversationModeChange}
-          />
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <ConversationModeToggle
+              value={conversationMode}
+              onChange={onConversationModeChange}
+            />
+          </div>
         )}
 
         {/* Photo capture card — warm dashed border */}
@@ -226,8 +228,36 @@ export function ScanPanel({
                   Tag et billede af din opgave
                 </div>
                 <div style={{ color: K.ink2, fontSize: 14, marginTop: 4 }}>
-                  Lige meget hvor rodet — jeg skal nok finde ud af det!
+                  Lige meget hvor rodet. Jeg skal nok finde ud af det!
                 </div>
+              </div>
+              {/* Inline reassurance pill — sits inside the dashed card so
+                  the "5 sekunder" promise is right where the kid is about
+                  to tap. */}
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 12px",
+                  borderRadius: 999,
+                  background: K.mintSoft,
+                  color: K.mintDeep,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    display: "inline-block",
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: K.mintDeep,
+                  }}
+                />
+                Det tager kun 5 sekunder
               </div>
             </div>
             {error && (
@@ -270,32 +300,34 @@ export function ScanPanel({
           </div>
         )}
 
-        {/* End-of-day button — ghost tone so it doesn't compete with the
-            coral photo card, but still follows the main button shape so
-            it reads as a real action. Only rendered after ≥1 task solved. */}
+        {/* End-of-day link — quieter than a button. Mic-prefix mirrors
+            the design where the voice ux is the primary path; on the
+            text-mode site it still reads as a small affordance to close
+            out the day. Only rendered after ≥1 task solved. */}
         {onFinish && (
           <button
             type="button"
             onClick={onFinish}
             style={{
-              width: "100%",
-              height: 52,
-              borderRadius: 999,
-              background: "#fff",
-              color: K.ink,
-              border: `1.5px solid ${K.ink}20`,
+              alignSelf: "center",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              background: "transparent",
+              border: "none",
+              padding: "8px 14px",
+              color: K.ink2,
               fontFamily: "inherit",
-              fontSize: 15,
-              fontWeight: 700,
+              fontSize: 14,
+              fontWeight: 600,
               cursor: "pointer",
-              transition: "transform 0.12s ease, border-color 0.15s",
-              boxShadow: "0 1px 0 rgba(31,27,51,0.04), 0 6px 18px -12px rgba(31,27,51,0.18)",
+              transition: "color 0.12s ease",
             }}
-            onMouseDown={e => (e.currentTarget.style.transform = "scale(0.98)")}
-            onMouseUp={e => (e.currentTarget.style.transform = "scale(1)")}
-            onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+            onMouseEnter={e => (e.currentTarget.style.color = K.ink)}
+            onMouseLeave={e => (e.currentTarget.style.color = K.ink2)}
           >
-            Færdig for i dag
+            <MicGlyph />
+            Jeg er færdig for i dag
           </button>
         )}
       </div>
@@ -349,9 +381,11 @@ export function ScanPanel({
   )
 }
 
-// Segmented pill — v3 palette: mint-soft outer, white+shadow for active, ink
-// for text. Same tint both sides per the "subjects share one palette"
-// principle; the icon + label is what differentiates.
+// Segmented pill matching the design: cream outer with subtle border, mint
+// soft fill on the active option (which gets the mint-deep icon tint),
+// transparent background on the inactive side. Inverted from the v2
+// treatment (which used mint-soft outer + white active pill) — the cream
+// outer reads as a "tray" with a single colored pill sitting in it.
 function ConversationModeToggle({
   value,
   onChange,
@@ -368,12 +402,15 @@ function ConversationModeToggle({
       role="radiogroup"
       aria-label="Hvordan vil du hjælpes i dag?"
       style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 4,
-        background: K.mintSoft,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 2,
+        background: "#fff",
         borderRadius: 999,
         padding: 4,
+        // Single soft drop, no inset highlight (which was reading as a
+        // visible top border on the cream tray).
+        boxShadow: "0 4px 14px -10px rgba(31,45,26,0.18)",
       }}
     >
       {options.map(opt => {
@@ -388,26 +425,29 @@ function ConversationModeToggle({
             title={opt.label}
             onClick={() => onChange(opt.id)}
             style={{
+              outline: "none",
               border: "none",
-              background: active ? K.card : "transparent",
+              background: active ? K.mintSoft : "transparent",
               color: active ? K.ink : K.ink2,
               borderRadius: 999,
-              padding: "10px 14px",
+              padding: "8px 18px",
               cursor: "pointer",
               fontFamily: "inherit",
               fontSize: 14,
-              fontWeight: 700,
-              boxShadow: active
-                ? "0 1px 0 rgba(31,45,26,0.04), 0 6px 16px -10px rgba(31,45,26,0.18)"
-                : "none",
+              fontWeight: 600,
               transition: "background 0.15s, color 0.15s",
               display: "inline-flex",
               alignItems: "center",
-              justifyContent: "center",
               gap: 8,
             }}
           >
-            <span aria-hidden style={{ display: "inline-flex" }}>
+            <span
+              aria-hidden
+              style={{
+                display: "inline-flex",
+                color: active ? K.mintDeep : K.ink2,
+              }}
+            >
               {opt.icon}
             </span>
             <span>{opt.label}</span>

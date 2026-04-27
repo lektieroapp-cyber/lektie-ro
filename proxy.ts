@@ -196,8 +196,11 @@ export async function proxy(request: NextRequest) {
     if (user.email) forwardHeaders.set("x-lr-user-email", user.email)
     forwardHeaders.set("x-lr-user-meta", JSON.stringify(user.user_metadata ?? {}))
     const next = NextResponse.next({ request: { headers: forwardHeaders } })
-    // Carry any refreshed Supabase cookies onto the new response.
-    response.cookies.getAll().forEach(c => next.cookies.set(c.name, c.value))
+    // Carry any refreshed Supabase cookies onto the new response. CRITICAL:
+    // pass the full ResponseCookie object (not name+value alone) — otherwise
+    // Supabase's maxAge/path/sameSite get dropped and the auth cookies become
+    // session cookies that die on browser close, silently logging the user out.
+    response.cookies.getAll().forEach(c => next.cookies.set(c))
     return next
   }
 
@@ -209,9 +212,13 @@ export async function proxy(request: NextRequest) {
 // updated cookies from setAll() — the browser follows the redirect with the
 // stale cookie, middleware sees no session, and ping-pongs between protected
 // routes and /login forever.
+//
+// Pass the full ResponseCookie (not name+value) so Supabase's maxAge survives
+// the copy — otherwise the auth cookies become session cookies and the user
+// is logged out the moment they close the browser.
 function withRefreshedCookies(target: NextResponse, source: NextResponse): NextResponse {
   source.cookies.getAll().forEach(c => {
-    target.cookies.set(c.name, c.value)
+    target.cookies.set(c)
   })
   return target
 }

@@ -76,16 +76,29 @@ export function TaskPicker({
         onClick={onNewPhoto}
         style={{
           alignSelf: allDone ? "stretch" : "flex-start",
-          border: allDone ? "none" : "none",
-          background: allDone ? palette.dot : "transparent",
-          color: allDone ? "#fff" : K.ink2,
+          border: "none",
+          // Active CTA: mint background + INK text (per v3 palette rule —
+          // pale mint-edge + white reads as "disabled" which this button
+          // is not). Inline style so we don't depend on Tailwind variables.
+          background: allDone ? K.mint : "transparent",
+          color: allDone ? K.ink : K.ink2,
           fontSize: allDone ? 15 : 13,
-          fontWeight: allDone ? 600 : 400,
+          fontWeight: allDone ? 700 : 400,
           textDecoration: allDone ? "none" : "underline",
           cursor: "pointer",
           fontFamily: "inherit",
           padding: allDone ? "12px 20px" : 4,
           borderRadius: allDone ? 999 : 0,
+          boxShadow: allDone ? K.shadowCard : "none",
+          transition: "transform 0.15s ease, box-shadow 0.15s ease",
+        }}
+        onMouseEnter={e => {
+          if (!allDone) return
+          e.currentTarget.style.transform = "translateY(-1px)"
+        }}
+        onMouseLeave={e => {
+          if (!allDone) return
+          e.currentTarget.style.transform = "translateY(0)"
         }}
       >
         Tag et nyt billede

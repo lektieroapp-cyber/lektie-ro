@@ -23,6 +23,9 @@ const ROUTE_META: Record<RouteKey, {
   parentOverview: null,
   parentSettings: null,
   parentOnboarding: null,
+  parentNewTask: null,
+  parentAddToBoard: null,
+  parentTasks: null,
   admin: null,
 }
 

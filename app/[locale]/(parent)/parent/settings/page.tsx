@@ -93,7 +93,7 @@ export default async function SettingsPage({
       </section>
 
       {/* Children */}
-      <section className="mt-10">
+      <section className="mt-10 pb-8 md:pb-12">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-ink">
             Dine børn ({children.length}/{limit === Infinity ? "∞" : limit})
