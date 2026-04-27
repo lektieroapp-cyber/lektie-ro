@@ -115,8 +115,12 @@ export function NewTaskForm({
 
   // Conversation mode toggle (visual only on this page — mode is read again on
   // the task page when the kid actually starts tutoring). Persisted to the
-  // same localStorage key as ScanPanel uses elsewhere.
-  const [conversationMode, setConversationMode] = useState<ConversationMode>("text")
+  // same localStorage key as ScanPanel uses elsewhere. Default = voice for
+  // every kid, regardless of grade — the app is designed around the spoken
+  // homework conversation; text is the opt-out, not the default.
+  const [conversationMode, setConversationMode] = useState<ConversationMode>(
+    VOICE_ENABLED ? "voice" : "text",
+  )
   useEffect(() => {
     if (!VOICE_ENABLED) return
     try {

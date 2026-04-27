@@ -30,10 +30,13 @@ type Props = {
 
 export function TaskHintShell({ task, subject, childId, childGrade, boardHref, englishTutoringLanguage = null }: Props) {
   const router = useRouter()
+  // Voice is the default tutoring mode for every kid regardless of grade —
+  // the spoken homework conversation is the core experience, text is the
+  // opt-out. localStorage override below honours an explicit "text" pick
+  // from a previous session.
   const [conversationMode, setConversationMode] = useState<ConversationMode>(() => {
     if (!VOICE_ENABLED) return "text"
-    if (childGrade != null && childGrade <= 4) return "voice"
-    return "text"
+    return "voice"
   })
   useEffect(() => {
     if (!VOICE_ENABLED) return
