@@ -66,10 +66,10 @@ export default async function AddToBoardPage({
       <AddToBoardForm
         children={children}
         initialSubject={initialSubject}
-        // Debug panel is dev-only. Even admins on prod don't see it —
-        // the raw vision response can include extracted homework text
-        // that isn't meant to be exposed in the customer-facing UI.
-        isAdmin={user.role === "admin" && process.env.NODE_ENV === "development"}
+        // Admin-only verification panels (forventet svar + tutor-kontekst).
+        // Visible in prod so the admin can spot-check vision output on real
+        // homework, not just locally. Non-admin parents never see them.
+        isAdmin={user.role === "admin"}
         boardHref={boardHref}
         onboardingHref={localePath(locale, "parentOnboarding")}
         messages={messages}

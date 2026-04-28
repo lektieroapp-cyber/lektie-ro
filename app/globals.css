@@ -160,6 +160,13 @@ select.lr-select::-ms-expand {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }
 }
+@keyframes photo-chip-stripe {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+.animate-photo-chip-stripe {
+  animation: photo-chip-stripe 1.4s linear infinite;
+}
 @keyframes pop {
   0% { opacity: 0; transform: scale(0.85); }
   100% { opacity: 1; transform: scale(1); }

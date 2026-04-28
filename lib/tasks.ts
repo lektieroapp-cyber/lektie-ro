@@ -29,6 +29,13 @@ export type TaskRow = {
    *  kid task page uses it to route to the next open sibling on completion
    *  instead of dumping back to the empty board. */
   taskGroupId: string | null
+  /** Optional kid-facing name for the bundle (set by migration 016). All
+   *  siblings share the same value. Vision suggests one at extraction
+   *  time; parent can edit before committing. Tavle renders this as the
+   *  bundle row's title — falls back to "N opgaver fra ét lektiebillede"
+   *  when null. Denormalised across siblings rather than introducing a
+   *  separate groups table; promote later if richer metadata arrives. */
+  taskGroupTitle: string | null
   /** Vision extractor's confidence in the completion criteria. The tutor
    *  prompt branches on this — "low" lets the kid signal done with no
    *  friction; "high" can hold them to all steps. Defaults to "medium". */
@@ -58,6 +65,7 @@ type DbRow = {
   status: string
   approved_by_parent: boolean
   task_group_id: string | null
+  task_group_title: string | null
   completion_certainty: string | null
   created_at: string
   updated_at: string
@@ -69,7 +77,8 @@ type DbRow = {
 const SELECT_COLS =
   "id, child_id, parent_id, subject, task_title, task_text, task_type, " +
   "task_goal, task_steps, task_context, needs_paper, source_image_path, " +
-  "status, approved_by_parent, task_group_id, completion_certainty, " +
+  "status, approved_by_parent, task_group_id, task_group_title, " +
+  "completion_certainty, " +
   "created_at, updated_at, approved_at, " +
   "completed_at, dismissed_at"
 
@@ -90,6 +99,7 @@ function mapRow(r: DbRow): TaskRow {
     status: r.status as TaskStatus,
     approvedByParent: r.approved_by_parent,
     taskGroupId: r.task_group_id,
+    taskGroupTitle: r.task_group_title,
     completionCertainty:
       r.completion_certainty === "high" || r.completion_certainty === "low"
         ? r.completion_certainty
@@ -196,6 +206,25 @@ export async function fetchPendingReview(parentId: string): Promise<TaskRow[]> {
     .order("created_at", { ascending: false })
   if (error) throw new Error(`fetchPendingReview: ${error.message}`)
   return (data as unknown as DbRow[] | null)?.map(mapRow) ?? []
+}
+
+/** All tasks in one bundle (shared task_group_id), scoped to parent.
+ *  Used by the multi-pick screen the kid sees when they tap "Start alle"
+ *  on a bundled card. Sorted by created_at so the natural reading order
+ *  from the source photo is preserved. */
+export async function fetchTasksByGroup(
+  parentId: string,
+  groupId: string,
+): Promise<TaskRow[]> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("tasks")
+    .select(SELECT_COLS)
+    .eq("parent_id", parentId)
+    .eq("task_group_id", groupId)
+    .order("created_at", { ascending: true })
+  if (error) throw new Error(`fetchTasksByGroup: ${error.message}`)
+  return (data ?? []).map(r => mapRow(r as unknown as DbRow))
 }
 
 /** Single task by id, scoped to parent. Null when not found / wrong owner. */
@@ -360,10 +389,18 @@ export async function markTaskDone(parentId: string, taskId: string): Promise<vo
 export async function createTaskBatch(
   parentId: string,
   inputs: CreateTaskInput[],
+  /** Optional kid-facing bundle name. Stamped on every row in the batch
+   *  so a single SELECT on tasks carries everything Tavle needs. Trimmed
+   *  + capped at 80 chars; null when omitted. */
+  groupTitle?: string | null,
 ): Promise<{ groupId: string; tasks: TaskRow[] }> {
   if (inputs.length === 0) return { groupId: "", tasks: [] }
   const admin = createAdminClient()
   const groupId = crypto.randomUUID()
+  const trimmedTitle =
+    typeof groupTitle === "string" && groupTitle.trim().length > 0
+      ? groupTitle.trim().slice(0, 80)
+      : null
   const now = new Date().toISOString()
   const rows = inputs.map(input => {
     const approve = input.approve !== false
@@ -380,6 +417,7 @@ export async function createTaskBatch(
       needs_paper: input.needsPaper ?? null,
       source_image_path: input.sourceImagePath ?? null,
       task_group_id: groupId,
+      task_group_title: trimmedTitle,
       completion_certainty: input.completionCertainty ?? "medium",
       status: "pending",
       approved_by_parent: approve,

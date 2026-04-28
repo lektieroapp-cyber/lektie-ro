@@ -1,4 +1,4 @@
-import { getAzure, getDeployment } from "./azure"
+import { getAzure, getVisionDeployment } from "./azure"
 
 // Core Azure vision extraction — pulls subject, task groups with goals,
 // steps, needsPaper, and confidence from a homework photo. Shared between:
@@ -53,6 +53,11 @@ export type VisionReason = "not_homework" | "unreadable" | "no_tasks" | null
 export type VisionResult = {
   subject: string | null
   subjectConfidence: VisionConfidence
+  /** AI-suggested kid-facing name for the bundle of tasks from this photo
+   *  (e.g. "Køb og budget", "Subtraktion side 16"). Editable by the parent
+   *  before commit. Null when the model didn't suggest one or the page
+   *  has no clear unifying theme. */
+  groupTitle: string | null
   tasks: VisionTask[]
   reason: VisionReason
   detectionNotes: string | null
@@ -130,6 +135,7 @@ Return ONLY valid JSON with this structure:
 {
   "subject": "matematik" | "dansk" | "engelsk" | "tysk" | null,
   "subjectConfidence": "high" | "medium" | "low",
+  "groupTitle": "kid-friendly Danish bundle name, max 5 words, action/topic-shaped — what a parent would write on a sticky note for the whole page",
   "tasks": [
     {
       "title": "short action headline shown on the task card (Danish, max 5 words)",
@@ -222,6 +228,54 @@ STEPS vs CONTEXT — pick deliberately:
   It is rendered to the child verbatim. DO NOT stuff target-word lists,
   example sentences, or the full task text into the step prompt. Those
   are context, not step content.
+- HARD RULE — never leak the answer into the step prompt. If the WHOLE POINT
+  of the task is for the child to read/find values from the image (prices
+  on shop signs, lengths on a ruler, counts of objects, dates on a poster),
+  the step MUST ASK the child to find ONE value, NOT pre-list the values.
+    WRONG: { "label": "A", "prompt": "Læg 75 kr., 35 kr. og 100 kr. sammen." }
+           — this names the three prices the child is supposed to read off
+           the illustrations themselves, defeating the entire exercise.
+    RIGHT: [
+      { "label": "A", "prompt": "Find prisen på katten" },
+      { "label": "B", "prompt": "Find prisen på stagen" },
+      { "label": "C", "prompt": "Find prisen på stigen" },
+      { "label": "D", "prompt": "Læg de tre priser sammen" }
+    ]
+  The actual numbers go in context (tutor reference) and expectedAnswers
+  (admin preview), NEVER in the step prompts. Same rule for any "read X
+  from the picture, then compute" task: one step per item the kid has
+  to identify, plus a final step for the operation.
+
+- CHAINED OPERATIONS — function machines / kæde-stykker. A function machine
+  is a chain of boxes where the OUTPUT of one box is the INPUT to the next:
+  "97 → [-12] → ? → [-5] → ? → [-20] → ? → ..." The child solves it
+  linearly: 97-12=85, then 85-5=80, then 80-20=60, ...
+  WRONG: emitting steps as independent subtractions where the prompt names
+  the running total ("85 - 5", "80 - 20", "60 - 8"). 85 / 80 / 60 are the
+  child's PREVIOUS ANSWERS — printing them in the next step skips past
+  the work. Any kid reading step 2 sees the answer to step 1.
+  RIGHT: state the starting number ONCE in step 1, then let each subsequent
+  step reference "dit svar" / "dit forrige tal":
+    [
+      { "label": "1", "prompt": "Start med 97 og træk 12 fra" },
+      { "label": "2", "prompt": "Træk 5 fra dit svar" },
+      { "label": "3", "prompt": "Træk 20 fra dit svar" },
+      { "label": "4", "prompt": "Træk 3 fra dit svar" },
+      ...
+    ]
+  Same shape for chained addition / multiplication / division. The chain
+  numbers (operands) are visible on the page so naming them is fine; the
+  RUNNING TOTAL is what the child computes and must NOT appear in step
+  prompts.
+
+- MULTI-ROW LADDERS — when a "Regn og skriv de manglende tal" page shows
+  TWO OR MORE visually-separate function-machine rows (each starting from
+  a different anchor number, e.g. 97 / 83 / 61), emit ONE TASK PER ROW —
+  not one task with 21 steps spanning all three rows. Each row is its own
+  drill set; the child completes one ladder before moving to the next.
+  Title each task by its anchor: "Kæde fra 97", "Kæde fra 83", "Kæde fra
+  61". Same for any visually-grouped repeat layout (three columns of
+  "Match X to Y", four mini-grids of "Color the shape").
 - CONTEXT is the tutor's private reference (never shown to the child). Put
   the concrete list of target items (words, names, pictures), example
   answers, visible formulae, unusual constraints — anything the other
@@ -266,6 +320,17 @@ STEPS vs CONTEXT — pick deliberately:
 Pedagogy anchor (see docs/pedagogy.md): rigid step-ticking is right for
 concrete-facit tasks and wrong for conversational / oral-language tasks
 where the pedagogical point is fluency, confidence, and voice.
+
+GROUP TITLE — the bundle name shown on the kid's board card when this
+photo's tasks are grouped together. Aim for ≤5 Danish words, kid-readable,
+captures the spirit of the page rather than enumerating the exercises.
+  Good: "Subtraktion side 16", "Køb og budget", "Fodboldtøj og kæder",
+        "Skriv og find tal", "Læs og regn"
+  Bad: "Opgaver fra billedet" (generic), "Matematik" (just the subject),
+       "5 opgaver" (just a count), "Regn og skriv de manglende tal og
+       træk streger til tallinjen" (too long, just concatenated tasks).
+Omit the field (or send null) when the page genuinely has no shared
+theme across its tasks — the parent can write one before submitting.
 
 FIELD RULES:
 - "title": short, action-oriented, Danish, max 5 words. Strip leading
@@ -372,20 +437,27 @@ export async function extractTasksFromImage(
   // enough headroom. Previous 1000 and 2500 both truncated.
   //
   // reasoning_effort: vision/extraction is a one-shot per photo (cached on
-  // the session row, not re-run per turn) so the latency tax of "low" vs
-  // "minimal" — a few extra seconds during the thinking spinner — is
-  // affordable. "low" gives the model room to reason about page structure
-  // (what's a task vs a caption vs a self-reference) which is exactly the
-  // kind of judgment "minimal" tends to skip. The hint route stays on
-  // "minimal" because that path runs every turn and latency dominates.
+  // the session row, not re-run per turn) so a longer thinking spinner is
+  // affordable. "medium" gives the model meaningful think-time on small
+  // details (price tags inside busy illustrations, tight handwriting on
+  // workbook scans) where "low" was misreading numbers. The hint route
+  // stays on "minimal" because that path runs every turn and latency
+  // dominates there.
   // 5500 gives dense grade 5-7 pages with many sub-items (a-j, plus
   // multiple opgaver) enough headroom. Previous 3500 truncated the JSON
   // mid-array on tightly packed pages and we'd silently drop the tail.
+  // 12000 cap: at reasoning_effort="medium" the gpt-5 family routinely
+  // spends 3-5k tokens on internal reasoning before emitting the JSON body.
+  // Previous 5500 was tuned for "low" reasoning where ~1k went to thought
+  // and 4k+ remained for output; at "medium" that left too little for
+  // dense pages and the model returned EMPTY content (manifesting upstream
+  // as "Unexpected end of JSON input"). 12000 covers reasoning + a full
+  // 30-step JSON body with headroom.
   const gpt5Extras = {
-    reasoning_effort: "low",
-    max_completion_tokens: 5500,
+    reasoning_effort: "medium",
+    max_completion_tokens: 12000,
   } as unknown as Record<string, never>
-  const deployment = getDeployment()
+  const deployment = getVisionDeployment()
   const completion = await client.chat.completions.create({
     model: deployment,
     response_format: { type: "json_object" },
@@ -408,7 +480,22 @@ export async function extractTasksFromImage(
     ...gpt5Extras,
   })
 
-  const raw = completion.choices[0]?.message?.content ?? "{}"
+  // Defensive: distinguish "no content" (model truncated, reasoning ate
+  // the budget, content filter, etc.) from "valid JSON". JSON.parse("")
+  // throws a cryptic "Unexpected end of JSON input" — easy to misread as
+  // a network issue. A typed error with finish_reason makes the cause
+  // obvious in server logs and the upstream API response.
+  const choice = completion.choices[0]
+  const raw = choice?.message?.content ?? ""
+  if (raw.trim().length === 0) {
+    const finishReason = choice?.finish_reason ?? "unknown"
+    const completionTokens = completion.usage?.completion_tokens ?? 0
+    throw new Error(
+      `vision returned empty content (finish_reason=${finishReason}, ` +
+      `completion_tokens=${completionTokens}). Likely cause: reasoning ` +
+      `ate the max_completion_tokens budget — bump it in lib/vision.ts.`,
+    )
+  }
   const usage = completion.usage
     ? {
         promptTokens: completion.usage.prompt_tokens ?? 0,
@@ -416,9 +503,10 @@ export async function extractTasksFromImage(
         model: deployment,
       }
     : null
-  const parsed = JSON.parse(raw) as {
+  let parsed: {
     subject?: string | null
     subjectConfidence?: string
+    groupTitle?: string | null
     tasks?: {
       title?: string
       text?: string
@@ -432,6 +520,20 @@ export async function extractTasksFromImage(
     }[]
     reason?: string
     detectionNotes?: string | null
+  }
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    // Mid-array truncation produces a non-empty string that still fails
+    // to parse. Same root cause as the empty-string branch above (token
+    // budget too low) — surface it the same way so logs are scannable.
+    const finishReason = choice?.finish_reason ?? "unknown"
+    const completionTokens = completion.usage?.completion_tokens ?? 0
+    throw new Error(
+      `vision returned malformed JSON (finish_reason=${finishReason}, ` +
+      `completion_tokens=${completionTokens}, len=${raw.length}). Likely ` +
+      `truncated mid-output — bump max_completion_tokens in lib/vision.ts.`,
+    )
   }
 
   // Caps: 12 main groups per page, 30 sub-steps per group. Dense Danish
@@ -486,22 +588,30 @@ export async function extractTasksFromImage(
         typeof t.title === "string" && t.title.trim().length > 0
           ? t.title.trim().slice(0, 50)
           : deriveShortTitle(t.text!)
+      const taskCertainty: "high" | "medium" | "low" | undefined =
+        t.completionCertainty === "high" || t.completionCertainty === "low"
+          ? t.completionCertainty
+          : t.completionCertainty === "medium"
+            ? "medium"
+            : undefined
       // Fallback completion step. When the extractor couldn't enumerate
       // sub-items (small images, cluttered layout, language-dependent
       // pictures), the task ends up with steps=[] which leaves it WITHOUT
       // a completion criterion: the parent dashboard renders "0 af 0 trin"
       // forever, the AI tutor has no [progress] target to mark done, and
       // the kid has no clear finish line. Synthesize one general step
-      // pulled from the title (or a short-form of the task text) so the
-      // task is still completable as a single unit. Skipped only when we
-      // have no usable text at all.
-      if (steps.length === 0) {
-        const goalLine = goal?.trim()
-        const fallback =
-          (goalLine && goalLine.length > 0 ? goalLine : title || "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, 200)
+      // FROM THE TITLE (action-shaped) so the task is still completable
+      // as a single unit. NEVER from goal — goals are pedagogical
+      // ("Øv at lægge priser sammen") and read awkwardly as kid-facing
+      // step prompts. Skipped entirely for low-certainty tasks (creative
+      // writing, free composition, draw-your-own) where "kid says done =
+      // done" is the right pedagogy and a fabricated checklist would be
+      // friction without value.
+      if (steps.length === 0 && taskCertainty !== "low") {
+        const fallback = (title || "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 200)
         if (fallback.length > 0) {
           steps = [{ label: "1", prompt: fallback }]
         }
@@ -525,12 +635,6 @@ export async function extractTasksFromImage(
         expectedAnswers.length > 0 && expectedAnswers.some(a => a.length > 0)
           ? expectedAnswers
           : undefined
-      const completionCertainty: "high" | "medium" | "low" | undefined =
-        t.completionCertainty === "high" || t.completionCertainty === "low"
-          ? t.completionCertainty
-          : t.completionCertainty === "medium"
-            ? "medium"
-            : undefined
       return {
         id: `t${i + 1}`,
         title,
@@ -541,13 +645,17 @@ export async function extractTasksFromImage(
         ...(steps.length > 0 ? { steps } : {}),
         ...(context ? { context } : {}),
         ...(expectedAnswersOut ? { expectedAnswers: expectedAnswersOut } : {}),
-        ...(completionCertainty ? { completionCertainty } : {}),
+        ...(taskCertainty ? { completionCertainty: taskCertainty } : {}),
       }
     })
 
   const subject = normaliseSubject(parsed.subject ?? null)
   const subjectConfidence = normaliseConfidence(parsed.subjectConfidence)
   const reason = normaliseReason(parsed.reason)
+  const groupTitle =
+    typeof parsed.groupTitle === "string" && parsed.groupTitle.trim().length > 0
+      ? parsed.groupTitle.trim().slice(0, 80)
+      : null
   // Surface placeholder cleanup in detectionNotes so the parent (and
   // admin debug panel) sees that the extractor scrubbed junk steps.
   const baseNotes =
@@ -566,6 +674,7 @@ export async function extractTasksFromImage(
   return {
     subject,
     subjectConfidence,
+    groupTitle,
     tasks,
     reason: tasks.length === 0 ? (reason ?? "no_tasks") : null,
     detectionNotes,

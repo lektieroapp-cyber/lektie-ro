@@ -48,6 +48,15 @@ export function getDeployment(): string {
   )
 }
 
+// Vision-specific override. Vision/extraction is one-shot per photo so a
+// stronger / slower model is affordable here, while the hint streaming
+// loop (per turn) stays on the cheaper deployment from getDeployment().
+// Falls back to the standard deployment when unset so existing setups
+// keep working unchanged.
+export function getVisionDeployment(): string {
+  return process.env.AZURE_OPENAI_VISION_DEPLOYMENT || getDeployment()
+}
+
 export function isAzureConfigured(): boolean {
   return Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_KEY)
 }

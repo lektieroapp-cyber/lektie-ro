@@ -11,6 +11,8 @@ import { extractTasksFromImage, type VisionTask } from "@/lib/vision"
 type DraftResult = {
   subject: string | null
   subjectConfidence?: "high" | "medium" | "low"
+  /** AI-suggested kid-facing bundle name. Editable client-side. */
+  groupTitle?: string | null
   tasks: VisionTask[]
   reason?: "not_homework" | "unreadable" | "no_tasks" | null
   detectionNotes?: string | null
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       subject: extracted.subject,
       subjectConfidence: extracted.subjectConfidence,
+      groupTitle: extracted.groupTitle,
       tasks: extracted.tasks,
       reason: extracted.reason,
       detectionNotes: extracted.detectionNotes,

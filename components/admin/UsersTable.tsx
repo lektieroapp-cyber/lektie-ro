@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import type { ModelId } from "@/lib/ai-pricing"
 
 export type UserRow = {
   id: string
@@ -16,7 +17,17 @@ export type UserRow = {
   estCostDkk: number
 }
 
-export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
+export function UsersTable({
+  rows: initial,
+  visionModel,
+  hintModel,
+}: {
+  rows: UserRow[]
+  /** Resolved from env at request time so the tooltip names the actual
+   *  deployment the cost was computed against, not a hard-coded label. */
+  visionModel: ModelId
+  hintModel: ModelId
+}) {
   const [rows, setRows] = useState(initial)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [updatingRole, setUpdatingRole] = useState<string | null>(null)
@@ -81,7 +92,11 @@ export function UsersTable({ rows: initial }: { rows: UserRow[] }) {
               <th className="px-5 py-3 font-medium text-right">Sessions</th>
               <th
                 className="px-5 py-3 font-medium text-right"
-                title="Estimeret kost-til-dato i DKK. Inkluderer både LLM (vision + Socratic hints, gpt-5-mini priser) og voice (Azure Speech STT + TTS) baseret på faktiske session- og tur-tællinger. Antager voice-mode er på."
+                title={
+                  `Estimeret kost-til-dato i DKK. Inkluderer LLM (vision: ${visionModel}, ` +
+                  `hints: ${hintModel}) og voice (Azure Speech STT + TTS) baseret på ` +
+                  `faktiske session- og tur-tællinger. Antager voice-mode er på.`
+                }
               >
                 AI-pris
               </th>

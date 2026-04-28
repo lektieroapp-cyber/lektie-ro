@@ -657,8 +657,11 @@ function SubjectDetail({
         </div>
       </div>
 
-      {/* Task list — each row is its own white card on the cream canvas,
-          mirroring the Forældre Ro stat / subject card pattern. */}
+      {/* Task list — solo tasks render as a single card; tasks sharing a
+          task_group_id (multi-task submission from one homework photo)
+          render as a single bundle card with the children inside. Order
+          preserved from the underlying `filtered` array — the first
+          appearance of a group_id determines where the bundle sits. */}
       <ul className="flex flex-col gap-2">
         {filtered.length === 0 ? (
           <li
@@ -670,18 +673,37 @@ function SubjectDetail({
               : "Ingen opgaver i denne kategori."}
           </li>
         ) : (
-          filtered.map(t => (
-            <DetailTaskRow
-              key={t.id}
-              locale={locale}
-              task={t}
-              childName={mode === "parent" ? childNames?.[t.childId] : null}
-              showDismiss={mode === "parent" && t.status !== "done"}
-              busy={busyId === t.id}
-              onDismiss={() => onDismiss(t.id)}
-              messages={messages}
-            />
-          ))
+          groupTasksByBundle(filtered).map(entry => {
+            if (entry.kind === "solo") {
+              const t = entry.task
+              return (
+                <DetailTaskRow
+                  key={t.id}
+                  locale={locale}
+                  task={t}
+                  childName={mode === "parent" ? childNames?.[t.childId] : null}
+                  showDismiss={mode === "parent" && t.status !== "done"}
+                  busy={busyId === t.id}
+                  onDismiss={() => onDismiss(t.id)}
+                  messages={messages}
+                />
+              )
+            }
+            return (
+              <DetailTaskBundle
+                key={entry.groupId}
+                locale={locale}
+                tasks={entry.tasks}
+                childName={
+                  mode === "parent" ? childNames?.[entry.tasks[0].childId] : null
+                }
+                showDismiss={mode === "parent"}
+                busyId={busyId}
+                onDismiss={onDismiss}
+                messages={messages}
+              />
+            )
+          })
         )}
       </ul>
 
@@ -725,6 +747,7 @@ function DetailTaskRow({
   busy,
   onDismiss,
   messages,
+  compact = false,
 }: {
   locale: string
   task: TaskRow
@@ -733,6 +756,10 @@ function DetailTaskRow({
   busy: boolean
   onDismiss: () => void
   messages: TavleMessages
+  /** When true, renders inline inside a bundle: no own card chrome (the
+   *  bundle wrapper provides background + shadow), thin top divider on
+   *  every row except the first, smaller padding. */
+  compact?: boolean
 }) {
   const status = task.status
   const dimmed = status === "done"
@@ -741,12 +768,17 @@ function DetailTaskRow({
   // stable, recognisable left-side glyph without drawing N unique icons
   // up front. Same task.id always lands on the same icon.
   const icon = pickTaskIcon(task.id)
+  const rowClass = compact
+    ? `relative transition first:border-t-0 border-t border-ink/8 ${
+        dimmed ? "opacity-70" : ""
+      }`
+    : `relative rounded-card bg-white transition hover:-translate-y-0.5 ${
+        dimmed ? "opacity-70" : ""
+      }`
   return (
     <li
-      className={`relative rounded-card bg-white transition hover:-translate-y-0.5 ${
-        dimmed ? "opacity-70" : ""
-      }`}
-      style={{ boxShadow: "var(--shadow-card)" }}
+      className={rowClass}
+      style={compact ? undefined : { boxShadow: "var(--shadow-card)" }}
     >
       <Link
         href={`/${locale}/parent/tasks/${task.id}`}
@@ -802,6 +834,192 @@ function DetailTaskRow({
         >
           ×
         </button>
+      )}
+    </li>
+  )
+}
+
+// ─── Bundle grouping ─────────────────────────────────────────────────────────
+// Tasks extracted from one homework photo (parent's "add to board" submit)
+// share a task_group_id and should render as a single expandable card —
+// "1 sæt med 5 opgaver" — instead of N independent cards that hide their
+// origin. Solo tasks (no group_id, or only one visible task in the group)
+// render unchanged.
+
+type BundleEntry =
+  | { kind: "solo"; task: TaskRow }
+  | { kind: "bundle"; groupId: string; tasks: TaskRow[] }
+
+function groupTasksByBundle(tasks: TaskRow[]): BundleEntry[] {
+  // First pass: count how many tasks each group has in the visible list,
+  // so a group that's been filtered down to one task collapses back to a
+  // solo card (no point in a "1 opgave fra dette sæt" wrapper).
+  const groupCounts = new Map<string, number>()
+  for (const t of tasks) {
+    if (!t.taskGroupId) continue
+    groupCounts.set(t.taskGroupId, (groupCounts.get(t.taskGroupId) ?? 0) + 1)
+  }
+  // Second pass: emit one entry per group (at the first appearance), or
+  // one entry per solo task. Preserves the input ordering for non-grouped
+  // tasks and for the bundle's anchor position.
+  const seen = new Set<string>()
+  const entries: BundleEntry[] = []
+  for (const t of tasks) {
+    if (t.taskGroupId && (groupCounts.get(t.taskGroupId) ?? 0) > 1) {
+      if (seen.has(t.taskGroupId)) continue
+      seen.add(t.taskGroupId)
+      entries.push({
+        kind: "bundle",
+        groupId: t.taskGroupId,
+        tasks: tasks.filter(x => x.taskGroupId === t.taskGroupId),
+      })
+    } else {
+      entries.push({ kind: "solo", task: t })
+    }
+  }
+  return entries
+}
+
+function DetailTaskBundle({
+  locale,
+  tasks,
+  childName,
+  showDismiss,
+  busyId,
+  onDismiss,
+  messages,
+}: {
+  locale: string
+  tasks: TaskRow[]
+  childName?: string | null
+  showDismiss: boolean
+  busyId: string | null
+  onDismiss: (id: string) => void
+  messages: TavleMessages
+}) {
+  // Default collapsed — bundles are scannable as one row each, and once a
+  // parent has many homework photos on the board, defaulting open turns
+  // the page back into a wall of rows.
+  const [open, setOpen] = useState(false)
+  const total = tasks.length
+  const doneCount = tasks.filter(t => t.status === "done").length
+  const inProgressCount = tasks.filter(t => t.status === "in_progress").length
+  // Roll-up status for the outer pill.
+  const rolledStatus: TaskStatus =
+    doneCount === total ? "done"
+      : inProgressCount > 0 || doneCount > 0 ? "in_progress"
+      : "pending"
+  const rolledStatusInfo = STATUS_INFO[rolledStatus]
+  // Stable icon for the bundle from its group id — same set always picks
+  // the same glyph so the Tavle stays recognisable across visits.
+  const icon = pickTaskIcon(tasks[0].taskGroupId ?? tasks[0].id)
+  const dimmed = rolledStatus === "done"
+  const groupId = tasks[0].taskGroupId
+  const startAllHref = groupId ? `/${locale}/parent/groups/${groupId}` : null
+  const allDone = doneCount === total
+  return (
+    <li
+      className={`rounded-card bg-white transition ${dimmed ? "opacity-80" : ""}`}
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      <div className="relative flex w-full items-center gap-4 p-4 sm:p-5">
+        {/* Big-target toggle: icon + title + chevron act as one click area
+            so the kid doesn't have to aim at the small chevron. The
+            "Start alle" Link sits on top with `relative z-10` and
+            stopPropagation so its clicks don't bubble back into the
+            toggle. */}
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          aria-label={open ? "Skjul opgaver" : "Vis opgaver"}
+          className="absolute inset-0 cursor-pointer rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-deep/40"
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none relative inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl sm:h-16 sm:w-16"
+          style={{ background: icon.tint }}
+        >
+          {icon.glyph}
+        </span>
+        <div className="pointer-events-none relative min-w-0 flex-1">
+          <p
+            className="reading-task-title text-base font-semibold text-ink sm:text-lg"
+            style={{ fontFamily: "var(--font-fraunces), var(--font-display)" }}
+          >
+            {tasks[0].taskGroupTitle || `${total} opgaver fra ét lektiebillede`}
+          </p>
+          <p className="reading-body mt-0.5 line-clamp-1 text-sm text-ink/60">
+            {childName && <span className="font-medium text-ink/70">{childName} · </span>}
+            {doneCount} af {total} færdige
+          </p>
+          <span
+            className="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+            style={{ background: rolledStatusInfo.pillBg, color: rolledStatusInfo.pillFg }}
+          >
+            {rolledStatus === "pending" && messages.statusPending}
+            {rolledStatus === "in_progress" && messages.statusInProgress}
+            {rolledStatus === "done" && messages.statusDone}
+          </span>
+        </div>
+        {/* "Start alle" routes to the multi-pick screen (TaskPicker)
+            seeded with the bundle's tasks. relative + z-10 lifts it
+            above the absolute toggle button; onClick stopPropagation
+            keeps a tap on the green pill from also opening the inline
+            list. */}
+        {startAllHref && !allDone && (
+          <Link
+            href={startAllHref}
+            onClick={e => e.stopPropagation()}
+            className="relative z-10 hidden shrink-0 items-center gap-1.5 rounded-btn bg-primary px-5 py-2.5 text-sm font-bold text-ink transition hover:opacity-90 cursor-pointer sm:inline-flex"
+            style={{ boxShadow: "0 4px 12px -4px rgba(122,203,162,0.55)" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Start alle
+          </Link>
+        )}
+        <span
+          aria-hidden
+          className="pointer-events-none relative shrink-0 text-2xl text-ink/40 transition-transform"
+          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+        >
+          ›
+        </span>
+      </div>
+      {/* Mobile: "Start alle" sits on its own row under the header
+          because there isn't horizontal room next to a 14×14 icon +
+          title stack. Desktop hides this in favour of the inline button
+          to keep the row visually identical to a solo task card. */}
+      {startAllHref && !allDone && (
+        <Link
+          href={startAllHref}
+          className="mx-4 mb-3 inline-flex items-center justify-center gap-1.5 rounded-btn bg-primary px-4 py-2.5 text-sm font-bold text-ink transition hover:opacity-90 cursor-pointer sm:hidden"
+          style={{ boxShadow: "0 4px 12px -4px rgba(122,203,162,0.55)" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Start alle
+        </Link>
+      )}
+      {open && (
+        <ul className="border-t border-ink/8 px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
+          {tasks.map(t => (
+            <DetailTaskRow
+              key={t.id}
+              locale={locale}
+              task={t}
+              childName={null}
+              showDismiss={showDismiss && t.status !== "done"}
+              busy={busyId === t.id}
+              onDismiss={() => onDismiss(t.id)}
+              messages={messages}
+              compact
+            />
+          ))}
+        </ul>
       )}
     </li>
   )

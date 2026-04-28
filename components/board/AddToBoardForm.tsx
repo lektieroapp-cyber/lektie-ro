@@ -45,12 +45,21 @@ type Photo = {
   /** Full response from /api/tasks/draft (success or failure). Stored
    *  client-side so the admin debug panel can show it without refetching. */
   draftResponse?: DraftDebugResponse
+  /** Vision-suggested bundle name ("Subtraktion side 16"). Stored
+   *  separately from `groupTitle` so an edit-then-clear leaves us with
+   *  a sensible default to fall back to. Null when the model didn't
+   *  suggest one. */
+  suggestedGroupTitle?: string | null
+  /** Parent's edited bundle name. Empty string = use the suggestion (or
+   *  null if none). Sent to /api/tasks/batch on commit. */
+  groupTitle?: string
 }
 
 type DraftDebugResponse = {
   status: number
   subject?: string | null
   subjectConfidence?: string
+  groupTitle?: string | null
   reason?: string | null
   detectionNotes?: string | null
   tasks?: VisionTask[]
@@ -278,7 +287,13 @@ export function AddToBoardForm({
       setPhotos(prev =>
         prev.map(p =>
           p.id === photoId
-            ? { ...p, status: "done", detectedSubject: data.subject, draftResponse: debug }
+            ? {
+                ...p,
+                status: "done",
+                detectedSubject: data.subject,
+                draftResponse: debug,
+                suggestedGroupTitle: data.groupTitle ?? null,
+              }
             : p,
         ),
       )
@@ -287,14 +302,7 @@ export function AddToBoardForm({
       // intentional pick. Per-task override is still available in the review.
       setTasks(prev => [
         ...prev,
-        ...data.tasks.map(t => ({
-          localId: crypto.randomUUID(),
-          photoId,
-          task: t,
-          subject: defaultSubject,
-          approved: true,
-          dismissed: false,
-        })),
+        ...buildEntriesForPhoto(data, photoId),
       ])
       // Surface a confirm modal if vision says the photo belongs to a
       // different subject than the parent picked — better to ask once
@@ -361,20 +369,19 @@ export function AddToBoardForm({
       setPhotos(prev =>
         prev.map(p =>
           p.id === photoId
-            ? { ...p, status: "done", detectedSubject: data.subject, draftResponse: debug }
+            ? {
+                ...p,
+                status: "done",
+                detectedSubject: data.subject,
+                draftResponse: debug,
+                suggestedGroupTitle: data.groupTitle ?? null,
+              }
             : p,
         ),
       )
       setTasks(prev => [
         ...prev,
-        ...(data.tasks ?? []).map(t => ({
-          localId: crypto.randomUUID(),
-          photoId,
-          task: t,
-          subject: defaultSubject,
-          approved: true,
-          dismissed: false,
-        })),
+        ...buildEntriesForPhoto(data, photoId),
       ])
       // Re-runs can change the detection — flag mismatch again if the
       // new subject still disagrees with the parent's pick.
@@ -457,6 +464,50 @@ export function AddToBoardForm({
     )
   }
 
+  // Maps a successful /api/tasks/draft response into review-queue entries.
+  // When vision returned zero tasks but the photo isn't flagged as
+  // "not_homework", inject ONE fallback task per photo so the parent
+  // doesn't end up with a useless upload — the source image is linked,
+  // so the in-session AI tutor can re-read it from scratch when the kid
+  // starts working. Parent can still dismiss it. For "not_homework" we
+  // skip the fallback (the photo genuinely isn't schoolwork) — the
+  // photo chip's empty-state message tells the parent to retake.
+  function buildEntriesForPhoto(
+    data: DraftDebugResponse & { tasks: VisionTask[] },
+    photoId: string,
+  ): DraftTask[] {
+    const tasks = data.tasks ?? []
+    if (tasks.length > 0) {
+      return tasks.map(t => ({
+        localId: crypto.randomUUID(),
+        photoId,
+        task: t,
+        subject: defaultSubject,
+        approved: true,
+        dismissed: false,
+      }))
+    }
+    if (data.reason === "not_homework") return []
+    const fallbackText =
+      data.reason === "unreadable"
+        ? "Billedet var svært at læse. Lektiehjælperen prøver igen, når sessionen starter."
+        : "Vi læste ikke nogen opgave automatisk. Lektiehjælperen prøver at læse billedet, når sessionen starter."
+    return [{
+      localId: crypto.randomUUID(),
+      photoId,
+      task: {
+        id: `fallback-${photoId}`,
+        title: "Opgave fra billedet",
+        text: fallbackText,
+        type: "task",
+        completionCertainty: "low",
+      },
+      subject: defaultSubject,
+      approved: true,
+      dismissed: false,
+    }]
+  }
+
   async function commit() {
     if (!childId) {
       setError(messages.errorChild)
@@ -470,25 +521,49 @@ export function AddToBoardForm({
     setCommitting(true)
     setError(null)
     try {
+      // Group by (photoId, subject) so each photo's tasks land under one
+      // shared task_group_id — kid finishing task 1 then routes to task 2
+      // in the same set instead of getting dumped to an empty board, same
+      // as the kid-takes-photo flow. Per-task subject overrides split a
+      // photo across multiple batches (rare). One batch per group via
+      // /api/tasks/batch.
+      const groups = new Map<string, DraftTask[]>()
       for (const t of toSave) {
-        const photo = photos.find(p => p.id === t.photoId)
+        const key = `${t.photoId}::${t.subject}`
+        const arr = groups.get(key) ?? []
+        arr.push(t)
+        groups.set(key, arr)
+      }
+      for (const batch of groups.values()) {
+        const photo = photos.find(p => p.id === batch[0].photoId)
+        // Resolve which name to send: parent's edit if non-empty, else the
+        // vision suggestion, else null (Tavle falls back to the generic
+        // "N opgaver fra ét lektiebillede" placeholder for null titles).
+        const editedTitle = photo?.groupTitle?.trim() ?? ""
+        const groupTitle =
+          editedTitle.length > 0
+            ? editedTitle
+            : photo?.suggestedGroupTitle?.trim() || null
         // eslint-disable-next-line no-await-in-loop
-        const res = await fetch("/api/tasks", {
+        const res = await fetch("/api/tasks/batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             childId,
-            subject: t.subject,
-            title: t.task.title ?? null,
-            text: t.task.text,
-            type: t.task.type,
-            goal: t.task.goal ?? null,
-            steps: t.task.steps ?? null,
-            context: t.task.context ?? null,
-            needsPaper: t.task.needsPaper ?? null,
+            subject: batch[0].subject,
             sourceImagePath: photo?.path ?? null,
-            completionCertainty: t.task.completionCertainty ?? "medium",
             approve: true,
+            groupTitle,
+            tasks: batch.map(t => ({
+              title: t.task.title ?? null,
+              text: t.task.text,
+              type: t.task.type,
+              goal: t.task.goal ?? null,
+              steps: t.task.steps ?? null,
+              context: t.task.context ?? null,
+              needsPaper: t.task.needsPaper ?? null,
+              completionCertainty: t.task.completionCertainty ?? "medium",
+            })),
           }),
         })
         if (!res.ok) throw new Error("commit failed")
@@ -680,6 +755,38 @@ export function AddToBoardForm({
             </span>
           </div>
 
+          {/* One editable bundle title per photo with 2+ live tasks. The
+              parent can override the AI suggestion before commit; what they
+              type here is what shows up on the Tavle bundle row. Photos
+              with 0 or 1 live task collapse to a solo card on the board so
+              there's no bundle to name — input hidden in that case. */}
+          {(() => {
+            const photoTaskCounts = new Map<string, number>()
+            for (const t of tasks) {
+              if (t.dismissed) continue
+              photoTaskCounts.set(t.photoId, (photoTaskCounts.get(t.photoId) ?? 0) + 1)
+            }
+            const bundles = photos.filter(p => (photoTaskCounts.get(p.id) ?? 0) >= 2)
+            if (bundles.length === 0) return null
+            return (
+              <div className="flex flex-col gap-2">
+                {bundles.map(p => (
+                  <BundleTitleInput
+                    key={p.id}
+                    photo={p}
+                    photoIndex={photos.findIndex(pp => pp.id === p.id) + 1}
+                    taskCount={photoTaskCounts.get(p.id) ?? 0}
+                    onChange={value =>
+                      setPhotos(prev =>
+                        prev.map(pp => (pp.id === p.id ? { ...pp, groupTitle: value } : pp)),
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            )
+          })()}
+
           <ul className="flex flex-col gap-3">
             {tasks.map(t => (
               <DraftTaskCard
@@ -848,6 +955,7 @@ function PhotoChip({
   messages: AddToBoardMessages
 }) {
   const status = photo.status
+  const isActive = status === "uploading" || status === "thinking"
   const statusInfo: { label: string; tone: "mint" | "muted" | "clay" } | null =
     status === "uploading" ? { label: messages.photoUploading, tone: "muted" }
       : status === "thinking" ? { label: messages.photoThinking, tone: "mint" }
@@ -868,6 +976,32 @@ function PhotoChip({
         className="h-full w-full object-cover"
         style={{ opacity: status === "done" ? 1 : 0.55 }}
       />
+      {/* Top-edge stripe ONLY while uploading (the brief PUT to Storage,
+          usually <1s on a fast line). Once the vision call kicks in
+          (status="thinking") we hand off to the centered spinner so the
+          two indicators don't double up during the long phase. */}
+      {status === "uploading" && (
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-mint-soft/70"
+        >
+          <div className="h-full w-1/3 animate-photo-chip-stripe rounded-full bg-mint-deep/80" />
+        </div>
+      )}
+      {/* Centered spinner overlay during the long "thinking" (vision)
+          phase — the 30-45s call where motion reassures the parent the
+          system isn't frozen. */}
+      {status === "thinking" && (
+        <div
+          aria-hidden
+          className="absolute inset-0 flex items-center justify-center"
+        >
+          <div
+            className="h-9 w-9 animate-spin rounded-full border-[2.5px] border-white/70"
+            style={{ borderTopColor: "var(--color-mint-deep, #4F8E6B)" }}
+          />
+        </div>
+      )}
       {/* Status strip — soft white tray with a colored dot + label, matches
           the chip-style we use elsewhere (subject pills, status pills). */}
       <div
@@ -876,7 +1010,9 @@ function PhotoChip({
       >
         <span
           aria-hidden
-          className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full"
+          className={`inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${
+            isActive ? "animate-pulse" : ""
+          }`}
           style={{ background: dot }}
         />
         <span className="text-ink/55">#{index}</span>
@@ -896,6 +1032,50 @@ function PhotoChip({
       >
         ×
       </button>
+    </div>
+  )
+}
+
+function BundleTitleInput({
+  photo,
+  photoIndex,
+  taskCount,
+  onChange,
+}: {
+  photo: Photo
+  photoIndex: number
+  taskCount: number
+  onChange: (value: string) => void
+}) {
+  const value = photo.groupTitle ?? ""
+  const placeholder =
+    photo.suggestedGroupTitle?.trim() ||
+    `${taskCount} opgaver fra billede #${photoIndex}`
+  return (
+    <div
+      className="rounded-card border border-mint-edge/60 bg-mint-soft/40 p-3"
+    >
+      <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-mint-deep/85">
+        <span className="flex items-center gap-1.5">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M3 7h18M3 12h18M3 17h12" />
+          </svg>
+          Sæt-titel · billede #{photoIndex}
+        </span>
+        <input
+          type="text"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          maxLength={80}
+          className="w-full rounded-btn border border-mint-edge/60 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-ink placeholder:text-ink/40 focus:border-mint-deep focus:outline-none"
+        />
+      </label>
+      {photo.suggestedGroupTitle && !value && (
+        <p className="mt-1.5 text-[11px] font-normal normal-case tracking-normal text-ink/55">
+          AI foreslår: <span className="italic">{photo.suggestedGroupTitle}</span>. Klik feltet for at ændre.
+        </p>
+      )}
     </div>
   )
 }
@@ -1146,7 +1326,7 @@ function DraftTaskCard({
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 8v4M12 16h.01" />
               </svg>
-              Tutor-kontekst (kun for dig)
+              Tutor-kontekst
             </div>
             <p className="whitespace-pre-line text-ink/80">{t.context}</p>
           </div>
@@ -1208,7 +1388,7 @@ function ExpectedAnswers({
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <polyline points="20 6 9 17 4 12" />
         </svg>
-        Forventet svar (kun for dig)
+        Forventet svar
       </div>
       {hasSteps ? (
         <ul className="flex flex-col gap-1">

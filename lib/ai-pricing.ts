@@ -2,7 +2,12 @@
 // Update when Azure publishes new prices — one place, everything recalculates.
 // Source: https://azure.microsoft.com/en-us/pricing/details/azure-openai/
 
-export type ModelId = "gpt-5" | "gpt-5-mini" | "gpt-5-nano" | "gpt-5-chat"
+export type ModelId =
+  | "gpt-5"
+  | "gpt-5-mini"
+  | "gpt-5.4-mini"
+  | "gpt-5-nano"
+  | "gpt-5-chat"
 
 export type ModelSpec = {
   id: ModelId
@@ -28,6 +33,18 @@ export const MODELS: Record<ModelId, ModelSpec> = {
     inputPerMTok: 0.25,
     outputPerMTok: 2,
     note: "Anbefalet. God instruktionsfølgning, vision, streaming, lav pris.",
+    canVision: true,
+  },
+  "gpt-5.4-mini": {
+    id: "gpt-5.4-mini",
+    label: "gpt-5.4-mini",
+    // ESTIMATE — Azure has not published Sweden Central rates yet. Set to
+    // ~2× gpt-5-mini based on OpenAI's "5.4-mini ≈ scaled-down 5.4 with
+    // better visual reasoning" positioning. Adjust here when the real
+    // Azure rate card lands so every cost number flips at once.
+    inputPerMTok: 0.5,
+    outputPerMTok: 4,
+    note: "Bedre vision/OCR end gpt-5-mini. Bruges kun til billed-ekstraktion (en gang pr. foto).",
     canVision: true,
   },
   "gpt-5-chat": {
@@ -85,40 +102,50 @@ export const TOKEN_ASSUMPTIONS = {
   hintOutputTokensPerTurn: 100,
 } as const
 
-/** Single-session cost given assumptions above and the chosen model. */
-export function costPerSessionUsd(turnsPerSession: number, modelId: ModelId): number {
-  const m = MODELS[modelId]
+/**
+ * Single-session cost. Vision and hint can be priced from different
+ * models (we run gpt-5.4-mini for the one-shot photo extraction and
+ * gpt-5-mini for the per-turn streaming hints).
+ *
+ * Backwards-compatible: passing a single ModelId still works — both
+ * legs are priced from that model.
+ */
+export function costPerSessionUsd(
+  turnsPerSession: number,
+  visionModelId: ModelId,
+  hintModelId: ModelId = visionModelId,
+): number {
+  const v = MODELS[visionModelId]
+  const h = MODELS[hintModelId]
   const a = TOKEN_ASSUMPTIONS
   const vision =
-    (a.visionInputTokens * m.inputPerMTok + a.visionOutputTokens * m.outputPerMTok) /
+    (a.visionInputTokens * v.inputPerMTok + a.visionOutputTokens * v.outputPerMTok) /
     1_000_000
   const hint =
     turnsPerSession *
-    (a.hintInputTokensPerTurn * m.inputPerMTok +
-      a.hintOutputTokensPerTurn * m.outputPerMTok) /
+    (a.hintInputTokensPerTurn * h.inputPerMTok +
+      a.hintOutputTokensPerTurn * h.outputPerMTok) /
     1_000_000
   return vision + hint
 }
 
 /**
  * Estimate the running cost for a user given their session + turn counts.
- * Uses gpt-5-mini pricing by default (our prod model) and includes voice
- * (STT + TTS) on top of the LLM bill — voice mode is on by default in
- * prod, so an LLM-only number was undercounting by 30-50% per session.
- *
- * The earlier signature stayed (modelId optional, voiceProvider optional)
- * so existing callers don't break — they'll just get a higher, more
- * realistic cost now that voice is accounted for.
+ * Defaults match prod: gpt-5.4-mini for vision, gpt-5-mini for hints,
+ * Azure voice. Includes voice (STT + TTS) on top of the LLM bill — voice
+ * mode is on by default, so an LLM-only number was undercounting by
+ * 30-50% per session.
  */
 export function estimateUserCostDkk(
   sessionCount: number,
   totalTurns: number,
-  modelId: ModelId = "gpt-5-mini",
+  visionModelId: ModelId = "gpt-5.4-mini",
+  hintModelId: ModelId = "gpt-5-mini",
   voiceProvider: VoiceProviderId = "azure",
 ): { usd: number; dkk: number } {
   if (sessionCount === 0) return { usd: 0, dkk: 0 }
   const avgTurns = totalTurns > 0 ? totalTurns / sessionCount : 4
-  const llmUsd = sessionCount * costPerSessionUsd(avgTurns, modelId)
+  const llmUsd = sessionCount * costPerSessionUsd(avgTurns, visionModelId, hintModelId)
   // Voice cost scales with TOTAL turns across all sessions, not avg —
   // every assistant turn produces TTS, every user turn produces STT.
   const voiceUsd = computeVoiceCost(voiceProvider, totalTurns).usd
@@ -216,6 +243,9 @@ export function computeVoiceCost(
 export function modelIdFromDeployment(deployment: string): ModelId {
   const d = deployment.toLowerCase()
   if (d.includes("nano")) return "gpt-5-nano"
+  // Order matters: "5.4-mini" must match BEFORE the generic "mini" branch,
+  // otherwise "gpt-5.4-mini" silently falls back to gpt-5-mini pricing.
+  if (d.includes("5.4") && d.includes("mini")) return "gpt-5.4-mini"
   if (d.includes("mini")) return "gpt-5-mini"
   if (d.includes("chat")) return "gpt-5-chat"
   if (d.includes("gpt-5")) return "gpt-5"

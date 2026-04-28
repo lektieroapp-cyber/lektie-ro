@@ -25,6 +25,9 @@ const batchSchema = z.object({
   subject: z.string(),
   sourceImagePath: z.string().nullable().optional(),
   approve: z.boolean().optional(),
+  /** Kid-facing bundle name shown on the Tavle bundle row (vision suggests
+   *  one, parent can edit before submit). Persisted on every sibling. */
+  groupTitle: z.string().max(80).nullable().optional(),
   tasks: z.array(taskSchema).min(1),
 })
 
@@ -74,6 +77,7 @@ export async function POST(request: NextRequest) {
         completionCertainty: t.completionCertainty,
         approve: parsed.data.approve,
       })),
+      parsed.data.groupTitle ?? null,
     )
     return NextResponse.json({ groupId, tasks })
   } catch (err) {

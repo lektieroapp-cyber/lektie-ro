@@ -21,6 +21,10 @@ export async function GET() {
       endpoint: !!endpoint,
       key: !!process.env.AZURE_OPENAI_KEY,
       deployment: !!process.env.AZURE_OPENAI_DEPLOYMENT,
+      // Optional vision-only override. When unset the vision call falls
+      // back to the default deployment, so this flag tells the admin
+      // panel "is the split actually wired in this env".
+      visionDeployment: !!process.env.AZURE_OPENAI_VISION_DEPLOYMENT,
       aiModeEnv: process.env.AI_MODE ?? null,
       // Show the endpoint host only (not the full URL) — helps verify shape
       // without leaking anything sensitive.

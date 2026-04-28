@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { UsersTable, type UserRow } from "@/components/admin/UsersTable"
-import { estimateUserCostDkk } from "@/lib/ai-pricing"
+import { estimateUserCostDkk, modelIdFromDeployment } from "@/lib/ai-pricing"
 import { isLocale } from "@/lib/i18n/config"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -44,9 +44,21 @@ export default async function AdminUsersPage({
     sessionStats.set(s.parent_id, prev)
   }
 
+  // Resolve which models the env actually uses today so the cost reflects
+  // reality, not the lib defaults. Vision and hint can be different
+  // deployments (the vision-only override sits on AZURE_OPENAI_VISION_DEPLOYMENT).
+  const hintModel = modelIdFromDeployment(
+    process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-5-mini",
+  )
+  const visionModel = modelIdFromDeployment(
+    process.env.AZURE_OPENAI_VISION_DEPLOYMENT ||
+      process.env.AZURE_OPENAI_DEPLOYMENT ||
+      "gpt-5-mini",
+  )
+
   const rows: UserRow[] = (usersResult.data?.users ?? []).map(u => {
     const stats = sessionStats.get(u.id) ?? { sessions: 0, turns: 0 }
-    const cost = estimateUserCostDkk(stats.sessions, stats.turns)
+    const cost = estimateUserCostDkk(stats.sessions, stats.turns, visionModel, hintModel)
     return {
       id: u.id,
       email: u.email ?? "-",
@@ -64,7 +76,7 @@ export default async function AdminUsersPage({
 
   return (
     <section className="mt-10">
-      <UsersTable rows={rows} />
+      <UsersTable rows={rows} visionModel={visionModel} hintModel={hintModel} />
     </section>
   )
 }
