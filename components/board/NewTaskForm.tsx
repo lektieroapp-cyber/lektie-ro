@@ -30,6 +30,12 @@ type Draft = {
   subject: string | null
   tasks: VisionTask[]
   imagePath: string | null
+  /** Shared id for everything extracted from this photo. Stamped on each
+   *  /api/tasks POST in curate mode so the kid task page can route between
+   *  siblings; passed via /api/tasks/batch in start mode. Generated client-
+   *  side so the parent can approve N over M sessions and they still group
+   *  cleanly. */
+  groupId: string
 }
 
 type ApprovalState = Record<string, "pending" | "approving" | "approved" | "dismissed">
@@ -203,7 +209,8 @@ export function NewTaskForm({
       }
       const initialSubject = isSubject(data.subject) ? data.subject : "matematik"
       setSubject(initialSubject)
-      setDraft({ subject: data.subject, tasks: data.tasks, imagePath: path })
+      const groupId = crypto.randomUUID()
+      setDraft({ subject: data.subject, tasks: data.tasks, imagePath: path, groupId })
 
       if (mode === "start") {
         // Quick path: auto-create all extracted tasks (approved) and jump
@@ -219,15 +226,18 @@ export function NewTaskForm({
         }
         setStage("saving")
         try {
-          const created: { id: string }[] = []
-          for (const t of data.tasks) {
-            // eslint-disable-next-line no-await-in-loop
-            const res = await fetch("/api/tasks", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                childId,
-                subject: initialSubject,
+          // Single batch insert: all tasks share one task_group_id so the
+          // kid finishing task 1 can hop to task 2 in the same set instead
+          // of getting dumped on the empty board.
+          const res = await fetch("/api/tasks/batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              childId,
+              subject: initialSubject,
+              sourceImagePath: path,
+              approve: true,
+              tasks: data.tasks.map(t => ({
                 title: t.title ?? null,
                 text: t.text,
                 type: t.type,
@@ -235,20 +245,14 @@ export function NewTaskForm({
                 steps: t.steps ?? null,
                 context: t.context ?? null,
                 needsPaper: t.needsPaper ?? null,
-                sourceImagePath: path,
-                approve: true,
-              }),
-            })
-            if (res.ok) {
-              const j = (await res.json()) as { task: { id: string } }
-              created.push({ id: j.task.id })
-            }
-          }
-          if (created.length === 0) {
-            throw new Error("no tasks saved")
-          }
+              })),
+            }),
+          })
+          if (!res.ok) throw new Error("batch failed")
+          const j = (await res.json()) as { tasks: { id: string }[] }
+          if (!j.tasks?.length) throw new Error("no tasks saved")
           // Straight into tutoring on the first task.
-          router.push(`${taskHrefBase}/${created[0].id}`)
+          router.push(`${taskHrefBase}/${j.tasks[0].id}`)
           return
         } catch (err) {
           console.error(err)
@@ -288,6 +292,7 @@ export function NewTaskForm({
           context: t.context ?? null,
           needsPaper: t.needsPaper ?? null,
           sourceImagePath: draft.imagePath,
+          taskGroupId: draft.groupId,
           approve: true,
         }),
       })

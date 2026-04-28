@@ -9,7 +9,7 @@ import { getMessages } from "@/lib/i18n/getMessages"
 import { getSessionUser } from "@/lib/auth/session"
 import { getActiveChild } from "@/lib/auth/active-child"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { fetchTaskById, rowToTask } from "@/lib/tasks"
+import { fetchTaskById, nextOpenSiblingInGroup, rowToTask } from "@/lib/tasks"
 import {
   isEnglishTutoringLanguage,
   resolveEnglishTutoringLanguage,
@@ -134,6 +134,21 @@ export default async function TaskPage({
   // selv" → pass the task's child so sessions still link correctly.
   const sessionChildId = activeChildId ?? row.childId
 
+  // If this task was submitted as part of a group (parent uploaded a photo
+  // with multiple tasks, or kid took the photo themselves), look up the
+  // next still-open sibling so completion can route there instead of the
+  // empty board. Skip in parent "Prøv selv" mode — that's a one-shot demo.
+  let nextSiblingHref: string | null = null
+  if (activeChild && row.taskGroupId) {
+    const sibling = await nextOpenSiblingInGroup(
+      user.id,
+      row.childId,
+      row.taskGroupId,
+      row.id,
+    )
+    if (sibling) nextSiblingHref = `/${locale}/parent/tasks/${sibling.id}`
+  }
+
   // Resolve the kid's engelsk-tutoring preference (auto/danish/english)
   // against their grade so the TTS pipeline gets a concrete value to
   // pick a voice from. Only meaningful for engelsk subject — passed on
@@ -153,6 +168,7 @@ export default async function TaskPage({
           childId={sessionChildId}
           childGrade={childGrade}
           boardHref={backHref}
+          nextSiblingHref={nextSiblingHref}
           englishTutoringLanguage={englishTutoringLanguage}
         />
       </CompanionProvider>

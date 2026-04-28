@@ -132,7 +132,7 @@ export function ParentTaskPreview({
   }
 
   return (
-    <div className="flex w-full flex-col gap-5 pb-12 md:pb-16">
+    <div className="flex w-full flex-col gap-3 pb-12 md:pb-16">
       <Link
         href={boardHref}
         className="inline-flex items-center gap-1 self-start text-sm font-medium text-ink/60 transition hover:text-ink cursor-pointer"
@@ -163,6 +163,26 @@ export function ParentTaskPreview({
             >
               {task.title || shorten(task.text, 90)}
             </h2>
+            {/* Opgavetekst + Mål live inline in the header now (always
+                visible, no toggle) — they're the two lines a parent needs
+                at-a-glance, so collapsing them behind a chevron added more
+                clicks than it saved space. The body Opgavetekst is skipped
+                when task.title is empty (the h2 already shows it via the
+                `task.title || shorten(task.text)` fallback) to avoid
+                rendering the same string twice. */}
+            {task.title && task.text && (
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink/80">
+                {task.text}
+              </p>
+            )}
+            {task.goal && (
+              <p className="mt-1.5 text-xs italic leading-relaxed text-ink/55">
+                <span className="font-semibold not-italic uppercase tracking-wider text-ink/45">
+                  {messages.goalLabel}:
+                </span>{" "}
+                {task.goal}
+              </p>
+            )}
             {/* At-a-glance progress strip — fed by the highest steps_done
                 from any session linked to this task. Hides itself when
                 there are no sessions yet (progress=null) so a brand-new
@@ -221,95 +241,86 @@ export function ParentTaskPreview({
         </div>
       </div>
 
-      {/* Each detail block is a collapsible card. Opgavetekst defaults
-          open (it's what the parent comes here to see); the rest start
-          collapsed so the page reads as a tidy list of section headers
-          the parent can drill into instead of one long scroll. */}
-      <CollapsibleCard label={messages.textLabel} defaultOpen>
-        <p className="whitespace-pre-line text-sm leading-relaxed text-ink/85">
-          {task.text}
-        </p>
-      </CollapsibleCard>
-
-      {task.goal && (
-        <CollapsibleCard label={messages.goalLabel}>
-          <p className="text-sm italic leading-relaxed text-ink/70">{task.goal}</p>
-        </CollapsibleCard>
-      )}
-
-      {task.steps && task.steps.length > 0 && (
-        <CollapsibleCard label={messages.stepsLabel}>
-          <ol className="flex flex-col gap-1.5 pl-1 text-sm text-ink/80">
-            {task.steps.map((s, i) => {
-              // Approximation: we know the kid completed `progress.done`
-              // steps total, but not which specific labels — sessions
-              // store steps_done as a count, not a per-label set. The
-              // safest visual is to mark the first N as done since the
-              // step list is presented in order; if the kid jumps around
-              // this overshoots/undershoots a few rows, but the running
-              // total at the top of the page is always accurate.
-              const isDone = !!progress && i < progress.done
-              return (
-                <li key={s.label} className="flex items-start gap-2">
-                  <span
-                    aria-hidden
-                    className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition ${
-                      isDone
-                        ? "bg-mint-deep text-white"
-                        : "bg-ink/8 text-ink/65"
-                    }`}
-                    title={isDone ? "Klaret" : undefined}
-                  >
-                    {isDone ? (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="5 12 10 17 19 7" />
-                      </svg>
-                    ) : (
-                      s.label
-                    )}
-                  </span>
-                  <span className={isDone ? "text-ink/55 line-through" : undefined}>
-                    {s.prompt}
-                  </span>
-                </li>
-              )
-            })}
-          </ol>
-        </CollapsibleCard>
-      )}
+      {/* Shared card for the longer detail blocks (Trin + Lektiestunder).
+          Opgavetekst and Mål moved up into the header. Trin defaults open
+          since it's the main thing parents look at; sessions default open
+          when there are sessions to show. */}
+      <div
+        className="rounded-card bg-white"
+        style={{ boxShadow: "var(--shadow-card)" }}
+      >
+        {task.steps && task.steps.length > 0 && (
+          <CollapsibleSection label={messages.stepsLabel} defaultOpen>
+            <ol className="flex flex-col gap-1.5 pl-1 text-sm text-ink/80">
+              {task.steps.map((s, i) => {
+                // Approximation: we know the kid completed `progress.done`
+                // steps total, but not which specific labels — sessions
+                // store steps_done as a count, not a per-label set. The
+                // safest visual is to mark the first N as done since the
+                // step list is presented in order; if the kid jumps around
+                // this overshoots/undershoots a few rows, but the running
+                // total at the top of the page is always accurate.
+                const isDone = !!progress && i < progress.done
+                return (
+                  <li key={s.label} className="flex items-start gap-2">
+                    <span
+                      aria-hidden
+                      className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                        isDone
+                          ? "bg-mint-deep text-white"
+                          : "bg-ink/8 text-ink/65"
+                      }`}
+                      title={isDone ? "Klaret" : undefined}
+                    >
+                      {isDone ? (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="5 12 10 17 19 7" />
+                        </svg>
+                      ) : (
+                        s.label
+                      )}
+                    </span>
+                    <span className={isDone ? "text-ink/55 line-through" : undefined}>
+                      {s.prompt}
+                    </span>
+                  </li>
+                )
+              })}
+            </ol>
+          </CollapsibleSection>
+        )}
+        <CollapsibleSection
+          label={messages.sessionsLabel}
+          defaultOpen={sessions.length > 0}
+        >
+          {sessions.length === 0 ? (
+            <p className="text-sm text-ink/55">{messages.sessionsEmpty}</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {sessions.map(s => (
+                <SessionRow key={s.id} session={s} />
+              ))}
+            </ul>
+          )}
+        </CollapsibleSection>
+      </div>
 
       {/* Source image, if present */}
       {task.sourceImagePath && (
         <SourceImage path={task.sourceImagePath} />
       )}
-
-      {/* Session history — also collapsible, defaults open when there
-          are sessions to show, closed when empty (no point expanding
-          an empty placeholder). */}
-      <CollapsibleCard
-        label={messages.sessionsLabel}
-        defaultOpen={sessions.length > 0}
-      >
-        {sessions.length === 0 ? (
-          <p className="text-sm text-ink/55">{messages.sessionsEmpty}</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {sessions.map(s => (
-              <SessionRow key={s.id} session={s} />
-            ))}
-          </ul>
-        )}
-      </CollapsibleCard>
     </div>
   )
 }
 
 /**
- * Card-styled toggle with an uppercase label and a chevron that rotates
- * 180° on open. Uses local state so each card opens/closes independently
- * without needing a shared accordion parent.
+ * Row inside the shared detail card. Renders as a header row (uppercase
+ * label + rotating chevron) with a thin top divider on every section
+ * except the first, and an indented body below when open. No card chrome
+ * of its own — relies on the parent `<div>` for background and shadow so
+ * the sections read as a continuous panel instead of separate cards.
  */
-function CollapsibleCard({
+function CollapsibleSection({
   label,
   defaultOpen = false,
   children,
@@ -320,15 +331,12 @@ function CollapsibleCard({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div
-      className="rounded-card bg-white p-5"
-      style={{ boxShadow: "var(--shadow-card)" }}
-    >
+    <div className="border-t border-ink/8 first:border-t-0">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 text-left cursor-pointer"
+        className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left cursor-pointer"
       >
         <span className="text-xs font-semibold uppercase tracking-wider text-ink/55">
           {label}
@@ -343,7 +351,7 @@ function CollapsibleCard({
           </svg>
         </span>
       </button>
-      {open && <div className="mt-3">{children}</div>}
+      {open && <div className="px-5 pb-4">{children}</div>}
     </div>
   )
 }

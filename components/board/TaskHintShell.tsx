@@ -23,12 +23,16 @@ type Props = {
   childGrade: number | null
   /** Where to send the kid when they tap "Færdig" or close the session. */
   boardHref: string
+  /** Next still-open task in the same group (homework set), if any. When
+   *  set, the post-completion "More homework" CTA navigates here instead of
+   *  dropping the kid back on the board — mirrors `SessionFlow.nextTask`. */
+  nextSiblingHref?: string | null
   /** Resolved engelsk-tutoring preference ("danish" or "english"). Forwarded
    *  to HintChat so the /api/tts call can swap voices accordingly. */
   englishTutoringLanguage?: "danish" | "english" | null
 }
 
-export function TaskHintShell({ task, subject, childId, childGrade, boardHref, englishTutoringLanguage = null }: Props) {
+export function TaskHintShell({ task, subject, childId, childGrade, boardHref, nextSiblingHref = null, englishTutoringLanguage = null }: Props) {
   const router = useRouter()
   // Voice is the default tutoring mode for every kid regardless of grade —
   // the spoken homework conversation is the core experience, text is the
@@ -129,8 +133,15 @@ export function TaskHintShell({ task, subject, childId, childGrade, boardHref, e
     router.push(boardHref)
   }
 
-  // HintChat wants these but they're not meaningful on the per-task page.
-  // "More homework" + "finish session" both just send the kid back to Tavle.
+  // "More homework" is the auto-advance after the celebration screen. When
+  // the task is part of a group with siblings still open, hop to the next
+  // one — that's the whole point of grouping. Otherwise fall back to the
+  // board. "Finish session" always exits to the board.
+  function moreHomework() {
+    if (nextSiblingHref) router.push(nextSiblingHref)
+    else router.push(boardHref)
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-2">
@@ -149,7 +160,7 @@ export function TaskHintShell({ task, subject, childId, childGrade, boardHref, e
           setTurns={setTurns}
           childId={childId ?? undefined}
           onComplete={completeSession}
-          onMoreHomework={back}
+          onMoreHomework={moreHomework}
           onFinishSession={back}
           completed={completed}
           conversationMode={conversationMode}

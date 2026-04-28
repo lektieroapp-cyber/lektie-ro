@@ -24,6 +24,11 @@ export type TaskRow = {
   sourceImagePath: string | null
   status: TaskStatus
   approvedByParent: boolean
+  /** Shared id for tasks extracted from the same homework photo / parent
+   *  submission. Null on legacy single-task rows (pre-015). When set, the
+   *  kid task page uses it to route to the next open sibling on completion
+   *  instead of dumping back to the empty board. */
+  taskGroupId: string | null
   /** Vision extractor's confidence in the completion criteria. The tutor
    *  prompt branches on this — "low" lets the kid signal done with no
    *  friction; "high" can hold them to all steps. Defaults to "medium". */
@@ -52,6 +57,7 @@ type DbRow = {
   source_image_path: string | null
   status: string
   approved_by_parent: boolean
+  task_group_id: string | null
   completion_certainty: string | null
   created_at: string
   updated_at: string
@@ -63,7 +69,7 @@ type DbRow = {
 const SELECT_COLS =
   "id, child_id, parent_id, subject, task_title, task_text, task_type, " +
   "task_goal, task_steps, task_context, needs_paper, source_image_path, " +
-  "status, approved_by_parent, completion_certainty, " +
+  "status, approved_by_parent, task_group_id, completion_certainty, " +
   "created_at, updated_at, approved_at, " +
   "completed_at, dismissed_at"
 
@@ -83,6 +89,7 @@ function mapRow(r: DbRow): TaskRow {
     sourceImagePath: r.source_image_path,
     status: r.status as TaskStatus,
     approvedByParent: r.approved_by_parent,
+    taskGroupId: r.task_group_id,
     completionCertainty:
       r.completion_certainty === "high" || r.completion_certainty === "low"
         ? r.completion_certainty
@@ -233,6 +240,10 @@ export type CreateTaskInput = {
   context?: string | null
   needsPaper?: boolean | null
   sourceImagePath?: string | null
+  /** Shared group id for batches extracted from the same photo / parent
+   *  submission. Pass the same id on every task in a batch; null/omit for
+   *  legacy single-task rows. */
+  taskGroupId?: string | null
   completionCertainty?: "high" | "medium" | "low"
   /** Default true — board flow inserts already-approved rows. */
   approve?: boolean
@@ -259,6 +270,7 @@ export async function createTask(
       task_context: input.context ?? null,
       needs_paper: input.needsPaper ?? null,
       source_image_path: input.sourceImagePath ?? null,
+      task_group_id: input.taskGroupId ?? null,
       completion_certainty: input.completionCertainty ?? "medium",
       status: "pending",
       approved_by_parent: approve,
@@ -338,6 +350,77 @@ export async function markTaskDone(parentId: string, taskId: string): Promise<vo
     .update({ status: "done", completed_at: new Date().toISOString() })
     .eq("id", taskId)
     .eq("parent_id", parentId)
+}
+
+/** Insert a batch of tasks under one shared task_group_id. Returns the
+ *  created rows in input order. Used by the parent "submit a homework
+ *  photo" flow so all tasks from one image share a group, mirroring the
+ *  kid-takes-photo session where finishing one task lands the kid on a
+ *  picker with the remaining siblings. */
+export async function createTaskBatch(
+  parentId: string,
+  inputs: CreateTaskInput[],
+): Promise<{ groupId: string; tasks: TaskRow[] }> {
+  if (inputs.length === 0) return { groupId: "", tasks: [] }
+  const admin = createAdminClient()
+  const groupId = crypto.randomUUID()
+  const now = new Date().toISOString()
+  const rows = inputs.map(input => {
+    const approve = input.approve !== false
+    return {
+      parent_id: parentId,
+      child_id: input.childId,
+      subject: input.subject,
+      task_title: input.title ?? null,
+      task_text: input.text,
+      task_type: input.type ?? "task",
+      task_goal: input.goal ?? null,
+      task_steps: input.steps ?? null,
+      task_context: input.context ?? null,
+      needs_paper: input.needsPaper ?? null,
+      source_image_path: input.sourceImagePath ?? null,
+      task_group_id: groupId,
+      completion_certainty: input.completionCertainty ?? "medium",
+      status: "pending",
+      approved_by_parent: approve,
+      approved_at: approve ? now : null,
+    }
+  })
+  const { data, error } = await admin
+    .from("tasks")
+    .insert(rows)
+    .select(SELECT_COLS)
+  if (error) throw new Error(`createTaskBatch: ${error.message}`)
+  return {
+    groupId,
+    tasks: (data as unknown as DbRow[] | null)?.map(mapRow) ?? [],
+  }
+}
+
+/** Next open (pending or in_progress) sibling in the same task group, scoped
+ *  to the given child. Returns the oldest still-open task other than the one
+ *  the kid just finished, or null when the group is empty / fully done. */
+export async function nextOpenSiblingInGroup(
+  parentId: string,
+  childId: string,
+  taskGroupId: string,
+  excludeTaskId: string,
+): Promise<TaskRow | null> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("tasks")
+    .select(SELECT_COLS)
+    .eq("parent_id", parentId)
+    .eq("child_id", childId)
+    .eq("task_group_id", taskGroupId)
+    .eq("approved_by_parent", true)
+    .in("status", ["pending", "in_progress"])
+    .neq("id", excludeTaskId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new Error(`nextOpenSiblingInGroup: ${error.message}`)
+  return data ? mapRow(data as unknown as DbRow) : null
 }
 
 // ─── Subject helpers ─────────────────────────────────────────────────────────

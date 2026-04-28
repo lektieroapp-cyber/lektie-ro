@@ -85,6 +85,7 @@ type StripOpts = {
 export function stripForTts(text: string, opts: StripOpts = {}): string {
   const subject = (opts.subject ?? "").toLowerCase()
   const wrapEnglishBolds = subject === "engelsk" || subject === "tysk"
+  const isMath = subject === "matematik"
   let out = text
     // Visual-block markers
     .replace(BLOCK_STRIP_RE, " ")
@@ -119,6 +120,18 @@ export function stripForTts(text: string, opts: StripOpts = {}): string {
   // ensures we don't re-wrap correctly-quoted text.
   if (wrapEnglishBolds) {
     out = autoQuoteEnglishVocab(out)
+  }
+  // Matematik: Danish neural voices read a hyphen as "bindestreg" instead
+  // of "minus" in arithmetic. Normalise Unicode minus/en-dash to ASCII first,
+  // then promote to the word "minus" when it sits between operands —
+  // either spaces on both sides ("5 - 3", "x - y") or a tight digit-pair
+  // ("5-3"). Compound words like "lektie-hjælp" stay untouched because they
+  // have no surrounding spaces and aren't digit-on-both-sides.
+  if (isMath) {
+    out = out
+      .replace(/[−–]/g, "-")
+      .replace(/(\S)[ \t]+-[ \t]+(\S)/g, "$1 minus $2")
+      .replace(/(\d)\s*-\s*(\d)/g, "$1 minus $2")
   }
   return out
     // Collapse whitespace introduced by the strips
