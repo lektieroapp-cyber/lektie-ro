@@ -254,7 +254,10 @@ function TopBar({
       <TaskSubtitle text={task.text} />
       <CallTimer />
       <button
-        onClick={onClose}
+        onClick={() => {
+          console.log("[exit] X button clicked (TopBar)")
+          onClose()
+        }}
         aria-label="Afslut samtale"
         style={{
           width: 32,
@@ -805,7 +808,10 @@ function InlineCompletionChip({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        console.log("[exit] InlineCompletionChip clicked", { atLimit, label })
+        onClick()
+      }}
       style={{
         border: "none",
         background: atLimit ? K.clay : K.mint,
@@ -968,7 +974,10 @@ function Dock({
 
         <button
           type="button"
-          onClick={onEnd}
+          onClick={() => {
+            console.log("[exit] Dock end button clicked")
+            onEnd()
+          }}
           aria-label="Færdig med opgaven"
           title="Færdig med opgaven"
           style={{

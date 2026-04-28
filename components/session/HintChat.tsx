@@ -197,6 +197,14 @@ export function HintChat({
   } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inflightRef = useRef(false)
+  // Mirrors the latest completion signal so closures inside callHint
+  // (which capture `completed`/`stepProgress` at call time) can see the
+  // up-to-date state when deciding whether to re-open the mic. Without
+  // this, the moment a turn emits [progress done="all"], audio drains,
+  // mic re-opens (because closed-over `completed` was still false),
+  // kid speech triggers another /api/hint, and the AI keeps "talking
+  // and working" while CelebrationPanel is already rendering.
+  const completedSignaledRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
   // Kept for text-mode recording path (still uses MediaRecorder since
   // latency isn't as critical there and kids can review the transcript
@@ -477,6 +485,20 @@ export function HintChat({
       // Stop returns a blob promise — discard it, we're aborting the session.
       void handle.stop().catch(() => {})
     }
+    // Release the underlying mic MediaStream so the browser turns off the
+    // tab's "recording" indicator. Stopping the recorders above doesn't
+    // affect the stream tracks — they have to be stopped explicitly.
+    // Without this, the kid clicks back to Tavlen and the red mic dot
+    // stays lit on the tab until they hard-refresh, which both feels
+    // creepy and burns CPU on the page they're now navigating away
+    // from. Cleared the ref so ensureMicStream re-opens cleanly when
+    // the kid returns to a task.
+    if (micStreamRef.current) {
+      try {
+        micStreamRef.current.getTracks().forEach(t => t.stop())
+      } catch {}
+      micStreamRef.current = null
+    }
     setSpeaking(false)
     setRecording(false)
     setMicLevel(0)
@@ -642,7 +664,36 @@ export function HintChat({
   // GATE the autoComplete effect on !speaking instead, so by the time
   // `completed` flips here the AI's last sentence has already finished
   // playing naturally. No kill needed.
-  void completed
+  //
+  // Keep the completion ref in lockstep with the prop so closures inside
+  // callHint (mic re-open decision) can see the latest state. Also flip
+  // it when [progress done="all"] is detected mid-stream so the mic
+  // doesn't reopen for a "next turn" the kid never sees — that was
+  // the "AI keeps talking and working in the background" bug.
+  useEffect(() => {
+    if (completed) completedSignaledRef.current = true
+  }, [completed])
+  useEffect(() => {
+    if (stepProgress.done.has("all")) completedSignaledRef.current = true
+  }, [stepProgress.done])
+
+  // When completion signals (either via prop or marker), stop any
+  // recording the mic-reopen path may have started during the race
+  // window. Without this the kid's speech keeps streaming into STT
+  // while CelebrationPanel is rendering.
+  useEffect(() => {
+    if (!completed && !stepProgress.done.has("all")) return
+    if (mediaRecRef.current?.state === "recording") {
+      try { mediaRecRef.current.stop() } catch {}
+    }
+    if (pcmRecRef.current) {
+      const handle = pcmRecRef.current
+      pcmRecRef.current = null
+      void handle.stop().catch(() => {})
+    }
+    setRecording(false)
+    setMicLevel(0)
+  }, [completed, stepProgress.done])
 
   // Kicks off /api/tts for one sentence and resolves with a blob-URL the
   // pump() loop can hand to the shared playback element. We deliberately
@@ -695,6 +746,13 @@ export function HintChat({
 
   async function callHint(nextTurns: Turn[]) {
     if (inflightRef.current) return
+    // Belt + suspenders: never start a fresh hint round once the task
+    // has been signalled complete. The mic-reopen gate above should
+    // prevent this in practice, but a manual "send" or a barge-in
+    // delivered before completedSignaledRef flips could still slip in
+    // — better to drop it cleanly than to let the AI talk past the
+    // celebration screen.
+    if (completedSignaledRef.current) return
     inflightRef.current = true
     bargeInFiredRef.current = false
     bargeInTentativeRef.current = false
@@ -873,6 +931,18 @@ export function HintChat({
       // Skip fragments with no speakable letters ("1.", "ca.", bare markers).
       if (!cleaned || !/\p{L}/u.test(cleaned)) return
       slots.push(fetchSentenceAudio(cleaned))
+      // Optimistically flip `speaking=true` the moment a sentence is
+      // queued, BEFORE the TTS audio actually begins playing. Without
+      // this there's a race window where the LLM stream finishes
+      // (setStreaming(false) fires) but pump() hasn't yet flipped
+      // speaking=true because the first audio blob is still loading.
+      // The autoComplete gate on !streaming && !speaking would slip
+      // through and fire onComplete prematurely — celebration screen
+      // mounts BEFORE the kid hears the summary sentence. Setting
+      // speaking=true on dispatch closes that gap; pump's own
+      // setSpeaking(true) inside the play loop is now redundant but
+      // harmless. setSpeaking(false) at the end of pump still works.
+      setSpeaking(true)
       void pump()
     }
 
@@ -1022,19 +1092,48 @@ export function HintChat({
         bargeInCleanupRef.current?.()
         bargeInCleanupRef.current = null
         setSpeaking(false)
-        if (!atLimit && !completed) {
+        // Reopen mic only when the session is genuinely continuing.
+        // `completed` here is a stale closure from when callHint was
+        // invoked; on the turn that emits [progress done="all"] it's
+        // still false even though we're about to flip to celebration.
+        // completedSignaledRef captures both the prop AND the marker,
+        // so this gate sees the latest state. Without it the mic opens
+        // → kid speech → another /api/hint while CelebrationPanel is
+        // mounting (the "AI keeps working in the background" bug).
+        if (!atLimit && !completed && !completedSignaledRef.current) {
           if (bargeInFiredRef.current) {
             // Kid is already talking — skip the 150ms breath and record now.
             bargeInFiredRef.current = false
             void startRecording()
           } else {
-            window.setTimeout(() => void startRecording(), 150)
+            window.setTimeout(() => {
+              if (completedSignaledRef.current) return
+              void startRecording()
+            }, 150)
           }
         }
       }
       inflightRef.current = false
     }
   }
+
+  // Hard cleanup on unmount: stop any in-flight audio + recording.
+  // Without this, navigating away (back to Tavlen, picker, anywhere)
+  // leaves the module-level singleton primedEl in lib/voice/audio-unlock
+  // still playing the last loaded blob — and any in-flight /api/hint or
+  // /api/tts callbacks that haven't fired yet land on closures that
+  // load NEW blobs into the same singleton. Result: Dani keeps talking
+  // ("Det forstod jeg ikke") for ~30s after the kid hit back, until a
+  // full page reload reimports the module. completedSignaledRef also
+  // flips so any queued mic-reopen / future callHint short-circuits.
+  useEffect(() => {
+    return () => {
+      console.log("[exit] HintChat unmount — stopVoiceOutput")
+      completedSignaledRef.current = true
+      stopVoiceOutput()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Kick off first AI message on mount.
   useEffect(() => {
@@ -1180,6 +1279,20 @@ export function HintChat({
       doneSet: stepProgress.done,
       userSignaledDone: true,
     })
+    console.log("[exit] completeWithStatus called", {
+      kind: status.kind,
+      stepsDone: status.stepsDone,
+      stepsTotal: status.stepsTotal,
+      doneSet: [...stepProgress.done],
+      streaming,
+      speaking,
+      completedSignaled: completedSignaledRef.current,
+    })
+    logDevEvent("info", "[exit] completeWithStatus", {
+      kind: status.kind,
+      stepsDone: status.stepsDone,
+      stepsTotal: status.stepsTotal,
+    })
     // Partial completion needs an explicit "yes, stop here" confirmation —
     // it's easy to hit Færdig by accident, and kids shouldn't feel they
     // have to finish 100% to not lose progress. "Completed" goes through
@@ -1188,17 +1301,34 @@ export function HintChat({
     // Partial path: hand off to the styled modal (rendered below) which
     // calls finishWith once the kid confirms.
     if (status.kind === "partial" && status.stepsTotal > 0) {
+      console.log("[exit] → opens partial-confirm modal (kid hasn't done all steps)")
       setPendingPartial(status)
       return
     }
+    // Manual completion — kill any in-flight audio + recording NOW. The
+    // auto-completion path (via [progress done="all"]) gates on TTS
+    // queue drain because we want the AI's summary to be heard fully.
+    // A manual click means the kid wants out RIGHT NOW; honoring that
+    // means cutting audio mid-sentence, not letting Dani talk over
+    // the celebration screen. completedSignaledRef also flips so any
+    // queued mic-reopen / future callHint in the race window short-
+    // circuits cleanly.
+    console.log("[exit] → killing voice + calling onComplete (kind=" + status.kind + ")")
+    completedSignaledRef.current = true
+    stopVoiceOutput()
     onComplete(turns, status)
   }
 
   // Modal-confirm path for partial completion. Lives outside
   // completeWithStatus so the modal's "Stop her" button can call it
-  // directly with the captured status.
+  // directly with the captured status. Same audio-kill treatment as
+  // the manual path above — once the kid confirms "Stop her", there's
+  // nothing more to wait on.
   function finishWith(status: CompletionStatus) {
+    console.log("[exit] finishWith (modal confirm)", { kind: status.kind })
     setPendingPartial(null)
+    completedSignaledRef.current = true
+    stopVoiceOutput()
     onComplete(turns, status)
   }
 
@@ -1858,6 +1988,18 @@ export function HintChat({
               if (lastRecording?.url) URL.revokeObjectURL(lastRecording.url)
               setLastRecording(null)
             }}
+          />
+        )}
+        {/* Partial-completion confirm modal MUST render in voice mode too.
+            Previously it only rendered in the text-mode return below, so
+            in voice mode tapping X / "Opgave løst" set pendingPartial
+            but no modal appeared on screen — the kid was stuck tapping
+            the X repeatedly with nothing happening. */}
+        {pendingPartial && (
+          <PartialCompletionModal
+            status={pendingPartial}
+            onCancel={() => setPendingPartial(null)}
+            onConfirm={() => finishWith(pendingPartial)}
           />
         )}
       </>

@@ -108,31 +108,65 @@ export function TaskHintShell({ task, subject, childId, childGrade, boardHref, n
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function completeSession(completedTurns: Turn[], status?: CompletionStatus) {
-    setCompleted(true)
+  function completeSession(completedTurns: Turn[], status?: CompletionStatus) {
+    const kind = status?.kind ?? "completed"
+    const trulyDone = kind === "completed"
+    console.log("[exit] TaskHintShell.completeSession", {
+      kind,
+      trulyDone,
+      turnCount: completedTurns.length,
+      stepsDone: status?.stepsDone,
+      stepsTotal: status?.stepsTotal,
+      dbSessionId,
+      boardHref,
+    })
+    // Only show the celebration panel for genuine completion. Manual
+    // exits ("Opgave løst" tapped early, X tapped) record the session
+    // as partial/abandoned and route straight to the board — the kid
+    // didn't finish, so a "du klarede det!" screen would lie. The
+    // session row still gets PATCHed so the parent dashboard sees the
+    // attempt; only the in-app celebration UX is gated.
+    if (trulyDone) {
+      console.log("[exit] → setCompleted(true) — celebration panel will render")
+      setCompleted(true)
+    }
     logDevEvent(
       "complete",
       status
         ? `${status.kind} — ${status.stepsDone}/${status.stepsTotal} trin, ${completedTurns.length} ture`
         : `Opgave klaret på ${completedTurns.length} ture`,
     )
-    if (!dbSessionId) return
-    try {
-      await fetch("/api/session", {
+    // Non-completion → exit straight to the board IMMEDIATELY. Don't
+    // wait for the PATCH below — a slow Supabase round-trip would
+    // leave the kid staring at the same screen for several seconds
+    // after they tapped X, looking exactly like a broken button.
+    // The PATCH fires async on the unmounting page; if it fails the
+    // session row just stays without the final stepsDone/turn_count
+    // (recoverable from the parent dashboard).
+    if (!trulyDone) {
+      console.log("[exit] → router.push(", boardHref, ")")
+      router.push(boardHref)
+    }
+    // Fire-and-forget the session PATCH. setCompleted has already
+    // triggered the celebration screen in the truly-done path; the
+    // navigation has already kicked in in the partial/abandoned path.
+    // Either way the user-visible state has progressed.
+    if (dbSessionId) {
+      void fetch("/api/session", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: dbSessionId,
           turnCount: completedTurns.length,
-          completed: status ? status.kind === "completed" : true,
+          completed: trulyDone,
           stepsDone: status?.stepsDone,
           stepsTotal: status?.stepsTotal,
           completionKind: status?.kind,
           turns: completedTurns,
         }),
+      }).catch(() => {
+        // Non-fatal — session row stays without the final patch.
       })
-    } catch {
-      // Non-fatal.
     }
   }
 

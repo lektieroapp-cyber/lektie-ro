@@ -1,9 +1,14 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { TaskPicker } from "@/components/session/TaskPicker"
+import { VoiceTaskChoice } from "@/components/session/VoiceTaskChoice"
 import type { SolveResponse, Task } from "@/components/session/types"
+
+const VOICE_ENABLED = process.env.NEXT_PUBLIC_VOICE_ENABLED === "true"
+const CONVO_MODE_STORAGE_KEY = "lr_convo_mode"
 
 // Thin client wrapper around the kid-flow TaskPicker for a saved bundle.
 // Builds a synthetic SolveResponse out of the stored tasks (no sessionId
@@ -36,6 +41,21 @@ export function GroupTaskPicker({
   const router = useRouter()
   void locale
 
+  // Read the kid's session preference (voice vs text) the same way the
+  // task page does — localStorage is the source of truth across surfaces.
+  // Default to voice when VOICE_ENABLED, matching the kid-snap flow.
+  const [conversationMode, setConversationMode] = useState<"voice" | "text">(
+    VOICE_ENABLED ? "voice" : "text",
+  )
+  useEffect(() => {
+    if (!VOICE_ENABLED) return
+    try {
+      const stored = window.localStorage.getItem(CONVO_MODE_STORAGE_KEY)
+      if (stored === "voice" || stored === "text") setConversationMode(stored)
+    } catch {}
+  }, [])
+  const voiceMode = VOICE_ENABLED && conversationMode === "voice"
+
   const solve: SolveResponse = {
     sessionId: "",
     subject,
@@ -44,6 +64,13 @@ export function GroupTaskPicker({
     reason: null,
     detectionNotes: null,
   }
+
+  // Tasks the kid hasn't finished yet — VoiceTaskChoice should only
+  // offer the still-open ones (mirrors the kid-snap SessionFlow's
+  // remainingTasks filter). The visual TaskPicker grid handles
+  // completed-hiding internally via completedTaskIds.
+  const completedSet = new Set(completedTaskIds ?? [])
+  const remainingTasks = tasks.filter(t => !completedSet.has(t.id))
 
   function pickTask(t: Task) {
     router.push(`${taskHrefBase}/${t.id}`)
@@ -67,6 +94,23 @@ export function GroupTaskPicker({
           <span className="font-semibold">
             Godt klaret! Du blev færdig med <span className="italic">{justDoneLabel}</span>.
           </span>
+        </div>
+      )}
+      {/* Voice picker — only in voice mode, only when there are tasks
+          left to choose from. Mirrors the kid-snap flow (SessionFlow's
+          stage="pick" branch) which renders both VoiceTaskChoice +
+          TaskPicker so the kid hears "Hvilken vil du tage først?" and
+          can answer aloud, while the visual grid stays tappable.
+          Re-keyed by remaining task ids so reopening after one is
+          done refreshes the spoken offer. */}
+      {voiceMode && remainingTasks.length > 0 && (
+        <div className="mx-auto flex w-full max-w-md justify-center">
+          <VoiceTaskChoice
+            key={remainingTasks.map(t => t.id).join(",")}
+            tasks={remainingTasks}
+            subject={subject}
+            onPick={pickTask}
+          />
         </div>
       )}
       {/* Wrap in flex+justify-center so the picker actually centers in
