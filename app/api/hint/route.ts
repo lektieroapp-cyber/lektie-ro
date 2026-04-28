@@ -26,6 +26,12 @@ type Body = {
   /** Free-form extractor context Dani uses during the session (never
    *  shown to the kid). */
   taskContext?: string | null
+  /** Per-step expected answers (index-aligned with taskSteps). Threaded
+   *  into the system prompt as an authoritative reference so the model
+   *  doesn't have to re-derive arithmetic every turn — fixes the
+   *  "AI rejects correct answer" bug. Empty / undefined for
+   *  open-ended creative steps where there is no single right answer. */
+  taskExpectedAnswers?: (string | null | undefined)[] | null
   /** Vision-extractor confidence in completion criteria. Drives the
    *  certainty block in the system prompt. */
   completionCertainty?: "high" | "medium" | "low" | null
@@ -84,6 +90,7 @@ export async function POST(request: NextRequest) {
     taskType: body.taskType ?? null,
     needsPaper: body.needsPaper ?? null,
     taskContext: body.taskContext ?? null,
+    taskExpectedAnswers: body.taskExpectedAnswers ?? null,
     completionCertainty: body.completionCertainty ?? "medium",
     child,
     deliveryMode,
@@ -126,9 +133,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const client = getAzure()
-    // reasoning_effort=minimal is CRITICAL for gpt-5-mini — default "medium"
-    // burns 30-60s on internal thinking before the first token, and these
-    // Socratic turns don't need deep reasoning. "minimal" keeps it snappy.
+    // reasoning_effort="low" — bumped up from "minimal" because the
+    // tutor reliably needs to VERIFY the kid's answer (compute the sum
+    // / recompute the chain step / check vocabulary) before judging.
+    // At "minimal" the model pattern-matches "let me scaffold" reflexively
+    // and rejects correct answers ("kid said 100 to 45+30+25 → Ikke helt").
+    // "low" adds ~0.5-1s per turn but the model actually does the
+    // arithmetic. Still well under "medium" which would burn 3-5s on
+    // internal thinking — overkill for these short Socratic turns.
     //
     // Voice mode gets a MUCH tighter token cap. Text replies can tolerate
     // 400 tokens (~300 words); spoken replies have 25-word rules in the
@@ -137,7 +149,7 @@ export async function POST(request: NextRequest) {
     // it even when the model's chatty.
     const maxTokens = deliveryMode === "voice" ? 160 : 400
     const gpt5Extras = {
-      reasoning_effort: "minimal",
+      reasoning_effort: "low",
       max_completion_tokens: maxTokens,
     } as unknown as Record<string, never>
     const deployment = getDeployment()

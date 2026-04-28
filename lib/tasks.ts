@@ -133,6 +133,7 @@ export function rowToTask(row: TaskRow): Task {
     needsPaper: row.needsPaper ?? undefined,
     steps: row.steps ?? undefined,
     context: row.context ?? undefined,
+    expectedAnswers: row.expectedAnswers ?? undefined,
     completionCertainty: row.completionCertainty,
   }
 }

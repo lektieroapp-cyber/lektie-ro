@@ -1548,11 +1548,21 @@ function ExpectedAnswers({
     <div
       className="rounded-card border border-dashed border-mint-edge bg-mint-soft/40 px-3 py-2.5 text-[12px]"
     >
-      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-mint-deep/85">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-        Forventet svar
+      <div className="mb-1.5 flex items-center justify-between gap-1.5 text-[10px] font-bold uppercase tracking-wider text-mint-deep/85">
+        <span className="flex items-center gap-1.5">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          Forventet svar
+        </span>
+        {/* Honest disclosure: these come from the AI reading the photo,
+            and price-tag reads slip ~10% of the time. The parent is the
+            final source of truth — this prompt nudges them to spot-check
+            against the actual image before commit. The chip below is
+            small + low-key on purpose; not alarming, just present. */}
+        <span className="rounded-full bg-clay-soft/60 px-2 py-0.5 text-[9px] font-medium normal-case tracking-normal text-clay-deep">
+          Tjek mod billedet
+        </span>
       </div>
       {hasSteps ? (
         <ul className="flex flex-col gap-1.5">

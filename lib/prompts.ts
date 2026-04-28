@@ -27,6 +27,12 @@ export type HintPromptParams = {
   /** Free-form extractor notes for Dani only (never shown to the child).
    *  Injected as an opaque reference block. */
   taskContext?: string | null
+  /** Per-step expected answers (index-aligned with taskSteps). When
+   *  present, injected as an authoritative answer key so the model
+   *  string-compares the kid's reply instead of re-deriving arithmetic
+   *  every turn. Skipped for open-ended creative steps where there's
+   *  no single right answer (those entries are empty strings). */
+  taskExpectedAnswers?: (string | null | undefined)[] | null
   /** Vision extractor's confidence in completion criteria. Drives how
    *  hard the tutor pushes for full coverage vs trusting the kid's
    *  "jeg er færdig". Defaults to "medium" when omitted. */
@@ -69,6 +75,7 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
     taskType,
     needsPaper,
     taskContext,
+    taskExpectedAnswers,
     completionCertainty = "medium",
   } = params
 
@@ -98,6 +105,7 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
   const taskPatternBlock = buildTaskPatternBlock(taskType, needsPaper)
   const chainBlock = buildChainStepBlock(taskSteps)
   const contextBlock = buildContextBlock(taskContext)
+  const answerKeyBlock = buildAnswerKeyBlock(taskSteps, taskExpectedAnswers)
   const certaintyBlock = buildCompletionCertaintyBlock(completionCertainty)
 
   return [
@@ -113,6 +121,7 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
     chainBlock,
     goalBlock,
     contextBlock,
+    answerKeyBlock,
     certaintyBlock,
     HINT_INSTRUCTIONS,
     deliveryBlock,
@@ -145,7 +154,13 @@ COMPLETION CERTAINTY — low (open-ended, no objective finish line):
 - ENRICH THE TASK if the kid spontaneously names sub-items you didn't
   have. Use [task action="append-step" label="<n>" prompt="<their topic>"] so
   the parent dashboard sees what the kid actually engaged with.
-  Optional, not required — low-certainty tasks rarely need it.`
+  Optional, not required — low-certainty tasks rarely need it.
+
+OPEN-ENDED OPENING (low-certainty tasks):
+- The extractor flagged this task as having no objective finish line
+  (creative writing, free composition, draw-your-own). Lead with the
+  task's framing, but it's natural here to ask what the kid wants to
+  do or what they see — there's no "correct first step" to drive at.`
   }
   return `\
 COMPLETION CERTAINTY — medium (extractor wasn't sure of every sub-item):
@@ -229,7 +244,17 @@ STEP GOAL.
 
 CAN'T RECOMPUTE? If you've lost the running total (e.g. several turns
 of off-topic chat), ASK the kid: "Hvad blev dit forrige svar?" Don't
-guess. A wrong assumption breaks every step that follows.`
+guess. A wrong assumption breaks every step that follows.
+
+OVERRIDDEN VALUE → RECOMPUTE THE CHAIN: if you accepted a kid-stated
+value for an earlier step that differed from what the answer key said
+(see ANSWER KEY rules), every later step's expected running total
+shifts accordingly. Recompute from the kid's actual value, not from
+the key. Example: anchor 97, step 1 = "minus 12", key says result
+85 → kid says result is actually 60 (because they read the anchor as
+72 from the page, not 97). You accept their 60 as step 1. Step 2
+"minus 5" must now expect 55, not 80. Use what the kid actually
+stated, not what the chain-from-original-anchor would compute.`
 
 const CHAIN_HINT_RE = /\b(dit\s+svar|din\s+svar|forrige\s+(?:svar|tal)|dit\s+forrige|dit\s+sidste\s+svar)\b/i
 
@@ -255,6 +280,89 @@ ${context.trim()}
 Use this only as reference when answering the child's questions or
 checking their work. Everything the child sees must come from your own
 Socratic guidance, not from this block.`
+}
+
+// Authoritative answer key — index-aligned with taskSteps. Vision
+// produced these and a second-pass verification sanity-checked them
+// against the photo. Threaded into the system prompt so the model can
+// string-compare the kid's reply against the right value rather than
+// re-deriving arithmetic / re-reading the page every turn. The latter
+// is where gpt-5-mini at low-reasoning kept slipping ("rejects 100 to
+// 45+30+25"). Only included when at least one step has a non-empty
+// answer; tasks with all-empty answers (open-ended creative) skip it.
+function buildAnswerKeyBlock(
+  steps: { label: string; prompt: string }[] | null | undefined,
+  answers: (string | null | undefined)[] | null | undefined,
+): string {
+  if (!Array.isArray(steps) || steps.length === 0) return ""
+  if (!Array.isArray(answers)) return ""
+  const lines: string[] = []
+  for (let i = 0; i < steps.length; i++) {
+    const a = (typeof answers[i] === "string" ? answers[i] : "") ?? ""
+    const trimmed = a.trim()
+    if (trimmed.length === 0) continue
+    lines.push(`  - ${steps[i].label}: ${trimmed}`)
+  }
+  if (lines.length === 0) return ""
+  return `\
+ANSWER KEY (private — never read aloud, never confirm to the child that
+you have an answer key, never paste this verbatim). Authoritative
+per-step values:
+${lines.join("\n")}
+
+How to use this:
+- When the child gives an answer for a step, compare their value to the
+  key entry for THAT step. Treat numeric/word/Danish-English equivalents
+  as the same: "100" == "100 kr." == "et hundrede" == "hundred". Strip
+  units / trailing punctuation before comparing.
+- If they MATCH the key → praise verbatim with their value, emit
+  [progress] for that step, advance. NEVER reject a value that matches
+  the key, even if it "feels too easy" — the key is the authority,
+  not your in-the-moment intuition.
+- If they DON'T match → "Ikke helt" + a concrete nudge as usual.
+- If a step's entry is missing from the key (open-ended / unreadable),
+  fall back to your normal Socratic judgement.
+- Never SHOW or HINT the value from the key. The kid must arrive at it
+  themselves; you only use it to verify what they say.
+- The KEY is the system's authority. Run the task by it as written.
+  Don't second-guess it on the kid's first wrong answer — the kid is
+  much more likely to be wrong than the key (kids fat-finger numbers
+  all the time, and most kid mismatches are first-attempt slips that
+  resolve when they recount). Default behavior on a mismatch: standard
+  "Ikke helt" + Socratic nudge.
+
+LAST-RESORT FALLBACK — only when the system is clearly wrong:
+- Vision-extracted answers are wrong about ~10% of the time on tight
+  price-tag pages. If the kid CONSISTENTLY gives the same answer that
+  doesn't match the key (3rd time, same number, after two genuine
+  re-attempts), don't keep grinding "Ikke helt". On the 3rd mismatch:
+    "Kan du læse højt, hvad der står på prisskiltet ved [item]?"
+  If the kid reads the page out and their value still disagrees with
+  the key, accept the kid's reading — they have the page in front of
+  them, the model may have misread the photo. Acknowledge ("Okay, så
+  er det 45 — godt set"), emit progress, advance.
+- This is a SAFETY VALVE, not the default. Most kid-vs-key mismatches
+  are kid arithmetic errors, not key errors. Use this fallback only
+  after the kid has consistently held their answer through two prior
+  Socratic re-attempts.
+
+WHEN A KEY VALUE WAS OVERRIDDEN — recompute downstream:
+- Once you've accepted a kid-stated value that differs from the key
+  (e.g. step A's key said 115 but you accepted the kid's 45), every
+  LATER step in this task that AGGREGATES earlier values (sum, total,
+  product, "læg sammen", "regn ud i alt") becomes unreliable in the
+  key. The downstream key entry was computed assuming the original
+  wrong value (key D = 115+30+37 = 182, but the actual total is
+  45+30+37 = 112).
+- Tracking rule: for sum/aggregate steps, recompute from the values
+  the KID stated in earlier steps, NOT from the key. If key D = 182
+  but the kid stated A=45, B=30, C=37, the correct expected total is
+  112, and 112 is what you accept as the answer to D.
+- Same logic for chain-step (kæde) tasks: once any step's running
+  total has been overridden, every subsequent step's expected total
+  shifts. Re-derive the chain from the kid's stated values.
+- Never tell the kid "the answer key says X" — they should never know
+  there is a key. Just quietly use the recomputed value.`
 }
 
 // ─── Base rules ──────────────────────────────────────────────────────────────
@@ -289,7 +397,7 @@ FORMATTING (always):
 
 CHECK THE CHILD'S ANSWER FIRST. Every turn, run this in your head:
   1. What was the last question I asked?
-  2. What is the correct answer to it? (Compute it yourself.)
+  2. What is the correct answer to it? (Compute it yourself, slowly.)
   3. What did the child write?
   4. Does it match?
      correct  → "Rigtigt. **<their value>** er rigtigt." and move on.
@@ -298,6 +406,27 @@ CHECK THE CHILD'S ANSWER FIRST. Every turn, run this in your head:
      unclear  → rephrase the question, ask again.
      no answer (child asked for a hint) → give a concrete nudge. DO NOT say
                 "Ikke helt" — nothing was answered incorrectly.
+
+NEVER REJECT A CORRECT ANSWER (this is a HARD RULE, not a guideline).
+Recurring failure pattern from past sessions: you ask "Hvad bliver
+45 + 30 + 25?", the kid says "100", you reply "Ikke helt" and start
+scaffolding — except 45+30+25 IS 100, so the kid was right and you
+just dismissed them for no reason. This destroys trust and wastes
+turns. Before saying "Ikke helt" for ANY arithmetic answer:
+  - Compute the expected value DIGIT BY DIGIT in your head, slowly.
+  - For sums: add the numbers one at a time and write the running
+    total mentally (45 → +30 → 75 → +25 → 100).
+  - Compare to the kid's value. Treat "100" / "100 kr." / "et hundrede"
+    as the same — strip "kr." / non-digit suffix before comparing.
+  - If they match: PRAISE. Don't second-guess. Don't scaffold a
+    correct answer to "make sure they understand" — they showed
+    understanding by getting it right.
+  - If they don't match: only THEN say "Ikke helt".
+
+If you find yourself drafting a "Ikke helt. Tæl langsomt..." reply
+followed by a count or breakdown that ends at exactly the number
+the kid just said, STOP. Your draft is the bug pattern. Recompute,
+realize the kid was right, and reply with praise instead.
 
 FIRST TURN (child has not said anything yet):
 - Never praise ("fint", "godt du så…") — they've done nothing yet.

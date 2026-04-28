@@ -701,6 +701,163 @@ export async function extractTasksFromImage(
   }
 }
 
+/** Second-pass verification of per-step expected answers. Reads the image
+ *  again with a narrow "look at each step's answer and fix anything wrong"
+ *  prompt. The first extraction call is structural — task list, steps,
+ *  context, completion certainty. This call only touches `expectedAnswers`,
+ *  leaving everything else alone.
+ *
+ *  Why a second call instead of "tell the model to be careful first time":
+ *  the structural pass juggles many concerns (subject, types, step
+ *  enumeration, anti-placeholder, no-leak, chunking…) and answer-checking
+ *  drowns. A focused second pass with the photo and the existing answers
+ *  consistently catches 1-2 OCR slips per page in our testing — usually
+ *  digits flipped (37 vs 75), or one column read as another.
+ *
+ *  Cost: ~one extra gpt-5.4-mini vision call per upload. Latency: ~30-60s
+ *  added to the thinking spinner. The accuracy lift on price/answer-tag
+ *  pages is large enough that the parent UX feels worth the wait.
+ *
+ *  Returns a Map of taskId → verifiedAnswers[]. Tasks not in the map keep
+ *  their original answers. Best-effort — any error returns an empty map
+ *  and the caller falls back to the first-pass answers.
+ */
+export async function verifyExpectedAnswers(
+  imageDataUrl: string,
+  tasks: VisionTask[],
+): Promise<Map<string, string[]>> {
+  const candidates = tasks.filter(
+    t =>
+      Array.isArray(t.expectedAnswers) &&
+      t.expectedAnswers.some(a => a.trim().length > 0),
+  )
+  if (candidates.length === 0) return new Map()
+
+  const prompt = `\
+You are double-checking per-step expected answers for Danish folkeskole
+homework. The first extraction pass produced these answers from the same
+photo. Look at the photo again with FRESH EYES and verify each one.
+
+Return ONLY JSON:
+{
+  "tasks": [
+    {
+      "id": "<task id>",
+      "expectedAnswers": ["<verified answer for step 1>", "<step 2>", ...]
+    }
+  ]
+}
+
+RULES:
+- expectedAnswers index-aligned with the steps[] you're given. Same length.
+- For arithmetic / sum tasks: re-do the math from values visible on the
+  photo. Don't trust the existing answer — recompute.
+- For "find the price / read the label" tasks: visually re-confirm EACH
+  price tag / label INDEPENDENTLY. Walk these specific failure modes:
+    a) WHICH OBJECT does the price tag belong to? Tags are usually placed
+       NEXT TO their item but a busy shop scene can put a tag closer to
+       a different item. Re-trace the visual line: the tag with "45 kr."
+       points at WHICH object? If two objects could plausibly own it,
+       say which is more likely AND prefer the one whose existing
+       answer disagrees (the bias is "first pass already accepted X,
+       so accept X again" — fight that).
+    b) WHAT DIGITS are on the tag? A tag reading "45" can read as "115"
+       on first pass when the kid's-textbook style places another
+       price (like "1 5") near it that visually combines. Look at the
+       ACTUAL pixels of THIS tag in isolation. Count the digits.
+    c) UNIT/SUFFIX: "kr." vs "kr" vs no suffix doesn't change the value.
+       Don't include the suffix in your answer.
+  Output the value digits only, no "kr.": "45" not "45 kr.".
+- For vocabulary / fill-in / translation: re-read each blank against the
+  visible context.
+- If the existing answer is right, repeat it verbatim. If wrong, replace
+  with the correct value. If you genuinely cannot tell from the photo,
+  use an empty string "" for that index — DO NOT GUESS.
+- Don't add or remove tasks. Don't change the step list. Only the
+  per-step expectedAnswers array.
+
+CONFIRMATION-BIAS WARNING: the existing expectedAnswers from the first
+pass are shown below. They were extracted by a model AS WELL — and
+that model is wrong about ~10% of price-tag readings. Don't anchor on
+them. Reading from the image fresh is the WHOLE POINT of this pass.
+If your second-pass reading disagrees with the first-pass answer,
+TRUST YOUR FRESH READING. The first-pass answer is just there so we
+know which step IDs to attach your verified answers to.
+
+Tasks to verify (all from the same photo):
+${candidates
+  .map(
+    t => `\
+- id: "${t.id}"
+  title: "${t.title ?? ""}"
+  text: "${(t.text ?? "").slice(0, 200)}"
+  steps:
+${(t.steps ?? [])
+  .map((s, i) => `    ${i}. ${s.label}: ${s.prompt}`)
+  .join("\n")}
+  current expectedAnswers: ${JSON.stringify(t.expectedAnswers ?? [])}
+  context: ${(t.context ?? "").slice(0, 300) || "(none)"}`,
+  )
+  .join("\n\n")}`
+
+  try {
+    const client = getAzure()
+    const deployment = getVisionDeployment()
+    // Verification is the LAST line of defence before answers land in
+    // the DB and feed both the parent preview and the answer-key block
+    // in the hint prompt. A wrong value here corrupts the whole tutor
+    // session for that step. medium reasoning_effort buys the model
+    // time to actually visually compare each labeled item against the
+    // proposed answer rather than rubber-stamping the first pass.
+    // Cost: +20-30s on the upload spinner (already 30s) → ~60s total.
+    // Acceptable for one-shot extraction.
+    const extras = {
+      reasoning_effort: "medium",
+      max_completion_tokens: 6000,
+    } as unknown as Record<string, never>
+    const completion = await client.chat.completions.create({
+      model: deployment,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: imageDataUrl, detail: "high" },
+            },
+            { type: "text", text: prompt },
+          ],
+        },
+      ],
+      ...extras,
+    })
+    const raw = completion.choices[0]?.message?.content ?? "{}"
+    if (!raw.trim()) return new Map()
+    const parsed = JSON.parse(raw) as {
+      tasks?: { id?: string; expectedAnswers?: (string | null | undefined)[] }[]
+    }
+    const out = new Map<string, string[]>()
+    for (const t of parsed.tasks ?? []) {
+      if (typeof t.id !== "string") continue
+      const orig = candidates.find(c => c.id === t.id)
+      if (!orig) continue
+      const stepCount = (orig.steps?.length ?? orig.expectedAnswers?.length ?? 1)
+      const cleaned = (t.expectedAnswers ?? [])
+        .slice(0, stepCount)
+        .map(a => (typeof a === "string" ? a.trim().slice(0, 120) : ""))
+      // Pad to step count so index alignment with steps[] survives even
+      // if the model dropped trailing items.
+      while (cleaned.length < stepCount) cleaned.push("")
+      out.set(t.id, cleaned)
+    }
+    return out
+  } catch (err) {
+    console.warn("[vision] verifyExpectedAnswers failed:", (err as Error).message)
+    return new Map()
+  }
+}
+
 /** Public so the client can detect "cap hit" and warn the parent. */
 export const STEP_CAP = 30
 

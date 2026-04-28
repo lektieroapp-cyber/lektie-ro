@@ -958,6 +958,7 @@ export function HintChat({
           taskType: task.type ?? null,
           needsPaper: task.needsPaper ?? null,
           taskContext: task.context ?? null,
+          taskExpectedAnswers: task.expectedAnswers ?? null,
           completionCertainty: task.completionCertainty ?? "medium",
           subject: solve.subject,
           turns: nextTurns,

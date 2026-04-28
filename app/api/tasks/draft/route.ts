@@ -3,7 +3,11 @@ import { z } from "zod"
 import { getSessionUser } from "@/lib/auth/session"
 import { getAIMode } from "@/lib/ai-mode"
 import { fetchStorageImageAsDataUrl } from "@/lib/image-fetch"
-import { extractTasksFromImage, type VisionTask } from "@/lib/vision"
+import {
+  extractTasksFromImage,
+  verifyExpectedAnswers,
+  type VisionTask,
+} from "@/lib/vision"
 
 // Same shape as /api/solve but never creates a session — extracted tasks
 // are returned to the parent review queue, then the client posts approved
@@ -56,11 +60,36 @@ export async function POST(request: NextRequest) {
   try {
     const imageData = await fetchStorageImageAsDataUrl(imagePath)
     const extracted = await extractTasksFromImage(imageData)
+
+    // Second-pass verification of per-step expected answers. The first
+    // pass juggles a lot of structural concerns and answer-checking
+    // gets noisy; a focused fresh-eyes verification consistently catches
+    // 1-2 OCR slips per page in our testing (digits flipped, columns
+    // swapped). Skipped when no task has expectedAnswers (creative-only
+    // pages) or when env opts out via AI_VERIFY_ANSWERS=off.
+    let verifiedTasks = extracted.tasks
+    const verifyOff = (process.env.AI_VERIFY_ANSWERS ?? "").toLowerCase() === "off"
+    if (
+      !verifyOff &&
+      extracted.tasks.some(
+        t => t.expectedAnswers && t.expectedAnswers.some(a => a.trim().length > 0),
+      )
+    ) {
+      const corrections = await verifyExpectedAnswers(imageData, extracted.tasks)
+      if (corrections.size > 0) {
+        verifiedTasks = extracted.tasks.map(t => {
+          const fixed = corrections.get(t.id)
+          if (!fixed) return t
+          return { ...t, expectedAnswers: fixed }
+        })
+      }
+    }
+
     return NextResponse.json({
       subject: extracted.subject,
       subjectConfidence: extracted.subjectConfidence,
       groupTitle: extracted.groupTitle,
-      tasks: extracted.tasks,
+      tasks: verifiedTasks,
       reason: extracted.reason,
       detectionNotes: extracted.detectionNotes,
       usage: extracted.usage ?? null,

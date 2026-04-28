@@ -28,6 +28,12 @@ export type Task = {
    *  to the kid). Used for constraints, target answers visible on the page,
    *  or anything the other fields can't carry. */
   context?: string
+  /** Per-step expected answers (index-aligned with `steps`). Vision
+   *  extractor populates this and a second pass verifies. Threaded into
+   *  the hint prompt as an authoritative reference so the model can
+   *  string-compare the kid's reply instead of re-doing arithmetic
+   *  every turn — eliminates the "AI rejects 100 to 45+30+25" bug. */
+  expectedAnswers?: string[]
   /** Vision extractor's confidence in the completion criteria. Drives how
    *  rigid the AI tutor is about full coverage. Defaults to "medium". */
   completionCertainty?: "high" | "medium" | "low"
