@@ -477,20 +477,28 @@ function OrbStage({
         cursor: pressable ? "pointer" : "default",
       }}
     >
-      {[0, 1, 2].map(i => (
-        <span
-          key={i}
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "50%",
-            border: `2px solid ${ring}`,
-            opacity: 0.26 - i * 0.07,
-            animation: `voiceOrbPulse 2.4s ease-in-out ${i * 0.3}s infinite`,
-          }}
-        />
-      ))}
+      {[0, 1, 2].map(i => {
+        // During thinking/processing the rings pulse ~2× faster and a
+        // touch heavier so the kid can see at a glance that work is
+        // happening — matches the bouncing dots in the caption below.
+        const isThinking = phase === "thinking" || phase === "processing"
+        const duration = isThinking ? "1.1s" : "2.4s"
+        const baseOpacity = isThinking ? 0.4 : 0.26
+        return (
+          <span
+            key={i}
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "50%",
+              border: `2px solid ${ring}`,
+              opacity: baseOpacity - i * 0.07,
+              animation: `voiceOrbPulse ${duration} ease-in-out ${i * 0.18}s infinite`,
+            }}
+          />
+        )
+      })}
       <span
         aria-hidden
         style={{
@@ -1011,15 +1019,44 @@ function Dock({
           transition: "color 120ms ease, font-size 120ms ease",
         }}
       >
-        {phase === "listening"
-          ? "🎙 Jeg lytter. Bare snak. Jeg stopper selv, når du er færdig"
-          : phase === "speaking"
-            ? "Dani taler. Vent et øjeblik"
-            : phase === "thinking" || phase === "processing"
-              ? "Dani tænker …"
-              : "Dani åbner mikken lige om lidt"}
+        {phase === "listening" ? (
+          "🎙 Jeg lytter. Bare snak. Jeg stopper selv, når du er færdig"
+        ) : phase === "speaking" ? (
+          "Dani taler. Vent et øjeblik"
+        ) : phase === "thinking" || phase === "processing" ? (
+          <ThinkingCaption />
+        ) : (
+          "Dani åbner mikken lige om lidt"
+        )}
       </div>
     </div>
+  )
+}
+
+// Three bouncing dots inline with "Dani tænker" — anchors the user during
+// the silent gap between STT finishing and TTS starting (LLM round-trip
+// + first-sentence audio synth, typically 2-5s). The static "…" suffix
+// looked frozen; bouncing dots clearly say "still working".
+function ThinkingCaption() {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 6 }}>
+      <span>Dani tænker</span>
+      <span aria-hidden style={{ display: "inline-flex", gap: 3 }}>
+        {[0, 1, 2].map(i => (
+          <span
+            key={i}
+            style={{
+              width: 4,
+              height: 4,
+              borderRadius: "50%",
+              background: "currentColor",
+              animation: `dot 1.2s ease-in-out ${i * 0.18}s infinite`,
+              transform: "translateY(0)",
+            }}
+          />
+        ))}
+      </span>
+    </span>
   )
 }
 

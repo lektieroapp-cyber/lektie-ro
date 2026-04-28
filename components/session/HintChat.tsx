@@ -30,6 +30,15 @@ import type {
 const USAGE_SENTINEL_START = "\n[[LR_USAGE:"
 const USAGE_SENTINEL_END = "]]"
 
+// Module-level instance counter. Two HintChat instances coexist briefly
+// during React's dev strict-mode unmount → remount dance; a true unmount
+// (kid taps "Færdig for i dag", route navigation, tab close) drops it to
+// zero. Any unmount cleanup that would kill in-flight TTS defers a tick
+// and only runs when the count is still 0 — strict-mode survives, real
+// teardown stops the audio. Lives outside the component so each instance
+// shares the same counter.
+let hintChatInstances = 0
+
 // Map an `x-voice-provider` response header to a pricing-known provider id.
 // The server always sends "azure" or "elevenlabs"; default to azure if a
 // future provider lands without rate-card support.
@@ -110,6 +119,7 @@ export function HintChat({
   completed,
   conversationMode = "text",
   englishTutoringLanguage = null,
+  resumeFromStep = 0,
 }: {
   task: Task
   solve: SolveResponse
@@ -131,6 +141,12 @@ export function HintChat({
    *  English-led primary voice when set to "english". null = default
    *  Danish-led behaviour (used when subject isn't engelsk anyway). */
   englishTutoringLanguage?: "danish" | "english" | null
+  /** Number of steps already finished from prior sessions on this task.
+   *  Pre-populates stepProgress.done with the first N labels so the
+   *  checklist renders the correct state on mount, and forwarded to
+   *  /api/hint so the AI's first reply targets step N+1 instead of
+   *  starting at step 1. 0 = fresh task (default). */
+  resumeFromStep?: number
 }) {
   // In voice mode we always speak + auto-open the mic. In text mode we
   // respect the manual 🔊 toggle the kid can flip in the bottom bar.
@@ -267,8 +283,20 @@ export function HintChat({
         if (m[2]) current = m[2].trim()
       }
     }
+    // Resume seed: when the kid reopens a task that had progress in a
+    // prior session and the AI hasn't emitted any [progress] yet on
+    // this fresh chat, pre-fill `done` with the first N step labels
+    // so the checklist renders mid-state immediately. The AI's first
+    // [progress done="…"] marker takes over once it streams in (the
+    // BASE_RULES require cumulative done, so it'll re-emit A,B,…).
+    if (done.size === 0 && resumeFromStep > 0 && task.steps) {
+      task.steps.slice(0, resumeFromStep).forEach(s => done.add(s.label))
+      if (resumeFromStep < task.steps.length) {
+        current = task.steps[resumeFromStep].label
+      }
+    }
     return { done, current }
-  }, [turns, streaming, partial])
+  }, [turns, streaming, partial, resumeFromStep, task.steps])
 
   // Steps the AI has appended via [task append-step …] during this session.
   // Used for medium/low-certainty tasks where the extractor couldn't read
@@ -481,10 +509,38 @@ export function HintChat({
     }
   }
 
-  // Cleanup on unmount: minimal (just release mic) so strict-mode remount
-  // doesn't nuke the ongoing TTS session.
+  // Cleanup on unmount. Mic release is always safe (re-acquired on remount),
+  // but stopVoiceOutput() must NOT run during a dev strict-mode remount or
+  // it'd kill the very first Dani message. Use a module-level instance
+  // counter + a microtask defer: a real unmount drops the count to 0 and
+  // the deferred check stops the audio; a strict-mode remount increments
+  // back to 1 before the check runs and the stop is skipped.
   useEffect(() => {
-    return () => { releaseMic() }
+    hintChatInstances++
+    return () => {
+      releaseMic()
+      hintChatInstances--
+      window.setTimeout(() => {
+        if (hintChatInstances === 0) {
+          // Real unmount — kid navigated away. Kill the shared audio so it
+          // doesn't keep talking on the next screen.
+          stopVoiceOutput()
+        }
+      }, 0)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Hard stop on tab close / page hide. The unmount path doesn't fire
+  // when the browser is killing the document, so we hook pagehide too.
+  // Calling stopVoiceOutput synchronously from the listener is enough to
+  // pause the shared audio element before the page goes away.
+  useEffect(() => {
+    function handlePageHide() {
+      stopVoiceOutput()
+    }
+    window.addEventListener("pagehide", handlePageHide)
+    return () => window.removeEventListener("pagehide", handlePageHide)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // Voice mode flipped off → full teardown is appropriate.
@@ -579,13 +635,14 @@ export function HintChat({
   // otherwise Dani keeps talking over the celebration screen. The celebration
   // panel renders instead of VoiceCanvas, but the audio element lives on the
   // component instance, not inside the unmounted subtree.
-  useEffect(() => {
-    if (completed) {
-      stopVoiceOutput()
-      logDevEvent("info", "Voice-output stoppet — opgave færdig")
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completed])
+  // Previously: this effect called stopVoiceOutput() the moment `completed`
+  // flipped, which murdered Dani's mid-sentence "godt gået du er færdig"
+  // and replaced it with a generic celebration TTS — kid heard a hard
+  // cut and a different voice line than the on-screen text. Now we
+  // GATE the autoComplete effect on !speaking instead, so by the time
+  // `completed` flips here the AI's last sentence has already finished
+  // playing naturally. No kill needed.
+  void completed
 
   // Kicks off /api/tts for one sentence and resolves with a blob-URL the
   // pump() loop can hand to the shared playback element. We deliberately
@@ -836,6 +893,14 @@ export function HintChat({
           turns: nextTurns,
           childId,
           conversationMode,
+          // Tells the hint route how many steps were already finished in
+          // a prior session so the AI's first reply can target step
+          // resumeFromStep+1 instead of restarting at step 1. Only
+          // meaningful on the FIRST turn of a resumed session — we
+          // could trim it after that, but the prompt builder only
+          // surfaces the resume note when nextTurns.length === 1, so
+          // sending it always is harmless and keeps the call site simple.
+          resumeFromStep,
         }),
       })
       const mocked = res.headers.get("X-Mocked") === "1"
@@ -1003,6 +1068,18 @@ export function HintChat({
       }
       return
     }
+    // Wait for the AI's final voice to finish playing too — not just for
+    // the LLM stream to end. In voice mode, TTS audio plays AFTER the
+    // text stream completes (sentence-by-sentence pump). If we flip to
+    // the celebration panel the moment streaming=false, the kid hears
+    // Dani get cut off mid "godt gået du er færdig". Gating on
+    // !speaking lets the summary land before the screen changes.
+    if (voiceAgent && speaking) {
+      if (stepProgress.done.has("all")) {
+        logDevEvent("info", "Progress done=\"all\" — awaiting TTS drain")
+      }
+      return
+    }
     const lastAssistant = [...turns].reverse().find(t => t.role === "assistant")
     const verbalDone = lastAssistant
       ? hasVerbalCompletion(lastAssistant.content)
@@ -1022,7 +1099,7 @@ export function HintChat({
       userSignaledDone: true,
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepProgress.done, streaming, completed, turns])
+  }, [stepProgress.done, streaming, speaking, voiceAgent, completed, turns])
 
   // Log every fresh [progress …] marker as it lands so we can see when
   // Dani is trying to move progress and what the parsed values were.
@@ -1160,6 +1237,33 @@ export function HintChat({
     void speakText(spokenText)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turns, streaming, voiceOn])
+
+  // Voice-loop watchdog. Every auto-mic-reopen path (streaming finally,
+  // speakText onended, kickMicIfAgent, STT-error fallback) schedules a
+  // startRecording() at some delay. They occasionally lose the race —
+  // `startRecording`'s guard rejects (transient streaming flicker), an
+  // ensureMicStream returns null after a tab-background, or a play() block
+  // fires kickMicIfAgent right as another path also fires it and one
+  // overwrites the other in flight. The kid then sees "Dani åbner mikken
+  // lige om lidt" and has to manually tap the mic.
+  //
+  // Fix: if the conversation sits genuinely idle (no speak/stream/record/
+  // transcribe + no inflight callHint + Dani has already taken at least
+  // one turn) for more than 2.5 s, kick the mic. Cheap to run because the
+  // effect's deps narrow it to the exact moment all four phases hit zero.
+  useEffect(() => {
+    if (!voiceAgent || !voiceOn) return
+    if (atLimit || completed) return
+    if (speaking || streaming || recording || transcribing) return
+    if (turnsRef.current.length === 0) return
+    const timer = window.setTimeout(() => {
+      if (inflightRef.current) return
+      logDevEvent("info", "Voice watchdog: idle 2.5s — åbner mikken")
+      void startRecording()
+    }, 2500)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceAgent, voiceOn, atLimit, completed, speaking, streaming, recording, transcribing])
 
   // Fallback mic opener — used when TTS can't speak for any reason (HTTP
   // error, autoplay block, empty text). In voice-agent mode the loop must
@@ -1469,6 +1573,31 @@ export function HintChat({
   }): Promise<string> {
     const raw = input.rawTranscript.trim()
     if (!raw) return raw
+    // Admin override: localStorage["lr_stt_clean"] = "off" disables the
+    // cleanup hop entirely so we can A/B-test what raw Azure Speech is
+    // actually delivering vs what the LLM cleanup is contributing. Set
+    // it in DevTools Console: localStorage.setItem("lr_stt_clean","off").
+    // Remove with localStorage.removeItem("lr_stt_clean").
+    try {
+      if (
+        typeof window !== "undefined" &&
+        window.localStorage.getItem("lr_stt_clean") === "off"
+      ) {
+        return raw
+      }
+    } catch {}
+    // Short-circuit: skip the LLM cleanup hop for clearly-clean replies.
+    // Single numbers ("60", "210"), short Danish word answers ("ja", "nej",
+    // "kat", "femten") never need disambiguation — sending them through
+    // gpt-5-mini was burning ~1-2s round-trip on every kid turn for no
+    // gain. The clean route exists for STT mishears on numbers as words,
+    // English vocabulary, and kid-pronounced terms — those need length or
+    // mixed-case to look at all. Anything ≤ 18 chars that's plain digits
+    // / simple Danish letters / basic punctuation is sent raw, which
+    // takes seconds out of the perceived speech-to-screen latency.
+    if (raw.length <= 18 && /^[0-9a-zA-ZæøåÆØÅ.,!?\s\-]+$/.test(raw)) {
+      return raw
+    }
     try {
       const res = await fetch("/api/stt-clean", {
         method: "POST",
@@ -1609,7 +1738,22 @@ export function HintChat({
       )
       if (voiceAgent) {
         // Voice-agent: close the loop automatically. No text input involved.
-        await submitAnswer(finalText)
+        // submitAnswer's own guards (`!trimmed || streaming || atLimit`)
+        // would silently drop here, leaving the mic shut and the kid stuck
+        // on "Dani åbner mikken …". Decide explicitly so every branch
+        // either kicks Dani forward or schedules a verbal/mic recovery.
+        if (atLimit || completed) {
+          // Loop is over by design — celebration / limit chip takes over.
+          return
+        }
+        const trimmed = finalText.trim()
+        if (!trimmed) {
+          // STT cleanup landed empty. sayDani re-opens the mic via the
+          // speakText onended handler, so the loop survives.
+          sayDani("Det forstod jeg ikke. Prøv igen?")
+          return
+        }
+        await submitAnswer(trimmed)
       } else {
         // Manual voice toggle on text mode: paste transcript into the field so
         // the kid can review + edit before tapping Send.
@@ -1673,6 +1817,9 @@ export function HintChat({
       <CelebrationPanel
         onMoreHomework={onMoreHomework}
         onFinishSession={onFinishSession}
+        voiceAgent={voiceAgent}
+        subject={solve.subject}
+        englishTutoringLanguage={englishTutoringLanguage}
       />
     )
   }
@@ -2651,22 +2798,45 @@ function RichText({ text }: { text: string }) {
 function CelebrationPanel({
   onMoreHomework,
   onFinishSession,
+  voiceAgent,
+  subject,
+  englishTutoringLanguage,
 }: {
   onMoreHomework: () => void
   onFinishSession: () => void
+  /** True when the kid has been in voice-loop mode this session. Drives
+   *  the spoken celebration — text-mode kids see the panel without
+   *  audio (their session was silent, so a sudden TTS would be jarring). */
+  voiceAgent: boolean
+  /** Forwarded to /api/tts so the celebration uses the same voice the
+   *  kid was hearing during the session (Christel for da, Andrew for
+   *  english-led engelsk). */
+  subject: string | null
+  englishTutoringLanguage: "danish" | "english" | null
 }) {
   const { type } = useCompanion()
   const companionType = type ?? DEFAULT_COMPANION
   const companion = companionByType(companionType)
   const confettiColors = [K.coral, K.butter, K.sky, K.mint, K.plum, companion.accent]
 
-  // Auto-advance back to the task picker after a short celebration. Kid
-  // gets the cheer + confetti, then flows naturally back to "what's next?"
-  // without having to tap. Tapping "Jeg er færdig for i dag" cancels.
-  // Tapping anywhere else (including the countdown button) just advances
-  // immediately. A ref tracks whether we've advanced or been cancelled so
-  // the setInterval doesn't double-fire.
-  const AUTO_NEXT_SECONDS = 4
+  // (Previously this panel fetched its own /api/tts to say "godt klaret"
+  // because the chat's audio was being killed mid-sentence on completion.
+  // That TTS overlapped with — and sometimes contradicted — Dani's
+  // natural completion sentence. Removed: the autoComplete effect now
+  // waits for the chat's TTS queue to drain BEFORE flipping to this
+  // panel, so the AI's own summary sentence is what the kid hears, no
+  // duplicate celebration audio needed.)
+  void subject
+  void englishTutoringLanguage
+
+  // Auto-advance back to the task picker after the celebration. 8s in
+  // voice mode (gives the spoken "godt klaret" room to land before the
+  // screen changes), 4s in text mode (no audio to wait for). Kid gets
+  // the cheer + confetti, then flows naturally back to "what's next?".
+  // Tapping "Jeg er færdig for i dag" cancels; tapping the countdown
+  // button advances immediately. A ref tracks resolution so the
+  // setInterval doesn't double-fire.
+  const AUTO_NEXT_SECONDS = voiceAgent ? 8 : 4
   const [secondsLeft, setSecondsLeft] = useState(AUTO_NEXT_SECONDS)
   const resolvedRef = useRef(false)
   useEffect(() => {

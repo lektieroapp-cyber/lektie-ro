@@ -228,7 +228,13 @@ export function NewTaskForm({
         try {
           // Single batch insert: all tasks share one task_group_id so the
           // kid finishing task 1 can hop to task 2 in the same set instead
-          // of getting dumped on the empty board.
+          // of getting dumped on the empty board. groupTitle (when vision
+          // suggested one) is stamped on every sibling — Tavle and the
+          // multi-pick screen both render it as the bundle headline.
+          const groupTitle =
+            typeof (data as { groupTitle?: string | null }).groupTitle === "string"
+              ? (data as { groupTitle?: string | null }).groupTitle
+              : null
           const res = await fetch("/api/tasks/batch", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -237,6 +243,7 @@ export function NewTaskForm({
               subject: initialSubject,
               sourceImagePath: path,
               approve: true,
+              groupTitle,
               tasks: data.tasks.map(t => ({
                 title: t.title ?? null,
                 text: t.text,
@@ -245,14 +252,25 @@ export function NewTaskForm({
                 steps: t.steps ?? null,
                 context: t.context ?? null,
                 needsPaper: t.needsPaper ?? null,
+                expectedAnswers: t.expectedAnswers ?? null,
               })),
             }),
           })
           if (!res.ok) throw new Error("batch failed")
-          const j = (await res.json()) as { tasks: { id: string }[] }
+          const j = (await res.json()) as {
+            groupId: string
+            tasks: { id: string }[]
+          }
           if (!j.tasks?.length) throw new Error("no tasks saved")
-          // Straight into tutoring on the first task.
-          router.push(`${taskHrefBase}/${j.tasks[0].id}`)
+          // Single-task photo: drop straight into it. Multi-task photo:
+          // route to the bundle multi-pick screen so the kid sees all
+          // tasks at once and chooses where to start, instead of being
+          // silently teleported into task #1 of N.
+          if (j.tasks.length === 1) {
+            router.push(`${taskHrefBase}/${j.tasks[0].id}`)
+          } else {
+            router.push(`${taskHrefBase.replace(/\/tasks$/, "")}/groups/${j.groupId}`)
+          }
           return
         } catch (err) {
           console.error(err)

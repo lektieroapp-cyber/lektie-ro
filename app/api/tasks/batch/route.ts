@@ -17,6 +17,7 @@ const taskSchema = z.object({
   steps: z.array(z.object({ label: z.string(), prompt: z.string() })).nullable().optional(),
   context: z.string().nullable().optional(),
   needsPaper: z.boolean().nullable().optional(),
+  expectedAnswers: z.array(z.string()).nullable().optional(),
   completionCertainty: z.enum(["high", "medium", "low"]).optional(),
 })
 
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
         context: t.context ?? null,
         needsPaper: t.needsPaper ?? null,
         sourceImagePath: parsed.data.sourceImagePath ?? null,
+        expectedAnswers: t.expectedAnswers ?? null,
         completionCertainty: t.completionCertainty,
         approve: parsed.data.approve,
       })),

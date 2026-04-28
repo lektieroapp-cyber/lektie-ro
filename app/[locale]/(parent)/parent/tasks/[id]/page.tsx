@@ -135,9 +135,15 @@ export default async function TaskPage({
   const sessionChildId = activeChildId ?? row.childId
 
   // If this task was submitted as part of a group (parent uploaded a photo
-  // with multiple tasks, or kid took the photo themselves), look up the
-  // next still-open sibling so completion can route there instead of the
-  // empty board. Skip in parent "Prøv selv" mode — that's a one-shot demo.
+  // with multiple tasks, or kid took the photo themselves), the
+  // "Mere lektie" CTA after the celebration screen routes back to the
+  // bundle's multi-pick screen — not directly into the next task.
+  // Auto-jumping into the next task without showing the kid the rest
+  // of the set is disorienting and removes their agency over which
+  // task to do next. Skip in parent "Prøv selv" mode — that's a
+  // one-shot demo. Only set when there's actually another open
+  // sibling to go to; nextOpenSiblingInGroup returning null means
+  // every task in the group is done → fall back to the board.
   let nextSiblingHref: string | null = null
   if (activeChild && row.taskGroupId) {
     const sibling = await nextOpenSiblingInGroup(
@@ -146,7 +152,15 @@ export default async function TaskPage({
       row.taskGroupId,
       row.id,
     )
-    if (sibling) nextSiblingHref = `/${locale}/parent/tasks/${sibling.id}`
+    if (sibling) {
+      // ?just_done=<taskId> tells the picker to render a celebration
+      // banner naming the task the kid just finished. Without it, the
+      // kid lands at the picker with no acknowledgement of what they
+      // just accomplished — the "first then send back, no praise"
+      // bug pattern reported by the parent.
+      nextSiblingHref =
+        `/${locale}/parent/groups/${row.taskGroupId}?just_done=${row.id}`
+    }
   }
 
   // Resolve the kid's engelsk-tutoring preference (auto/danish/english)
@@ -159,6 +173,32 @@ export default async function TaskPage({
     childGrade,
   )
 
+  // Look up the highest steps_done across this task's prior sessions so
+  // the kid resumes mid-task instead of restarting at step 1. Only
+  // meaningful in kid mode (parent "Prøv selv" gets a fresh demo each
+  // time). Skipped for completed tasks — those start fresh on retry.
+  let resumeFromStep = 0
+  if (activeChild && row.status !== "done") {
+    const { data: progressRows } = await createAdminClient()
+      .from("sessions")
+      .select("steps_done, completed")
+      .eq("parent_id", user.id)
+      .eq("task_id", row.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+    if (progressRows && progressRows.length > 0) {
+      let bestDone = 0
+      for (const r of progressRows as Array<{
+        steps_done: number | null
+        completed: boolean | null
+      }>) {
+        if (r.completed) { bestDone = 0; break }
+        bestDone = Math.max(bestDone, r.steps_done ?? 0)
+      }
+      resumeFromStep = bestDone
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <CompanionProvider initial={initialCompanion} childId={sessionChildId}>
@@ -170,6 +210,7 @@ export default async function TaskPage({
           boardHref={backHref}
           nextSiblingHref={nextSiblingHref}
           englishTutoringLanguage={englishTutoringLanguage}
+          resumeFromStep={resumeFromStep}
         />
       </CompanionProvider>
     </div>

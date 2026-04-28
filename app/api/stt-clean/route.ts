@@ -78,6 +78,30 @@ export async function POST(request: NextRequest) {
 
 Your job: return the kid's most plausible intended utterance given the homework context. Preserve their meaning and word choices. Don't expand abbreviations. Don't add words. Don't translate. Don't paraphrase. Don't fix grammar — kids speak imperfectly and that's fine. Only correct clear acoustic mistranscriptions.
 
+CRITICAL — DO NOT HALLUCINATE TO FIT THE TASK:
+- Kids go off-topic constantly. "Hvad skal vi nu", "jeg er træt", "kan vi
+  spille noget", "det er kedeligt", "hvor er mor", "har vi lange ferier" —
+  these are PERFECTLY VALID utterances. Pass them through UNCHANGED. Do
+  NOT rewrite them into something that fits the homework task just because
+  the words are different from the task.
+- The task context is ONLY for disambiguating mishears that have multiple
+  acoustic-plausible interpretations. It is NOT a license to bend a clear
+  off-topic sentence into a task-shaped one.
+- If the raw transcript is grammatical Danish (or grammatical English in
+  engelsk tasks) and could plausibly be what a kid actually said, return
+  it UNCHANGED even if it has nothing to do with the task. The tutor
+  downstream will handle off-topic.
+- Only "change" the transcript when the raw is acoustically AMBIGUOUS or
+  CLEARLY GARBLED and a near-homophone alternative fits better. Examples:
+    raw "to" + task is about "tolv" → maybe change to "tolv". Justified.
+    raw "fyrre" + task says "førre" → keep raw, that's grammatical.
+    raw "hvad skal vi nu" + task about prices → KEEP RAW. Off-topic but
+      grammatical; the kid genuinely asked what to do next. NEVER rewrite
+      this into "hvad er prisen på X". That's hallucination.
+- The cleaned text MUST share most words with the raw. If you find
+  yourself replacing more than 1-2 words at most, you are hallucinating.
+  Stop and return the raw with changed=false.
+
 Subject: ${body.subject ?? "(ukendt)"}
 Grade: ${body.grade ?? "(ukendt)"}
 ${body.taskText ? `Task: ${body.taskText.slice(0, 600)}` : ""}
@@ -117,6 +141,39 @@ Return JSON ONLY: { "cleaned": "<text>", "changed": <bool>, "reason": "<short, o
         { cleaned: raw, changed: false, source: "ai" } satisfies Response
       )
     }
+    // Hallucination guard: when the kid says something off-topic
+    // ("hvad skal vi nu") and the cleanup model rewrites it into a
+    // task-shaped phrase ("hvad er prisen på stagen") it's strictly
+    // worse than the raw transcript — we just hand the tutor a wrong
+    // input. Compare word sets between raw and cleaned; if they share
+    // < 50% of words, treat it as hallucination and pass raw through.
+    // Single-word swaps stay allowed (intersection ratio still high).
+    const rawWords = wordSet(raw)
+    const cleanWords = wordSet(cleaned)
+    if (rawWords.size > 1 && cleanWords.size > 0) {
+      const shared = [...rawWords].filter(w => cleanWords.has(w)).length
+      const ratio = shared / Math.max(rawWords.size, cleanWords.size)
+      if (ratio < 0.5) {
+        console.warn("[stt-clean] discarded hallucinated rewrite", {
+          raw,
+          cleaned,
+          ratio: ratio.toFixed(2),
+        })
+        return NextResponse.json({
+          cleaned: raw,
+          changed: false,
+          reason: "hallucination_guard",
+          source: "ai",
+          usage: completion.usage
+            ? {
+                promptTokens: completion.usage.prompt_tokens ?? 0,
+                completionTokens: completion.usage.completion_tokens ?? 0,
+                model: deployment,
+              }
+            : null,
+        } satisfies Response)
+      }
+    }
     return NextResponse.json({
       cleaned,
       changed: !!parsed.changed && cleaned !== raw,
@@ -137,4 +194,18 @@ Return JSON ONLY: { "cleaned": "<text>", "changed": <bool>, "reason": "<short, o
       { cleaned: raw, changed: false, source: "passthrough" } satisfies Response
     )
   }
+}
+
+// Lowercase + strip punctuation, return the unique word set. Used to
+// compare raw vs cleaned transcripts — when the cleanup model
+// hallucinates a task-shaped rewrite, the word sets share almost
+// nothing and we can drop the rewrite.
+function wordSet(s: string): Set<string> {
+  return new Set(
+    s
+      .toLowerCase()
+      .replace(/[.,!?;:"()[\]]/g, " ")
+      .split(/\s+/)
+      .filter(w => w.length > 0),
+  )
 }

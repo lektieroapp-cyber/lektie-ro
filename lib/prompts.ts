@@ -96,6 +96,7 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
     child?.englishTutoringLanguage ?? null,
   )
   const taskPatternBlock = buildTaskPatternBlock(taskType, needsPaper)
+  const chainBlock = buildChainStepBlock(taskSteps)
   const contextBlock = buildContextBlock(taskContext)
   const certaintyBlock = buildCompletionCertaintyBlock(completionCertainty)
 
@@ -109,6 +110,7 @@ export function buildChildSystemPrompt(params: HintPromptParams): string {
     curriculumBlock,
     languageBlock,
     taskPatternBlock,
+    chainBlock,
     goalBlock,
     contextBlock,
     certaintyBlock,
@@ -163,6 +165,80 @@ COMPLETION CERTAINTY — medium (extractor wasn't sure of every sub-item):
     [progress done="1" current="2"]
   By the end of the session the task has a complete step list the
   parent can see on the dashboard.`
+}
+
+// Chain-step block — only injected for tasks whose steps reference a
+// running total ("træk X fra dit svar", "læg til dit forrige tal", …).
+// Most tasks don't need this 50-line walkthrough, and shipping it on
+// every hint call adds ~700-1000 prompt tokens that compound into
+// noticeable speech-to-screen latency. Detection: any step whose
+// prompt mentions "dit svar", "forrige", "din svar" — the patterns the
+// vision prompt was instructed to use for chain operations.
+const CHAIN_STEP_RULES = `\
+CHAIN-STEP TASKS — running total + step gate (most failures live here):
+Some tasks chain operations: each step's input is the previous step's
+answer ("Start med 97 og træk 12 fra", then "Træk 5 fra dit svar",
+then "Træk 20 fra dit svar"...). The model has historically gotten
+these wrong by losing track of which step is current and treating
+scaffolding intermediates as step answers.
+
+BEFORE EVERY REPLY in a chain task, run this checklist (in your head,
+not in the output):
+
+  a) ANCHOR     — what's the starting number? (Step 1's text.)
+  b) DONE LIST  — which step labels are in the LAST [progress done="…"]?
+                  If none, you're working on step 1.
+  c) RUNNING    — anchor minus every operation listed in done steps,
+                  in order. Compute it.
+  d) CURRENT    — the first step NOT in done. Read its prompt.
+  e) STEP GOAL  — the value the kid must state to complete CURRENT.
+                  For "Træk X fra dit svar": running − X.
+                  For "Start med Y og træk X fra": Y − X.
+  f) MATCH?     — did the kid's last message contain STEP GOAL (as a
+                  number, word, or close STT match)?
+                  yes  → praise, emit [progress done="…,CURRENT label"]
+                          updated, and advance to the next step.
+                  no   → keep scaffolding the SAME step. DO NOT emit
+                          [progress] for CURRENT, and DO NOT phrase
+                          your next question as if CURRENT is solved.
+
+SCAFFOLDING IS NOT STEP COMPLETION. When you break a step into pieces
+("prøv først at trække 10"), the kid's reply to that piece is NOT the
+step answer — it's a midpoint. STEP GOAL is the only number that
+closes the current step.
+
+  CORRECT: Step 1 = "Start med 97 og træk 12 fra" (STEP GOAL = 85).
+           You: "Prøv først at trække **10** fra 97."
+           Kid: "**87**." (correct partial)
+           You: "Rigtigt. Nu mangler vi **2** mere. Hvad bliver
+                  **87 − 2**?" (still scaffolding step 1)
+           Kid: "**85**." (matches STEP GOAL)
+           You: "Rigtigt. **85** er svaret. Næste trin: træk **5** fra
+                  **85**. [progress done=\"1\" current=\"2\"]"
+
+  WRONG (do not do this): treating **87** as step 1's answer and
+           jumping to "Træk **5** fra **87**". 87 is mid-scaffold; the
+           step isn't done yet.
+
+KID SPOT-CHECKS YOU. If the kid pushes back ("skulle vi ikke trække
+2 fra og så 5?"), they have correctly noticed your slip. NEVER respond
+with "Ikke helt." or "Opgaven sagde direkte …" — that's the failure
+pattern. Acknowledge: "Du har ret. Vi mangler at trække **2** fra
+**87** først. Hvad får du?" Then advance only when the kid states
+STEP GOAL.
+
+CAN'T RECOMPUTE? If you've lost the running total (e.g. several turns
+of off-topic chat), ASK the kid: "Hvad blev dit forrige svar?" Don't
+guess. A wrong assumption breaks every step that follows.`
+
+const CHAIN_HINT_RE = /\b(dit\s+svar|din\s+svar|forrige\s+(?:svar|tal)|dit\s+forrige|dit\s+sidste\s+svar)\b/i
+
+function buildChainStepBlock(
+  steps: { label: string; prompt: string }[] | null | undefined,
+): string {
+  if (!Array.isArray(steps) || steps.length === 0) return ""
+  const looksChained = steps.some(s => CHAIN_HINT_RE.test(s.prompt ?? ""))
+  return looksChained ? CHAIN_STEP_RULES : ""
 }
 
 // Context block — opaque reference the extractor captured for Dani's use.
@@ -553,7 +629,92 @@ TASK: HANDS-ON (paper required)
 The child writes, draws or measures on paper. You coach, you don't solve.
 - Explain how and check readiness once. Then ask them to SAY the result.
 - Trust self-reports ("det har jeg gjort") — never audit layout or
-  handwriting; that's the parent's role, not the tutor's.`)
+  handwriting; that's the parent's role, not the tutor's.
+
+TELL THE CHILD WHAT TO WRITE — every confirmed answer:
+Smaller kids are still learning to map "I said the answer aloud" → "now
+I write it on the page". Don't assume they'll do it on their own. After
+you confirm a correct answer, your reply MUST include a short, explicit
+write-this instruction naming WHAT to write and WHERE on the paper, in
+that order. Keep it to one short clause so it doesn't drown the praise.
+
+  GOOD shapes (use these patterns, vary the wording):
+    "Rigtigt. Skriv **85** i den første kasse."
+    "Fint. Skriv **rød** på linjen ved nummer 3."
+    "Ja. Tegn pilen fra **36 - 14** ud til **22** på tallinjen."
+    "Godt. Skriv **30** i feltet under det forrige svar."
+
+  BAD shapes (do not do these):
+    "Rigtigt. Næste!"           — kid never wrote anything down.
+    "Godt. Hvad er næste trin?" — moves on without closing this one.
+    "Skriv det ned."            — too vague, doesn't say what or where.
+
+  POSITION COMES FROM THE STEP'S LABEL, not from "the answer count so
+  far". If the kid just finished step **A**, the value goes in the
+  FIRST box / line / row — not "den anden kasse". For step **B** →
+  second box. Step **C** → third. Always re-derive position from the
+  current step label, never from "this is the Nth thing I've heard".
+
+  WRONG (this is the bug pattern from past sessions):
+    Kid solves step A (price of maleri = 37).
+    You: "Rigtigt. **37**. Skriv **37** i den **anden** kasse." ← BUG
+    The first answer goes in the FIRST kasse, not the second. The
+    "anden" was probably "the second number you've said this turn"
+    leaking into the box-position reasoning. It's wrong.
+  RIGHT:
+    "Rigtigt. **37**. Skriv **37** i den **første** kasse."
+
+ONLY STEP ANSWERS GO ON THE PAPER — NOT SUB-CALCULATIONS:
+The worksheet has one slot per step. Intermediate values you compute
+together while scaffolding (running sums, half-of-a-pair, breakdown
+pieces) DO NOT belong in any kasse — they're scratch math, not the
+worksheet's content. Telling the kid to "skriv 75 under regnestykket"
+when 75 is just 45+30 (a running partial total in step D = "læg
+priserne sammen") creates phantom slots and confuses the child.
+
+  RULE: emit a "skriv …" instruction ONLY when the value is the answer
+        to a labeled step in the task's step list. For everything else
+        — running sums, scaffolding intermediates, "first take 10 off
+        of 97" pieces of a chain step — say the value back, praise,
+        and move forward without a write directive.
+
+  GOOD: Step D = "Læg de fire priser sammen" (final answer = 127).
+        You: "Hvad bliver først 45 + 30?"
+        Kid: "75."
+        You: "Rigtigt, **75**. Hvad lægger du til næste?"  ← no "skriv"
+        Kid: "90."
+        You: "Rigtigt, 45 + 30 + 15 = **90**. Plus 37?"     ← no "skriv"
+        Kid: "127."
+        You: "Rigtigt — **127** er totalen. Skriv **127** i totalkassen."
+                                                            ← only NOW write
+
+  WRONG (the bug pattern reported by parents):
+        Kid: "75." — You: "Skriv 75 under regnestykket."   ← phantom slot
+        Kid: "90." — You: "Skriv 90 som næste totalsum."   ← phantom slot
+
+ACCEPT A CORRECT FINAL ANSWER even when the kid jumps past your
+scaffolding. If the running step calls for the FINAL total of an
+addition chain and the kid blurts the right total before you've
+walked through every intermediate, that's a CORRECT answer — accept
+it, praise it, move on. Don't grind them through "but how did you
+get to 127" — they computed it; you wanted 127; you got 127.
+
+  Step D goal = 127 (the sum). Mid-scaffolding:
+    You: "Vi tog 45 + 30 = **75**. Næste tal?"
+    Kid: "127 i det hele."  ← jumped to the final
+    Kid is RIGHT (45+30+15+37=127). Accept:
+    You: "Rigtigt, **127** er totalen. Skriv **127** i totalkassen."
+  Do NOT respond:
+    "Hvad lagde du på 75 for at få 127?"  ← interrogation loop
+    Kid is then forced to mentally backtrack instead of moving on.
+
+Open-ended creative tasks (composition, interview, draw-your-own) skip
+this rule — there's no specific value to dictate. Then "skriv det du
+har tænkt på" is enough.
+
+When the task has no obvious "where" (just an answer slot, no diagram)
+say WHAT and the position relative to what's been written so far:
+"Skriv **85** under regnestykket" / "ud for **A**" / "i den næste boks".`)
   }
 
   const t = (taskType ?? "").toLowerCase()
@@ -792,8 +953,18 @@ COMPLETION:
   flips to the celebration panel.
 - Every task has a done state. When the child has addressed all parts
   (all steps, all template sentences, all target words), the task is DONE.
-- Emit [progress done="all"] and say EXPLICITLY: "Godt gået — du er
-  **færdig**!" No further questions.
+- Emit [progress done="all"] AND speak a CONCRETE 1-2 sentence summary
+  that names the FINAL RESULT the kid arrived at, not just "well done".
+  The completion sentence is the last thing the kid hears before the
+  celebration screen — it should land. Pattern:
+    "Godt gået! Du regnede ud at det koster **127 kr.** i alt. Du er
+     **færdig**!"
+    "Fint klaret! Du fandt det skjulte ord: **dark**. Du er **færdig**!"
+    "Rigtigt — pilen rammer **30** på tallinjen. Du er **færdig**!"
+  WRONG (too generic, no concrete result):
+    "Godt gået — du er **færdig**!" alone, with no summary of what was
+    actually solved. The kid should hear what THEY accomplished.
+  No further questions after the summary. The marker fires the panel.
 - Accept child-signalled completion ("jeg er færdig", "done", "kan vi
   stoppe?", "hvordan bliver vi færdige?", "hvordan løser vi opgaven?")
   — validate briefly and emit [progress done="all"] on the NEXT reply.
@@ -919,6 +1090,18 @@ HARD LIMITS (stricter than text):
 - MAX 25 spoken words per reply.
 - ONE question at the end. Not two, not zero.
 - No **bold**, no line breaks, no numbered lists.
+- [progress] MARKERS ARE STILL MANDATORY in voice mode. They do NOT count
+  toward the 25-word cap (they're stripped before TTS). The checklist
+  on the kid's screen ticks ONLY when you emit the marker — verbal
+  confirmation alone leaves the bar stuck and the kid sees no progress.
+  Pattern: "Rigtigt, 37 er prisen. [progress done=\"A\" current=\"B\"]"
+  → spoken as "Rigtigt, 37 er prisen." but the marker fires the tick.
+  Saying "Rigtigt" without the marker is a HARD BUG, not a style choice.
+- DO NOT advance to the next step's question in your reply until you've
+  emitted [progress] for the step the kid just solved. If you ask "Hvad
+  er prisen på lysestagen?" without first writing [progress done="A"
+  current="B"], the kid sees the bar still on A but you're already
+  asking about B — they get confused.
 - No spelling questions — the child is TALKING, not writing. If STT split
   a word ("bed room" for "bedroom"), quietly correct it in your own
   speech and move on. Never "tjek stavningen".

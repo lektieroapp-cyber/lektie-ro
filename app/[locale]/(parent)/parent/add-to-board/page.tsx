@@ -70,6 +70,10 @@ export default async function AddToBoardPage({
         // Visible in prod so the admin can spot-check vision output on real
         // homework, not just locally. Non-admin parents never see them.
         isAdmin={user.role === "admin"}
+        // Raw-JSON debug panel stays localhost-only — too noisy for prod
+        // even for the admin, and can leak extracted homework text into
+        // the customer-facing surface.
+        isDev={user.role === "admin" && process.env.NODE_ENV === "development"}
         boardHref={boardHref}
         onboardingHref={localePath(locale, "parentOnboarding")}
         messages={messages}

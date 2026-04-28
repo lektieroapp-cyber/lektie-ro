@@ -283,6 +283,25 @@ STEPS vs CONTEXT — pick deliberately:
   "Target words in the light blue circle: dark, scream, zombie, ghost,
   skeleton, night, alone, mum. Child talks about several, not all."
 - Never duplicate the task text or the steps in context.
+- IDENTIFYING PICTURES — animals, plants, fruits, vegetables, objects:
+  small textbook illustrations are routinely ambiguous (rough drawings,
+  partial views, stylised silhouettes). When a step depends on knowing
+  what the picture is, you have two duties:
+  1. ONLY name a specific thing when you are CONFIDENT (clear silhouette,
+     unambiguous features, supporting context like a price tag or text
+     label). Catastrophe mode is naming a hest as a kat — the tutor then
+     coaches the kid against their own correct observation.
+  2. UNSURE → use a general description tied to a visible attribute the
+     kid can verify against the page: "den røde frugt", "dyret i den
+     grønne cirkel", "billedet midt på siden", "den lille firkant til
+     venstre". Specific enough that the tutor can ask about it; vague
+     enough that the kid isn't told what it is. The tutor will accept
+     whatever the kid actually sees as ground truth ("Det er en hest"
+     → "Okay, så det er en hest").
+  Match the certainty in expectedAnswers too: if you're unsure WHICH
+  animal it is, you can't be sure of the correct answer for "Hvad
+  hedder det her dyr på engelsk?" — leave that step's expectedAnswer
+  empty rather than guessing. Better than wrong.
 - SCAFFOLDING AIDS — capture verbatim even when only loosely referenced:
   textbooks routinely place a help box NEXT TO the task: a rhyme box for
   poem-writing, a word bank for vocabulary work, a sentence-starter list

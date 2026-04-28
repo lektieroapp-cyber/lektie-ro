@@ -30,9 +30,16 @@ type Props = {
   /** Resolved engelsk-tutoring preference ("danish" or "english"). Forwarded
    *  to HintChat so the /api/tts call can swap voices accordingly. */
   englishTutoringLanguage?: "danish" | "english" | null
+  /** Step count already finished from prior sessions on this task.
+   *  HintChat uses it to pre-populate stepProgress.done with the first
+   *  N step labels so the kid resumes mid-task instead of restarting
+   *  at step 1. The hint route is also told the resume offset so the
+   *  AI's first reply targets the next open step, not "start from
+   *  scratch". 0 = fresh task. */
+  resumeFromStep?: number
 }
 
-export function TaskHintShell({ task, subject, childId, childGrade, boardHref, nextSiblingHref = null, englishTutoringLanguage = null }: Props) {
+export function TaskHintShell({ task, subject, childId, childGrade, boardHref, nextSiblingHref = null, englishTutoringLanguage = null, resumeFromStep = 0 }: Props) {
   const router = useRouter()
   // Voice is the default tutoring mode for every kid regardless of grade —
   // the spoken homework conversation is the core experience, text is the
@@ -165,6 +172,7 @@ export function TaskHintShell({ task, subject, childId, childGrade, boardHref, n
           completed={completed}
           conversationMode={conversationMode}
           englishTutoringLanguage={englishTutoringLanguage}
+          resumeFromStep={resumeFromStep}
         />
       </div>
     </div>

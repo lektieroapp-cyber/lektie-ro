@@ -36,6 +36,12 @@ export type TaskRow = {
    *  when null. Denormalised across siblings rather than introducing a
    *  separate groups table; promote later if richer metadata arrives. */
   taskGroupTitle: string | null
+  /** Per-step expected answers (index-aligned with `steps`). Vision
+   *  extractor populates this; parent task preview renders each value
+   *  next to its step so the parent can spot-check the read at any
+   *  time. Empty entries mean the extractor couldn't honestly determine
+   *  an answer (open-ended creative items). Null when omitted entirely. */
+  expectedAnswers: string[] | null
   /** Vision extractor's confidence in the completion criteria. The tutor
    *  prompt branches on this — "low" lets the kid signal done with no
    *  friction; "high" can hold them to all steps. Defaults to "medium". */
@@ -66,6 +72,7 @@ type DbRow = {
   approved_by_parent: boolean
   task_group_id: string | null
   task_group_title: string | null
+  task_expected_answers: string[] | null
   completion_certainty: string | null
   created_at: string
   updated_at: string
@@ -78,7 +85,7 @@ const SELECT_COLS =
   "id, child_id, parent_id, subject, task_title, task_text, task_type, " +
   "task_goal, task_steps, task_context, needs_paper, source_image_path, " +
   "status, approved_by_parent, task_group_id, task_group_title, " +
-  "completion_certainty, " +
+  "task_expected_answers, completion_certainty, " +
   "created_at, updated_at, approved_at, " +
   "completed_at, dismissed_at"
 
@@ -100,6 +107,9 @@ function mapRow(r: DbRow): TaskRow {
     approvedByParent: r.approved_by_parent,
     taskGroupId: r.task_group_id,
     taskGroupTitle: r.task_group_title,
+    expectedAnswers: Array.isArray(r.task_expected_answers)
+      ? r.task_expected_answers.filter((a): a is string => typeof a === "string")
+      : null,
     completionCertainty:
       r.completion_certainty === "high" || r.completion_certainty === "low"
         ? r.completion_certainty
@@ -227,6 +237,52 @@ export async function fetchTasksByGroup(
   return (data ?? []).map(r => mapRow(r as unknown as DbRow))
 }
 
+/** Per-task progress aggregate: highest steps_done across the task's
+ *  sessions plus whether any session completed it. Used by Tavle to
+ *  render "X af N færdige" on bundle children, and by the kid task
+ *  page to resume mid-task instead of restarting at step 1. */
+export type TaskProgress = {
+  stepsDone: number
+  stepsTotal: number
+  completed: boolean
+}
+
+/** Latest progress per task across sessions, scoped to parent. Returns
+ *  a Record keyed by task_id with the highest steps_done seen. Empty
+ *  when migration 006 (sessions) hasn't been applied yet — Tavle and
+ *  task pages handle missing entries gracefully. */
+export async function fetchTaskProgressMap(
+  parentId: string,
+  taskIds: string[],
+): Promise<Record<string, TaskProgress>> {
+  if (taskIds.length === 0) return {}
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("sessions")
+    .select("task_id, steps_done, steps_total, completed")
+    .eq("parent_id", parentId)
+    .in("task_id", taskIds)
+  if (error) {
+    console.warn("[fetchTaskProgressMap] sessions read failed:", error.message)
+    return {}
+  }
+  const map: Record<string, TaskProgress> = {}
+  for (const row of (data ?? []) as Array<{
+    task_id: string | null
+    steps_done: number | null
+    steps_total: number | null
+    completed: boolean | null
+  }>) {
+    if (!row.task_id) continue
+    const prev = map[row.task_id] ?? { stepsDone: 0, stepsTotal: 0, completed: false }
+    const stepsDone = Math.max(prev.stepsDone, row.steps_done ?? 0)
+    const stepsTotal = Math.max(prev.stepsTotal, row.steps_total ?? 0)
+    const completed = prev.completed || !!row.completed
+    map[row.task_id] = { stepsDone, stepsTotal, completed }
+  }
+  return map
+}
+
 /** Single task by id, scoped to parent. Null when not found / wrong owner. */
 export async function fetchTaskById(
   parentId: string,
@@ -273,6 +329,11 @@ export type CreateTaskInput = {
    *  submission. Pass the same id on every task in a batch; null/omit for
    *  legacy single-task rows. */
   taskGroupId?: string | null
+  /** Per-step expected answers from the vision extractor. Index-aligned
+   *  with `steps`. Persisted so the parent task preview can show the
+   *  AI's assumed result next to each step. Pass null/undefined to
+   *  store no answers (creative tasks, legacy single-task rows). */
+  expectedAnswers?: string[] | null
   completionCertainty?: "high" | "medium" | "low"
   /** Default true — board flow inserts already-approved rows. */
   approve?: boolean
@@ -300,6 +361,10 @@ export async function createTask(
       needs_paper: input.needsPaper ?? null,
       source_image_path: input.sourceImagePath ?? null,
       task_group_id: input.taskGroupId ?? null,
+      task_expected_answers:
+        Array.isArray(input.expectedAnswers) && input.expectedAnswers.length > 0
+          ? input.expectedAnswers
+          : null,
       completion_certainty: input.completionCertainty ?? "medium",
       status: "pending",
       approved_by_parent: approve,
@@ -401,9 +466,18 @@ export async function createTaskBatch(
     typeof groupTitle === "string" && groupTitle.trim().length > 0
       ? groupTitle.trim().slice(0, 80)
       : null
-  const now = new Date().toISOString()
-  const rows = inputs.map(input => {
+  const nowMs = Date.now()
+  const now = new Date(nowMs).toISOString()
+  const rows = inputs.map((input, i) => {
     const approve = input.approve !== false
+    // Postgres `default now()` would otherwise stamp every row in this
+    // INSERT with the SAME microsecond timestamp, leaving "ORDER BY
+    // created_at" non-deterministic — Tavle would shuffle the bundle's
+    // siblings on every render. Explicitly stamp each row 1ms apart in
+    // input order so the natural reading order from the source photo
+    // (vision task #1, #2, #3...) survives all the way to the kid's
+    // multi-pick screen.
+    const createdAt = new Date(nowMs + i).toISOString()
     return {
       parent_id: parentId,
       child_id: input.childId,
@@ -418,10 +492,15 @@ export async function createTaskBatch(
       source_image_path: input.sourceImagePath ?? null,
       task_group_id: groupId,
       task_group_title: trimmedTitle,
+      task_expected_answers:
+        Array.isArray(input.expectedAnswers) && input.expectedAnswers.length > 0
+          ? input.expectedAnswers
+          : null,
       completion_certainty: input.completionCertainty ?? "medium",
       status: "pending",
       approved_by_parent: approve,
       approved_at: approve ? now : null,
+      created_at: createdAt,
     }
   })
   const { data, error } = await admin

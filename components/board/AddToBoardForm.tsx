@@ -122,6 +122,7 @@ export function AddToBoardForm({
   children,
   initialSubject,
   isAdmin = false,
+  isDev = false,
   boardHref,
   onboardingHref,
   messages,
@@ -130,10 +131,16 @@ export function AddToBoardForm({
   /** When set, pre-selects this subject in the picker (used by the empty-
    *  Tavle subject cards which deep-link via ?subject=…). */
   initialSubject?: TaskSubject | null
-  /** Show the per-photo debug panel (raw extraction response, timing,
-   *  re-run button). Admin-only — surfaces what the vision model returned
-   *  so we can diagnose extraction failures without server logs. */
+  /** Admin-only verification panels in the review queue: Forventet svar
+   *  (per-step expected answers) and Tutor-kontekst (opaque vision notes).
+   *  Safe to show in prod — these are sanity-check aids the admin uses
+   *  before sending a kid into a task. */
   isAdmin?: boolean
+  /** Localhost-only raw-JSON debug panel above the review queue. Shows
+   *  the full vision response, timings, and a re-run button — useful
+   *  during prompt iteration but too noisy for prod even on the admin
+   *  account. */
+  isDev?: boolean
   boardHref: string
   onboardingHref: string
   messages: AddToBoardMessages
@@ -293,6 +300,14 @@ export function AddToBoardForm({
                 detectedSubject: data.subject,
                 draftResponse: debug,
                 suggestedGroupTitle: data.groupTitle ?? null,
+                // Pre-fill the editable bundle title with the AI suggestion
+                // so the input renders the value directly (parent can edit
+                // or leave it). Don't overwrite if the parent has already
+                // typed something on a previous render.
+                groupTitle:
+                  p.groupTitle !== undefined
+                    ? p.groupTitle
+                    : (data.groupTitle ?? ""),
               }
             : p,
         ),
@@ -375,6 +390,12 @@ export function AddToBoardForm({
                 detectedSubject: data.subject,
                 draftResponse: debug,
                 suggestedGroupTitle: data.groupTitle ?? null,
+                // On re-run we DO want to refresh the title with whatever
+                // the new extraction suggested — re-running typically
+                // means the parent didn't like the previous result. Their
+                // own edit (if any) was already saved above; here we
+                // pull in the fresh suggestion for them to start from.
+                groupTitle: data.groupTitle ?? "",
               }
             : p,
         ),
@@ -459,6 +480,90 @@ export function AddToBoardForm({
       prev.map(t =>
         t.localId === localId
           ? { ...t, task: { ...t.task, steps: steps.length > 0 ? steps : undefined } }
+          : t,
+      ),
+    )
+  }
+
+  // Edits the i-th expected answer for a task. NO context sync here —
+  // this fires on every keystroke, and replacing partial values
+  // ("75" → "7" → "70") would corrupt the kontekst mid-typing.
+  // Context sync happens once on blur via syncAnswerToContext below.
+  function updateAnswer(localId: string, index: number, value: string) {
+    setTasks(prev =>
+      prev.map(t => {
+        if (t.localId !== localId) return t
+        const oldAnswers = t.task.expectedAnswers ?? []
+        const nextAnswers = [...oldAnswers]
+        // Pad with empty strings if editing past the current end.
+        while (nextAnswers.length <= index) nextAnswers.push("")
+        nextAnswers[index] = value
+        return {
+          ...t,
+          task: { ...t.task, expectedAnswers: nextAnswers },
+        }
+      }),
+    )
+  }
+
+  // Called on blur after the parent finishes editing a value. Replaces
+  // the anchor (the value the field had at focus time) with the
+  // committed value in the tutor-kontekst, using a word-boundary regex
+  // so "75 → 60" doesn't clobber "750" / "175" elsewhere.
+  //
+  // When several sub-tasks share the same anchor (e.g. both B and C
+  // are "30 kr."), a global replace would clobber both at once. To
+  // keep the link 1:1 with the edited sub-task we only replace the
+  // N-th occurrence of the anchor in context, where N matches the
+  // position of THIS answer among same-valued earlier answers. The
+  // mapping assumes vision writes values into context in step order
+  // (left-to-right, top-to-bottom on the page) — which it does in
+  // practice, see VISION_SYSTEM_PROMPT context examples.
+  //
+  // Skips the rewrite when either side is empty or unchanged.
+  function syncAnswerToContext(
+    localId: string,
+    index: number,
+    oldValue: string,
+    newValue: string,
+  ) {
+    const oldTrim = oldValue.trim()
+    const newTrim = newValue.trim()
+    if (
+      oldTrim.length === 0 ||
+      newTrim.length === 0 ||
+      oldTrim === newTrim
+    ) return
+    setTasks(prev =>
+      prev.map(t => {
+        if (t.localId !== localId) return t
+        const ctx = t.task.context
+        if (typeof ctx !== "string" || ctx.length === 0) return t
+        // Count how many earlier answers (indices 0..index-1) had the
+        // same anchor. That's the 0-based occurrence we want to swap;
+        // earlier ones map to earlier sub-tasks and stay put.
+        const answers = t.task.expectedAnswers ?? []
+        let occurrenceTarget = 0
+        for (let j = 0; j < index; j++) {
+          if ((answers[j] ?? "").trim() === oldTrim) occurrenceTarget++
+        }
+        const escaped = oldTrim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        const re = new RegExp(`\\b${escaped}\\b`, "g")
+        let seen = 0
+        const nextContext = ctx.replace(re, match =>
+          seen++ === occurrenceTarget ? newTrim : match,
+        )
+        if (nextContext === ctx) return t
+        return { ...t, task: { ...t.task, context: nextContext } }
+      }),
+    )
+  }
+
+  function updateContext(localId: string, value: string) {
+    setTasks(prev =>
+      prev.map(t =>
+        t.localId === localId
+          ? { ...t, task: { ...t.task, context: value.length > 0 ? value : undefined } }
           : t,
       ),
     )
@@ -562,6 +667,7 @@ export function AddToBoardForm({
               steps: t.task.steps ?? null,
               context: t.task.context ?? null,
               needsPaper: t.task.needsPaper ?? null,
+              expectedAnswers: t.task.expectedAnswers ?? null,
               completionCertainty: t.task.completionCertainty ?? "medium",
             })),
           }),
@@ -731,10 +837,12 @@ export function AddToBoardForm({
         </p>
       )}
 
-      {/* Admin debug section — one row per photo with everything the
-          extractor returned. Helps diagnose "why did it pick wrong" or
-          "why did this fail" without server-side log access. */}
-      {isAdmin && photos.length > 0 && (
+      {/* Localhost-only raw-JSON debug section — one row per photo with
+          everything the extractor returned. Helps diagnose "why did it
+          pick wrong" or "why did this fail" during prompt iteration. Not
+          shown in prod even on the admin account: the raw vision text
+          can include extracted homework that's noisy for live use. */}
+      {isAdmin && isDev && photos.length > 0 && (
         <DebugPanel photos={photos} onRerun={rerunExtraction} />
       )}
 
@@ -775,7 +883,6 @@ export function AddToBoardForm({
                     key={p.id}
                     photo={p}
                     photoIndex={photos.findIndex(pp => pp.id === p.id) + 1}
-                    taskCount={photoTaskCounts.get(p.id) ?? 0}
                     onChange={value =>
                       setPhotos(prev =>
                         prev.map(pp => (pp.id === p.id ? { ...pp, groupTitle: value } : pp)),
@@ -796,6 +903,11 @@ export function AddToBoardForm({
                 onToggleDismiss={() => toggleDismissed(t.localId)}
                 onSubjectChange={s => changeSubject(t.localId, s)}
                 onStepsChange={steps => updateSteps(t.localId, steps)}
+                onAnswerChange={(idx, v) => updateAnswer(t.localId, idx, v)}
+                onAnswerCommit={(idx, oldV, newV) =>
+                  syncAnswerToContext(t.localId, idx, oldV, newV)
+                }
+                onContextChange={v => updateContext(t.localId, v)}
                 isAdmin={isAdmin}
                 messages={messages}
               />
@@ -1039,22 +1151,20 @@ function PhotoChip({
 function BundleTitleInput({
   photo,
   photoIndex,
-  taskCount,
   onChange,
 }: {
   photo: Photo
   photoIndex: number
-  taskCount: number
   onChange: (value: string) => void
 }) {
+  // Value is pre-filled with the AI suggestion at upload time (see the
+  // `groupTitle: data.groupTitle ?? ""` line in the upload + rerun
+  // handlers), so the input renders the actual suggested text — parent
+  // can edit or clear directly. Empty string means "use no title" and
+  // commits null to the DB so Tavle falls back to the placeholder.
   const value = photo.groupTitle ?? ""
-  const placeholder =
-    photo.suggestedGroupTitle?.trim() ||
-    `${taskCount} opgaver fra billede #${photoIndex}`
   return (
-    <div
-      className="rounded-card border border-mint-edge/60 bg-mint-soft/40 p-3"
-    >
+    <div className="rounded-card border border-mint-edge/60 bg-mint-soft/40 p-3">
       <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-mint-deep/85">
         <span className="flex items-center gap-1.5">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1066,16 +1176,11 @@ function BundleTitleInput({
           type="text"
           value={value}
           onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
+          placeholder="Giv sættet et navn"
           maxLength={80}
           className="w-full rounded-btn border border-mint-edge/60 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-ink placeholder:text-ink/40 focus:border-mint-deep focus:outline-none"
         />
       </label>
-      {photo.suggestedGroupTitle && !value && (
-        <p className="mt-1.5 text-[11px] font-normal normal-case tracking-normal text-ink/55">
-          AI foreslår: <span className="italic">{photo.suggestedGroupTitle}</span>. Klik feltet for at ændre.
-        </p>
-      )}
     </div>
   )
 }
@@ -1086,6 +1191,9 @@ function DraftTaskCard({
   onToggleDismiss,
   onSubjectChange,
   onStepsChange,
+  onAnswerChange,
+  onAnswerCommit,
+  onContextChange,
   isAdmin = false,
   messages,
 }: {
@@ -1094,6 +1202,16 @@ function DraftTaskCard({
   onToggleDismiss: () => void
   onSubjectChange: (s: TaskSubject) => void
   onStepsChange: (steps: { label: string; prompt: string }[]) => void
+  /** Per-keystroke update of one expected answer at `idx`. Cheap — just
+   *  updates the answer; never touches the tutor-kontekst. */
+  onAnswerChange: (idx: number, value: string) => void
+  /** Fired on blur AFTER the parent finishes editing an answer.
+   *  `oldValue` is whatever was in the input when it received focus,
+   *  so the substitution into tutor-kontekst uses the original anchor
+   *  rather than a half-typed intermediate. */
+  onAnswerCommit: (idx: number, oldValue: string, newValue: string) => void
+  /** Edit the free-form tutor-kontekst block. Empty string clears it. */
+  onContextChange: (value: string) => void
   isAdmin?: boolean
   messages: AddToBoardMessages
 }) {
@@ -1309,26 +1427,52 @@ function DraftTaskCard({
             sits down. Never persisted; never shown to the kid. Only renders
             when the extractor returned at least one non-empty answer
             (open-ended creative tasks legitimately have none). */}
-        {isAdmin && t.expectedAnswers && t.expectedAnswers.some(a => a.trim().length > 0) && (
-          <ExpectedAnswers steps={steps} answers={t.expectedAnswers} />
+        {/* Forventet svar — shown to every parent so they can spot-check
+            what the AI thinks the answers are before sending the kid in.
+            Useful even for non-admin parents: catches misread numbers
+            (price tags, OCR slips) at review time, not after the kid is
+            stuck. Tutor-kontekst stays admin-only because it's tutor
+            scaffolding meant for the model, not parent-facing content. */}
+        {t.expectedAnswers && t.expectedAnswers.some(a => a.trim().length > 0) && (
+          <ExpectedAnswers
+            steps={steps}
+            answers={t.expectedAnswers}
+            disabled={dismissed}
+            onAnswerChange={onAnswerChange}
+            onAnswerCommit={onAnswerCommit}
+          />
         )}
 
         {/* Tutor context — admin/dev preview of the opaque notes the
             extractor captured for Dani (target words from the page,
             unreadable-region explanations, hidden-answer locations).
             This is what the AI tutor will use during the session; the
-            kid never sees it. Showing it here lets the parent verify
-            the tutor has enough to work with even when steps are empty. */}
-        {isAdmin && t.context && (
+            kid never sees it. Editable: parent can correct misreads or
+            add detail; auto-syncs from expected-answer edits via
+            updateAnswer's word-boundary substitution. */}
+        {/* Render the textarea whenever the user is admin — empty
+            context is fine (the textarea handles input). Previously
+            gated on `t.context || onContextChange` which was always
+            truthy because the prop is required. */}
+        {isAdmin && (
           <div className="rounded-card border border-dashed border-ink/15 bg-canvas/50 px-3 py-2.5 text-[12px]">
-            <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/55">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
-              Tutor-kontekst
-            </div>
-            <p className="whitespace-pre-line text-ink/80">{t.context}</p>
+            <label className="flex flex-col gap-1.5">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/55">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v4M12 16h.01" />
+                </svg>
+                Tutor-kontekst
+              </span>
+              <textarea
+                value={t.context ?? ""}
+                onChange={e => onContextChange(e.target.value)}
+                disabled={dismissed}
+                rows={Math.max(2, Math.min(6, ((t.context ?? "").match(/\n/g)?.length ?? 0) + 2))}
+                placeholder="Notater til Dani — synlige facts, sjældne ord, særlige hint"
+                className="w-full resize-y rounded-md border border-transparent bg-transparent px-2 py-1.5 text-[12px] leading-relaxed text-ink/85 placeholder:text-ink/35 focus:border-ink/15 focus:bg-white focus:outline-none disabled:opacity-50"
+              />
+            </label>
           </div>
         )}
 
@@ -1373,41 +1517,74 @@ function DraftTaskCard({
 function ExpectedAnswers({
   steps,
   answers,
+  disabled,
+  onAnswerChange,
+  onAnswerCommit,
 }: {
   steps: { label: string; prompt: string }[]
   answers: string[]
+  disabled?: boolean
+  /** Per-keystroke update — only mutates the answer state. */
+  onAnswerChange: (idx: number, value: string) => void
+  /** Called on blur with the anchor (value at focus time) and the
+   *  committed value, so the parent can do a one-shot regex replace
+   *  in the tutor-kontekst without seeing every intermediate keystroke. */
+  onAnswerCommit: (idx: number, oldValue: string, newValue: string) => void
 }) {
-  // When there are no curated steps, the answer array is length-1 with a
-  // whole-task answer. Render as a single line in that case.
+  // Anchor per input: the value the field had when it received focus.
+  // Captured in onFocus, consumed in onBlur. useRef instead of state
+  // so updating it doesn't cause a re-render that resets the input.
+  const anchorRef = useRef<Record<number, string>>({})
+  function captureAnchor(i: number) {
+    anchorRef.current[i] = (answers[i] ?? "").trim()
+  }
+  function commitAnchor(i: number, current: string) {
+    const old = anchorRef.current[i] ?? ""
+    onAnswerCommit(i, old, current)
+    anchorRef.current[i] = current.trim()
+  }
   const hasSteps = steps.length > 0
   return (
     <div
       className="rounded-card border border-dashed border-mint-edge bg-mint-soft/40 px-3 py-2.5 text-[12px]"
     >
-      <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-mint-deep/85">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-mint-deep/85">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <polyline points="20 6 9 17 4 12" />
         </svg>
         Forventet svar
       </div>
       {hasSteps ? (
-        <ul className="flex flex-col gap-1">
-          {steps.map((s, i) => {
-            const a = answers[i]?.trim() ?? ""
-            return (
-              <li key={s.label + i} className="flex items-baseline gap-2">
-                <span className="inline-flex h-4 min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-white/70 px-1.5 text-[10px] font-bold text-mint-deep">
-                  {s.label}
-                </span>
-                <span className={a ? "text-ink/90" : "italic text-ink/45"}>
-                  {a || "—"}
-                </span>
-              </li>
-            )
-          })}
+        <ul className="flex flex-col gap-1.5">
+          {steps.map((s, i) => (
+            <li key={s.label + i} className="flex items-center gap-2">
+              <span className="inline-flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-white/80 px-1.5 text-[10px] font-bold text-mint-deep">
+                {s.label}
+              </span>
+              <input
+                type="text"
+                value={answers[i] ?? ""}
+                onChange={e => onAnswerChange(i, e.target.value)}
+                onFocus={() => captureAnchor(i)}
+                onBlur={e => commitAnchor(i, e.target.value)}
+                disabled={disabled}
+                placeholder="Svar"
+                className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-[12px] text-ink/90 placeholder:text-ink/35 focus:border-mint-deep/40 focus:bg-white focus:outline-none disabled:opacity-50"
+              />
+            </li>
+          ))}
         </ul>
       ) : (
-        <p className="text-ink/90">{answers[0]?.trim() || "—"}</p>
+        <input
+          type="text"
+          value={answers[0] ?? ""}
+          onChange={e => onAnswerChange(0, e.target.value)}
+          onFocus={() => captureAnchor(0)}
+          onBlur={e => commitAnchor(0, e.target.value)}
+          disabled={disabled}
+          placeholder="Svar"
+          className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-[12px] text-ink/90 placeholder:text-ink/35 focus:border-mint-deep/40 focus:bg-white focus:outline-none disabled:opacity-50"
+        />
       )}
     </div>
   )

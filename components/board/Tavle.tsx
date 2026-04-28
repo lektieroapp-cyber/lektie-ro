@@ -9,7 +9,7 @@ import {
   DictionaryGlyph,
 } from "@/components/overview/SubjectSummaryCard"
 import { EmptyTavle, TavleHeroIllustration } from "./EmptyTavle"
-import type { TaskRow, TaskStatus, TaskSubject } from "@/lib/tasks"
+import type { TaskProgress, TaskRow, TaskStatus, TaskSubject } from "@/lib/tasks"
 
 type Mode = "kid" | "parent"
 
@@ -18,6 +18,12 @@ type Props = {
   mode: Mode
   /** All non-dismissed tasks (open + done). Kid mode: just this child. Parent mode: all kids. */
   tasks: TaskRow[]
+  /** Optional per-task session-progress roll-up (taskId → stepsDone /
+   *  stepsTotal / completed). Used to render "X af N færdige" inside
+   *  bundle rows so a parent can see at a glance which task in the
+   *  set is mid-flight. Missing entries (no sessions yet) gracefully
+   *  fall back to status-pill only. */
+  taskProgress?: Record<string, TaskProgress>
   /** Map of childId → first name, used for parent-mode badges. */
   childNames?: Record<string, string>
   /** All of the parent's children (for the top-right kid dropdown). Empty
@@ -91,6 +97,7 @@ export function Tavle({
   locale,
   mode,
   tasks,
+  taskProgress,
   childNames,
   children,
   selectedChildId,
@@ -191,6 +198,7 @@ export function Tavle({
         subject={openSubject}
         subjectLabel={messages.subjects[openSubject] ?? openSubject}
         tasks={grouped[openSubject]}
+        taskProgress={taskProgress}
         childNames={childNames}
         showAddCta={showNewCta}
         // Carry the open subject through as ?subject= so the create page
@@ -515,6 +523,7 @@ function SubjectDetail({
   subject,
   subjectLabel,
   tasks,
+  taskProgress,
   childNames,
   showAddCta,
   addCtaHref,
@@ -528,6 +537,7 @@ function SubjectDetail({
   subject: TaskSubject
   subjectLabel: string
   tasks: TaskRow[]
+  taskProgress?: Record<string, TaskProgress>
   childNames?: Record<string, string>
   showAddCta: boolean
   addCtaHref: string
@@ -681,6 +691,7 @@ function SubjectDetail({
                   key={t.id}
                   locale={locale}
                   task={t}
+                  progress={taskProgress?.[t.id]}
                   childName={mode === "parent" ? childNames?.[t.childId] : null}
                   showDismiss={mode === "parent" && t.status !== "done"}
                   busy={busyId === t.id}
@@ -694,6 +705,7 @@ function SubjectDetail({
                 key={entry.groupId}
                 locale={locale}
                 tasks={entry.tasks}
+                taskProgress={taskProgress}
                 childName={
                   mode === "parent" ? childNames?.[entry.tasks[0].childId] : null
                 }
@@ -742,6 +754,7 @@ function statusToTab(status: TaskStatus): Tab {
 function DetailTaskRow({
   locale,
   task,
+  progress,
   childName,
   showDismiss,
   busy,
@@ -751,6 +764,10 @@ function DetailTaskRow({
 }: {
   locale: string
   task: TaskRow
+  /** Latest session progress for this task, when available. Drives the
+   *  "X af N færdige" badge — distinct from the static `N trin` step
+   *  count, which is the task's max regardless of session activity. */
+  progress?: TaskProgress
   childName?: string | null
   showDismiss: boolean
   busy: boolean
@@ -807,14 +824,49 @@ function DetailTaskRow({
             {childName && <span className="font-medium text-ink/70">{childName} · </span>}
             {task.title && task.text ? shortText(task.text) : task.goal ?? ""}
           </p>
-          <span
-            className="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-            style={{ background: statusInfo.pillBg, color: statusInfo.pillFg }}
-          >
-            {status === "pending" && messages.statusPending}
-            {status === "in_progress" && messages.statusInProgress}
-            {status === "done" && messages.statusDone}
-          </span>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span
+              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+              style={{ background: statusInfo.pillBg, color: statusInfo.pillFg }}
+            >
+              {status === "pending" && messages.statusPending}
+              {status === "in_progress" && messages.statusInProgress}
+              {status === "done" && messages.statusDone}
+            </span>
+            {/* Per-task progress + step count. When the task has a
+                session with real progress, show "X af N færdige" with
+                a tinted background that reflects state (mint for
+                done, butter for in-progress). Otherwise show the
+                static "N trin" step-count chip. Solo synthesized
+                fallback steps (length === 1) are skipped — they read
+                as "1 trin" noise. */}
+            {task.steps && task.steps.length > 1 && (() => {
+              const total = progress?.stepsTotal && progress.stepsTotal > 0
+                ? progress.stepsTotal
+                : task.steps.length
+              const done = progress?.stepsDone ?? 0
+              if (done > 0) {
+                const allDone = progress?.completed || done >= total
+                return (
+                  <span
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                    style={
+                      allDone
+                        ? { background: "#E1EEDD", color: "#4F8E6B" }
+                        : { background: "#FBEFD7", color: "#7A5A1F" }
+                    }
+                  >
+                    {done} af {total} færdige
+                  </span>
+                )
+              }
+              return (
+                <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-medium text-ink/65">
+                  {task.steps.length} trin
+                </span>
+              )
+            })()}
+          </div>
         </div>
 
         <span aria-hidden className="text-2xl text-ink/30">›</span>
@@ -861,7 +913,10 @@ function groupTasksByBundle(tasks: TaskRow[]): BundleEntry[] {
   }
   // Second pass: emit one entry per group (at the first appearance), or
   // one entry per solo task. Preserves the input ordering for non-grouped
-  // tasks and for the bundle's anchor position.
+  // tasks and for the bundle's anchor position. Inside a bundle, sort
+  // siblings by createdAt ASCENDING so the kid's multi-pick screen reads
+  // in source-photo order (vision task #1, #2, #3...) instead of the
+  // upstream feed's "newest first" order which inverts the bundle.
   const seen = new Set<string>()
   const entries: BundleEntry[] = []
   for (const t of tasks) {
@@ -871,7 +926,10 @@ function groupTasksByBundle(tasks: TaskRow[]): BundleEntry[] {
       entries.push({
         kind: "bundle",
         groupId: t.taskGroupId,
-        tasks: tasks.filter(x => x.taskGroupId === t.taskGroupId),
+        tasks: tasks
+          .filter(x => x.taskGroupId === t.taskGroupId)
+          .slice()
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
       })
     } else {
       entries.push({ kind: "solo", task: t })
@@ -883,6 +941,7 @@ function groupTasksByBundle(tasks: TaskRow[]): BundleEntry[] {
 function DetailTaskBundle({
   locale,
   tasks,
+  taskProgress,
   childName,
   showDismiss,
   busyId,
@@ -891,6 +950,7 @@ function DetailTaskBundle({
 }: {
   locale: string
   tasks: TaskRow[]
+  taskProgress?: Record<string, TaskProgress>
   childName?: string | null
   showDismiss: boolean
   busyId: string | null
@@ -1011,6 +1071,7 @@ function DetailTaskBundle({
               key={t.id}
               locale={locale}
               task={t}
+              progress={taskProgress?.[t.id]}
               childName={null}
               showDismiss={showDismiss && t.status !== "done"}
               busy={busyId === t.id}

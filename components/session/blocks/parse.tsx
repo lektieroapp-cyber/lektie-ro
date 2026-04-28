@@ -160,6 +160,15 @@ export function renderBlock(
       // turn stream and updates the checklist. Don't render anything here.
       return null
 
+    case "task":
+      // Silent metadata marker: [task action="append-step" label="..." prompt="..."]
+      // mutates the step list mid-session — HintChat parses it from the
+      // turn stream and grows the checklist. Without this case, the
+      // default fallback renders the literal "[task]" string in a
+      // "Dani viser dig" visual card, which is the bug the parent saw
+      // in their transcript. Don't render anything here.
+      return null
+
     case "numberline":
       return (
         <NumberLine

@@ -1,15 +1,23 @@
-type Tone = "mint" | "clay" | "plum"
+type Tone = "mint" | "clay" | "plum" | "honey"
 
+// Tints + bar accents must mirror SUBJECT_DEF in components/board/Tavle.tsx
+// 1:1 — the Forældre Ro subject summaries and the Tavle subject grid render
+// the same subjects on the same surface (parent dashboard) and previously
+// used different palettes (matematik=purple here vs yellow there). Honey
+// added so Tavle's matematik tint can be reused without inventing a new
+// "yellow" subject category. If Tavle's tints change, change here too.
 const TONE_BG: Record<Tone, string> = {
   mint: "#E1EEDD",
   clay: "#F4DBD1",
   plum: "#E8DEF1",
+  honey: "#FBEFD7",
 }
 
 const TONE_BAR: Record<Tone, string> = {
   mint: "#4F8E6B",
   clay: "#A05844",
   plum: "#7A5A9C",
+  honey: "#D6B850",
 }
 
 /**

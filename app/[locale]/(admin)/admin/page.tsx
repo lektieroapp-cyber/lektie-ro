@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { InviteUserForm } from "@/components/admin/InviteUserForm"
+import { ResetMyDataButton } from "@/components/admin/ResetMyDataButton"
 import { WaitlistTable, type WaitlistRow } from "@/components/admin/WaitlistTable"
 import { isLocale } from "@/lib/i18n/config"
 import { getMessages } from "@/lib/i18n/getMessages"
@@ -79,6 +80,27 @@ export default async function AdminPage({
           <WaitlistTable rows={waitlistRows} />
         )}
       </section>
+
+      {/* Localhost-only self-service reset — wipes the admin's own
+          tasks + sessions so the upload → bundle → tutor flow can be
+          re-tested from scratch without running the script. The API
+          endpoint enforces NODE_ENV=development too, so flipping this
+          render gate isn't enough to leak the button into prod. */}
+      {process.env.NODE_ENV === "development" && (
+        <section className="mt-10">
+          <h2 className="text-xl font-semibold text-ink">Dev — nulstil mine data</h2>
+          <p className="mt-1 text-sm text-muted">
+            Sletter dine egne opgaver + sessions. Profil + børn bevares.
+            Kun synlig på localhost.
+          </p>
+          <div
+            className="mt-4 rounded-card bg-white p-5"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <ResetMyDataButton />
+          </div>
+        </section>
+      )}
     </>
   )
 }

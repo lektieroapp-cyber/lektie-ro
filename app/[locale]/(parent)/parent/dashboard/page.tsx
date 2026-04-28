@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import {
   fetchAllTasksForChild,
   fetchAllTasksForParent,
+  fetchTaskProgressMap,
   isTaskSubject,
   type TaskSubject,
 } from "@/lib/tasks"
@@ -68,6 +69,14 @@ export default async function ParentDashboard({
     childNames = Object.fromEntries(allChildren.map(c => [c.id, c.name]))
   }
 
+  // Roll up per-task session progress so Tavle can render "X af N færdige"
+  // on each row inside a bundle. Missing entries (legacy single-task rows
+  // with no sessions yet) just fall back to status-only rendering.
+  const taskProgress = await fetchTaskProgressMap(
+    user.id,
+    tasks.map(t => t.id),
+  )
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 w-full flex-1 flex-col">
@@ -75,6 +84,7 @@ export default async function ParentDashboard({
           locale={locale}
           mode={isKid ? "kid" : "parent"}
           tasks={tasks}
+          taskProgress={taskProgress}
           childNames={childNames}
           children={allChildren}
           selectedChildId={filterChildId}

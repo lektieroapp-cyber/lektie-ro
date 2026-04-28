@@ -31,6 +31,11 @@ type Body = {
   completionCertainty?: "high" | "medium" | "low" | null
   /** "voice" = reply will be spoken via TTS, tunes output for spoken delivery. */
   conversationMode?: "text" | "voice"
+  /** When > 0, the kid is resuming this task from a prior session that
+   *  finished N steps. The system prompt gets a one-line note telling
+   *  the AI to skip ahead to step N+1 instead of restarting at step 1.
+   *  Only meaningful on the FIRST turn of a new chat session. */
+  resumeFromStep?: number | null
 }
 
 export async function POST(request: NextRequest) {
@@ -84,11 +89,32 @@ export async function POST(request: NextRequest) {
     deliveryMode,
   })
 
+  // Resume note — appended to the seed user message when the kid is
+  // reopening a task they made progress on. Tells the AI exactly which
+  // steps were already finished so its first reply targets the next
+  // open step instead of "let's start with step A". Only fired when
+  // there are no prior turns yet (resume only matters on the first
+  // assistant message; after that the conversation history carries it).
+  const resumeFromStep = Math.max(0, Math.floor(body.resumeFromStep ?? 0))
+  const isFirstReply = body.turns.length === 0
+  const taskSteps = body.taskSteps ?? []
+  let resumeNote = ""
+  if (isFirstReply && resumeFromStep > 0 && taskSteps.length > resumeFromStep) {
+    const doneLabels = taskSteps.slice(0, resumeFromStep).map(s => s.label).join(", ")
+    const nextLabel = taskSteps[resumeFromStep].label
+    resumeNote =
+      `\n\nMETA: Barnet GENOPTAGER opgaven fra en tidligere session. Trin ${doneLabels} er` +
+      ` allerede klaret. Start direkte ved trin ${nextLabel} — ingen "lad os starte forfra"` +
+      ` og ingen gennemgang af de første trin. Acknowledge kort ("Velkommen tilbage —` +
+      ` du er ved trin ${nextLabel}") og stil straks det første spørgsmål til trin` +
+      ` ${nextLabel}. Emit [progress done="${doneLabels}" current="${nextLabel}"] i din første reply.`
+  }
+
   // First turn: we seed a user message with the task so the assistant has
   // something concrete to anchor on. Subsequent turns are the kid's replies.
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
     { role: "system", content: systemPrompt },
-    { role: "user", content: `Opgaven er: ${body.taskText}` },
+    { role: "user", content: `Opgaven er: ${body.taskText}${resumeNote}` },
     ...body.turns.map(t => ({ role: t.role, content: t.content })),
   ]
 

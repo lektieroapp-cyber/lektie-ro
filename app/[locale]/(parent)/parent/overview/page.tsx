@@ -86,10 +86,15 @@ function daysAgo(iso: string) {
   return Math.round((now.getTime() - d.getTime()) / 86_400_000)
 }
 
-const SUBJECT_TONE: Record<string, "mint" | "clay" | "plum"> = {
-  matematik: "plum",
+// Mirror SUBJECT_DEF in components/board/Tavle.tsx so the Forældre Ro
+// summary cards and the Tavle subject grid use the SAME tint per subject.
+// Previously: math=plum, engelsk=clay (Forældre Ro) vs math=honey,
+// engelsk=plum (Tavle). Parents see the same subjects in two places and
+// the colour shift was confusing.
+const SUBJECT_TONE: Record<string, "mint" | "clay" | "plum" | "honey"> = {
+  matematik: "honey",
   dansk: "mint",
-  engelsk: "clay",
+  engelsk: "plum",
   tysk: "clay",
 }
 
@@ -235,7 +240,12 @@ function CheckGlyph() {
   )
 }
 
-const CANONICAL_SUBJECTS = ["dansk", "engelsk", "matematik"] as const
+// Order must mirror SUBJECT_ORDER in components/board/Tavle.tsx so the
+// same subjects appear in the same column order on Forældre Ro and on
+// the Tavle empty-state / subject grid. Previously: dansk-engelsk-
+// matematik here vs dansk-matematik-engelsk there — the parent's eye
+// had to re-scan for "is engelsk on the left or in the middle?".
+const CANONICAL_SUBJECTS = ["dansk", "matematik", "engelsk"] as const
 
 // ─── Range plumbing ──────────────────────────────────────────────────────────
 
@@ -879,12 +889,14 @@ function SubjectRow({
   subject: string
   avg: number
   total: number
-  tone: "mint" | "clay" | "plum"
+  tone: "mint" | "clay" | "plum" | "honey"
 }) {
+  // Mirrors TONE_BAR in components/overview/SubjectSummaryCard.tsx.
   const TONE_DOT: Record<string, string> = {
     mint: "#4F8E6B",
     clay: "#A05844",
     plum: "#7A5A9C",
+    honey: "#D6B850",
   }
   const empty = total === 0
   return (

@@ -251,42 +251,67 @@ export function ParentTaskPreview({
       >
         {task.steps && task.steps.length > 0 && (
           <CollapsibleSection label={messages.stepsLabel} defaultOpen>
-            <ol className="flex flex-col gap-1.5 pl-1 text-sm text-ink/80">
-              {task.steps.map((s, i) => {
-                // Approximation: we know the kid completed `progress.done`
-                // steps total, but not which specific labels — sessions
-                // store steps_done as a count, not a per-label set. The
-                // safest visual is to mark the first N as done since the
-                // step list is presented in order; if the kid jumps around
-                // this overshoots/undershoots a few rows, but the running
-                // total at the top of the page is always accurate.
-                const isDone = !!progress && i < progress.done
-                return (
-                  <li key={s.label} className="flex items-start gap-2">
-                    <span
-                      aria-hidden
-                      className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition ${
-                        isDone
-                          ? "bg-mint-deep text-white"
-                          : "bg-ink/8 text-ink/65"
-                      }`}
-                      title={isDone ? "Klaret" : undefined}
-                    >
-                      {isDone ? (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="5 12 10 17 19 7" />
-                        </svg>
-                      ) : (
-                        s.label
-                      )}
-                    </span>
-                    <span className={isDone ? "text-ink/55 line-through" : undefined}>
-                      {s.prompt}
-                    </span>
-                  </li>
-                )
-              })}
-            </ol>
+            {(() => {
+              const hasExpected = task.expectedAnswers?.some(a => a.trim().length > 0) ?? false
+              return (
+                <>
+                  {/* Column header — only shown when there's actually an
+                      expected-answer column to label. Lets the values on
+                      the right read as "Forventet svar" without needing
+                      an AI badge inside every chip or a paragraph
+                      explainer above the list. */}
+                  {hasExpected && (
+                    <div className="mb-1.5 flex items-center justify-end border-b border-ink/8 pb-1.5 pl-1 text-[10px] font-semibold uppercase tracking-wider text-ink/45">
+                      <span>Forventet svar</span>
+                    </div>
+                  )}
+                  <ol className="flex flex-col gap-1.5 pl-1 text-sm text-ink/80">
+                    {task.steps.map((s, i) => {
+                      // Approximation: we know the kid completed `progress.done`
+                      // steps total, but not which specific labels — sessions
+                      // store steps_done as a count, not a per-label set. The
+                      // safest visual is to mark the first N as done since the
+                      // step list is presented in order; if the kid jumps around
+                      // this overshoots/undershoots a few rows, but the running
+                      // total at the top of the page is always accurate.
+                      const isDone = !!progress && i < progress.done
+                      const expected = task.expectedAnswers?.[i]?.trim() || null
+                      return (
+                        <li key={s.label} className="flex items-start gap-2">
+                          <span
+                            aria-hidden
+                            className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                              isDone
+                                ? "bg-mint-deep text-white"
+                                : "bg-ink/8 text-ink/65"
+                            }`}
+                            title={isDone ? "Klaret" : undefined}
+                          >
+                            {isDone ? (
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="5 12 10 17 19 7" />
+                              </svg>
+                            ) : (
+                              s.label
+                            )}
+                          </span>
+                          <span
+                            className={`flex-1 ${isDone ? "text-ink/55 line-through" : ""}`}
+                          >
+                            {s.prompt}
+                          </span>
+                          {expected && (
+                            <span className="shrink-0 rounded-full bg-mint-soft/70 px-2.5 py-0.5 text-[11px] font-semibold text-mint-deep">
+                              {expected}
+                            </span>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </>
+              )
+            })()}
           </CollapsibleSection>
         )}
         <CollapsibleSection

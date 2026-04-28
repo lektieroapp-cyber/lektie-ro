@@ -55,6 +55,7 @@ const createSchema = z.object({
   needsPaper: z.boolean().nullable().optional(),
   sourceImagePath: z.string().nullable().optional(),
   taskGroupId: z.string().uuid().nullable().optional(),
+  expectedAnswers: z.array(z.string()).nullable().optional(),
   completionCertainty: z.enum(["high", "medium", "low"]).optional(),
   approve: z.boolean().optional(),
 })
@@ -101,6 +102,7 @@ export async function POST(request: NextRequest) {
       needsPaper: parsed.data.needsPaper ?? null,
       sourceImagePath: parsed.data.sourceImagePath ?? null,
       taskGroupId: parsed.data.taskGroupId ?? null,
+      expectedAnswers: parsed.data.expectedAnswers ?? null,
       completionCertainty: parsed.data.completionCertainty,
       approve: parsed.data.approve,
     })
